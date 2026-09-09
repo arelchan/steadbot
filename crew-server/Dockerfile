@@ -4,6 +4,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 python3-pip python3-venv git ripgrep curl ca-certificates tar unzip pandoc fonts-noto-cjk fonts-noto-color-emoji \
       # each bot's own computer (desktop.ts): an X display that is a VNC server, a window manager, a taskbar
       tigervnc-standalone-server openbox tint2 x11-xserver-utils dbus-x11 \
+      # …and what makes it look and work like one: wallpaper, a file manager, a terminal, icons, screenshots
+      feh pcmanfm lxterminal adwaita-icon-theme imagemagick \
     && rm -rf /var/lib/apt/lists/* \
     && pip3 install --no-cache-dir --break-system-packages openpyxl python-docx python-pptx pypdf pandas matplotlib
 WORKDIR /app

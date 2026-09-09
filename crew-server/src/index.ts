@@ -545,6 +545,27 @@ async function main() {
     onVnc: active ? (botId, req, socket, head) => desktops.proxy(botId, req, socket, head) : undefined,
     http: async (req, res) => {
       const url = new URL(req.url ?? '/', config.publicUrl);
+      {
+        // A still of a bot's screen, for the card (desktop.ts). 404 when the computer is off.
+        const shot = /^\/screen\/([A-Za-z0-9_-]+)\.jpg$/.exec(url.pathname);
+        if (shot) {
+          const p = desktops.snapshot(shot[1], Math.min(1280, Math.max(160, Number(url.searchParams.get('w') ?? 640))));
+          if (!p) {
+            res.writeHead(404, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+            res.end('{"error":"off"}');
+            return true;
+          }
+          try {
+            const jpeg = await p;
+            res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'no-store', 'access-control-allow-origin': '*' });
+            res.end(jpeg);
+          } catch (e) {
+            res.writeHead(500, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+            res.end(JSON.stringify({ error: (e as Error).message.slice(0, 160) }));
+          }
+          return true;
+        }
+      }
       if (url.pathname === '/usage') {
         res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
         res.end(JSON.stringify(usageReport(store, Number(url.searchParams.get('days') ?? 30))));
