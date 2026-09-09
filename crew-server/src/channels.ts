@@ -30,6 +30,22 @@ export const CHANNEL_KEYS: Record<Im, string[]> = {
   wechat: ['wecomCorpId', 'wecomAgentId', 'wecomSecret', 'wecomToken', 'wecomAesKey'],
 };
 
+/** What each credential looks like, so a value read off a page can be checked before it is trusted. */
+export const CHANNEL_PATTERNS: Record<string, RegExp> = {
+  feishuAppId: /\bcli_[a-z0-9]{16}\b/g,
+  feishuAppSecret: /\b[A-Za-z0-9]{32}\b/g,
+  telegramToken: /\b\d{8,12}:[A-Za-z0-9_-]{35}\b/g,
+  slackBotToken: /\bxoxb-[A-Za-z0-9-]{20,}\b/g,
+  slackAppToken: /\bxapp-[A-Za-z0-9-]{20,}\b/g,
+  wecomCorpId: /\bww[a-z0-9]{16}\b/g,
+  wecomAgentId: /\b1\d{6}\b/g,
+  wecomSecret: /\b[A-Za-z0-9_-]{43}\b/g,
+  wecomToken: /\b[A-Za-z0-9]{3,32}\b/g,
+  wecomAesKey: /\b[A-Za-z0-9]{43}\b/g,
+};
+/** Credentials that are identifiers, not secrets: fine to read back to the bot in full. */
+export const CHANNEL_PUBLIC_KEYS = new Set(['feishuAppId', 'wecomCorpId', 'wecomAgentId']);
+
 /** A bot's IM row in the App before it is connected. */
 export const CHANNEL_HOWTO: Record<Im, string> = {
   feishu: '还没接。接上后它在飞书里是一个独立的机器人：可以私聊，也能和别的 bot 一起拉进一个群',
@@ -44,7 +60,7 @@ const CHANNEL_LIVE: Record<Im, string> = {
   wechat: '已接入 · 在企业微信里找到这个应用私聊',
 };
 
-const wecomCallback = (botId: string) => `${config.publicUrl}/wecom/callback/${botId}`;
+export const wecomCallback = (botId: string) => `${config.publicUrl}/wecom/callback/${botId}`;
 
 /** The credentials card for connecting one bot to one IM: what to fill and where to get it. */
 export function connectCard(bot: Bot, channel: Im): Extract<Card, { type: 'secrets' }> {
@@ -139,6 +155,12 @@ export function botChannelCreds(botId: string, channel: Im): Record<string, stri
     out[k] = v;
   }
   return out;
+}
+
+/** The keys of this IM the bot's account still lacks (all of them when it has none). */
+export function missingChannelCreds(botId: string, channel: Im): string[] {
+  const acc = readFileConfig().imAccounts?.[botId]?.[channel] ?? {};
+  return CHANNEL_KEYS[channel].filter((k) => !acc[k]?.trim());
 }
 
 export function saveBotChannelCreds(botId: string, channel: Im, values: Record<string, string>) {

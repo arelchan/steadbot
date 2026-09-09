@@ -366,6 +366,8 @@ export class DesktopManager {
     const l = this.live;
     if (l) await this.keepLastFrame();
     this.live = undefined;
+    if (this.cdp) void this.cdp.then((b) => b.close()).catch(() => undefined);
+    this.cdp = undefined;
     const attached = l ? [...l.bots.keys()] : [];
     for (const i of this.store.data.integrations.filter((x) => /^desk-/.test(x.id))) {
       await this.mcp.disconnect(i.id).catch(() => undefined);
@@ -378,6 +380,41 @@ export class DesktopManager {
 
   isOn() {
     return !!this.live;
+  }
+
+  private cdp: Promise<import('playwright-core').Browser> | undefined;
+
+  /**
+   * The server's own eyes on the shared browser (harvest, see index.ts): a playwright-core connection over the same
+   * CDP port the bots' MCP processes use. Pages are the bots' tabs; `match` picks one by a piece of its URL or
+   * title. Nothing read here goes through a model unless the caller passes it on.
+   */
+  async readPage<T>(match: { url?: string; title?: string }, fn: (page: import('playwright-core').Page) => Promise<T>): Promise<T> {
+    if (!this.live) throw new Error('电脑没开');
+    if (!this.cdp) {
+      this.cdp = (async () => {
+        const req = createRequire(import.meta.url);
+        const { chromium } = (await import(req.resolve('playwright-core'))) as typeof import('playwright-core');
+        const b = await chromium.connectOverCDP(`http://127.0.0.1:${CDP_PORT}`);
+        b.on('disconnected', () => (this.cdp = undefined));
+        return b;
+      })().catch((e) => {
+        this.cdp = undefined;
+        throw e;
+      });
+    }
+    const browser = await this.cdp;
+    const pages = browser.contexts().flatMap((c) => c.pages());
+    const want = pages.filter((p) => (!match.url || p.url().includes(match.url)) && (!match.title || false));
+    let picked = want;
+    if (match.title) {
+      const titled: typeof pages = [];
+      for (const p of want.length ? want : pages) if ((await p.title().catch(() => '')).includes(match.title)) titled.push(p);
+      picked = titled;
+    }
+    if (picked.length === 0) throw new Error(`没有匹配的标签页。现在开着的：${pages.map((p) => p.url()).join('、') || '（没有）'}`);
+    if (picked.length > 1) throw new Error(`有 ${picked.length} 个标签页都匹配，url 写得更具体些：${picked.map((p) => p.url()).join('、')}`);
+    return fn(picked[0]);
   }
 
   /** Whether this bot's browser tools are live right now. */

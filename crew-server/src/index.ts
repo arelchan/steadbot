@@ -18,7 +18,8 @@ import { KIND_LABEL, Library, LIBRARY_CATEGORIES } from './library.ts';
 import { buildLabel, runBuild, runMemory } from './builder.ts';
 import { ConnectorManager, POPULAR_TOOLKITS, isChinesePlatform } from './connectors.ts';
 import { AgentRunner, McpManager, seedIntegrations } from './integrations.ts';
-import { ChannelManager, IMS, type Im } from './channels.ts';
+import { ChannelManager, CHANNEL_KEYS, CHANNEL_PATTERNS, CHANNEL_PUBLIC_KEYS, IMS, IM_NAME, connectCard, missingChannelCreds, saveBotChannelCreds, wecomCallback, type Im } from './channels.ts';
+import { secretsChanged } from './secrets.ts';
 import { DesktopManager } from './desktop.ts';
 import { Upgrader } from './upgrade.ts';
 import { ensure, restoreAll } from './tools.ts';
@@ -40,6 +41,25 @@ import { seedBuiltinSkills } from './builtin-skills.ts';
 import type { CrewOps } from './extensions/crew-tools.ts';
 import { startServer } from './ws.ts';
 import { botThread, matterThread, parseThread, type Bot, type FileRef, type Integration, type ThreadId } from './types.ts';
+
+
+/** An IM by any name a bot might use for it. */
+const IM_ALIAS: Record<string, Im | 'app'> = { 飞书: 'feishu', feishu: 'feishu', lark: 'feishu', telegram: 'telegram', 电报: 'telegram', tg: 'telegram', slack: 'slack', 企业微信: 'wechat', 企微: 'wechat', 微信: 'wechat', wechat: 'wechat', wecom: 'wechat', app: 'app' };
+const imFromName = (s: string): Im | 'app' | undefined => IM_ALIAS[s.trim().toLowerCase()] ?? IM_ALIAS[s.trim()];
+
+let ipCache: { at: number; ip: string } | undefined;
+/** This machine's public address, for platforms that want a trusted-IP list. */
+async function publicIp(): Promise<string> {
+  if (ipCache && Date.now() - ipCache.at < 10 * 60_000) return ipCache.ip;
+  try {
+    const r = await fetch('https://api.ipify.org', { signal: AbortSignal.timeout(6000) });
+    const ip = (await r.text()).trim();
+    if (/^[\d.:a-f]+$/i.test(ip)) ipCache = { at: Date.now(), ip };
+    return ip || '（拿不到）';
+  } catch {
+    return '（拿不到，网络不通）';
+  }
+}
 
 async function main() {
   const store = new CrewStore(config.dataFile, seedSnapshot);
@@ -367,6 +387,126 @@ async function main() {
       if (!m) return { here };
       const probe = m.url && m.token ? await probeMachine({ url: m.url, token: m.token }) : undefined;
       return { here, target: { name: m.name, host: m.host, user: m.user, connectedAt: m.connectedAt, url: m.url, port: m.url ? portOf(m.url) : undefined, pairedAt: m.pairedAt, reachable: probe?.reachable, note: probe?.note } };
+    },
+    /**
+     * A credential from a page in the shared browser into the bot's own account, without a model in between. The
+     * bot names the tab (a piece of its URL) and the field; the server reads the page over CDP, keeps the one value
+     * that has the field's shape (or the one next to `near` / at `selector`), stores it, and starts the bridge once
+     * every field is in. Only a masked echo goes back.
+     */
+    async harvest(botId, spec) {
+      const bot = store.bot(botId);
+      if (!bot) throw new Error('bot 不存在');
+      const im = imFromName(spec.target);
+      const integ = im ? undefined : store.data.integrations.find((i) => i.id === spec.target || i.name === spec.target || i.name.toLowerCase() === spec.target.toLowerCase());
+      if (!im && !integ) throw new Error(`「${spec.target}」既不是 IM（飞书 / Telegram / Slack / 企业微信），也不是已建好的连接。接外部工具先 build(aspect=mcp, action=add) 建连接。`);
+      if (im && im === 'app') throw new Error('App 不需要凭据');
+
+      if (spec.action === 'info') {
+        if (im) {
+          const card = connectCard(bot, im);
+          const missing = new Set(missingChannelCreds(botId, im));
+          const lines = card.fields.map((f) => `- ${f.label}（key ${f.key}）${f.hint ? `，${f.hint}` : ''}：${missing.has(f.key) ? '还没有' : '已收到'}`);
+          const extra: string[] = [`机器人名字用「${bot.name}」，头像用它的头像。`];
+          if (im === 'wechat') extra.push(`回调 URL：${wecomCallback(botId)}`, `本机公网 IP（填「企业可信 IP」）：${await publicIp()}`);
+          if (im === 'feishu') extra.push('事件订阅选「长连接」，不需要公网地址；应用要「创建版本并发布」才生效。');
+          if (im === 'slack') extra.push('Socket Mode 开着就行，不需要公网地址。');
+          extra.push(`平台后台：${card.help?.url ?? ''}`, ...(card.help?.steps ?? []).map((x, i) => `${i + 1}. ${x}`));
+          const already = bot.im?.[im]?.status === 'ok' ? `\n你已经在${IM_NAME[im]}上了（${bot.im[im]?.account ?? ''}）。` : '';
+          return `${IM_NAME[im]}要这几项：\n${lines.join('\n')}\n${extra.join('\n')}${already}`;
+        }
+        const env = integ!.env ?? {};
+        const keys = Object.keys(env);
+        return keys.length ? `连接「${integ!.name}」的环境变量：${keys.map((k) => `${k}：${env[k] ? '已有' : '还没有'}`).join('、')}。状态 ${integ!.status}${integ!.note ? `（${integ!.note}）` : ''}。` : `连接「${integ!.name}」不需要凭据。状态 ${integ!.status}。`;
+      }
+
+      if (!spec.url) throw new Error('take 要 url：你当前标签页网址里独有的一段');
+      if (!desktops.isOn()) throw new Error('电脑没开，先 computer(open)');
+      // Which field
+      let key: string;
+      let publicKey = false;
+      let pattern: RegExp | undefined;
+      let label: string;
+      const squash = (x: string) => x.replace(/[\s-]/g, '').toLowerCase();
+      if (im) {
+        const card = connectCard(bot, im);
+        const want = squash(spec.field ?? '');
+        const f = card.fields.find((x) => squash(x.key) === want || squash(x.label) === want);
+        if (!f) throw new Error(`${IM_NAME[im]}没有「${spec.field ?? ''}」这一项。它要的是：${card.fields.map((x) => `${x.label}（${x.key}）`).join('、')}`);
+        key = f.key;
+        label = f.label;
+        publicKey = CHANNEL_PUBLIC_KEYS.has(key);
+        pattern = CHANNEL_PATTERNS[key];
+      } else {
+        const keys = Object.keys(integ!.env ?? {});
+        const f = keys.find((k) => squash(k) === squash(spec.field ?? ''));
+        if (!f) throw new Error(`连接「${integ!.name}」的环境变量里没有「${spec.field ?? ''}」。有的是：${keys.join('、') || '（没有）'}`);
+        key = f;
+        label = f;
+      }
+      // Read the page
+      const found = await desktops.readPage({ url: spec.url }, async (page) => {
+        let scope = '';
+        if (spec.selector) {
+          const loc = page.locator(spec.selector).first();
+          scope = ((await loc.inputValue().catch(() => '')) || (await loc.innerText().catch(() => '')) || (await loc.getAttribute('value').catch(() => '')) || '').trim();
+          if (!scope) return { candidates: [] as string[], where: `selector「${spec.selector}」没有匹配到有内容的元素` };
+        } else {
+          const got = (await page.evaluate(
+            (near) => {
+              const vals: string[] = [];
+              for (const el of Array.from(document.querySelectorAll('input, textarea'))) {
+                const v = (el as HTMLInputElement).value;
+                if (v) vals.push(v);
+              }
+              for (const el of Array.from(document.querySelectorAll('[data-clipboard-text]'))) vals.push(el.getAttribute('data-clipboard-text') ?? '');
+              if (near) {
+                // The row the label sits in: the label's grandparent's text, minus the label itself.
+                const all = Array.from(document.querySelectorAll('body *')) as HTMLElement[];
+                const hits = all.filter((el) => el.children.length === 0 && (el.innerText ?? '').trim() === near);
+                const rows = hits.map((el) => ((el.parentElement?.parentElement ?? el.parentElement ?? el).innerText ?? '').replace(near, ' '));
+                return { text: rows.join('\n'), vals: [], rows: hits.length };
+              }
+              return { text: document.body.innerText, vals, rows: -1 };
+            },
+            spec.near ?? '',
+          )) as { text: string; vals: string[]; rows: number };
+          if (spec.near && got.rows === 0) return { candidates: [] as string[], where: `页面上没有正好叫「${spec.near}」的标签` };
+          scope = [got.text, ...got.vals].join('\n');
+        }
+        const raw = pattern ? scope.match(pattern) ?? [] : scope.match(/[A-Za-z0-9_\-:.]{8,}/g) ?? [];
+        return { candidates: [...new Set(raw)], where: '' };
+      });
+      if (found.candidates.length !== 1) {
+        if (found.where) return `没收到：${found.where}。换个 near / selector 再试。`;
+        if (!found.candidates.length) return `页面上没有找到${label}这种格式的值${pattern ? `（${pattern.source}）` : ''}。它是不是还被遮着（点「查看 / 显示」）？或者不在这个标签页上。`;
+        return `页面上有 ${found.candidates.length} 个像${label}的值，分不清哪个是。加 near（它旁边的标签文字）或 selector 再来一次。`;
+      }
+      const value = found.candidates[0];
+      // Store, never echo
+      if (im) {
+        saveBotChannelCreds(botId, im, { [key]: value });
+        secretsChanged();
+        const missing = missingChannelCreds(botId, im);
+        const echo = publicKey ? value : `${value.slice(0, 2)}…（${value.length} 位）`;
+        if (missing.length) {
+          const card = connectCard(bot, im);
+          return `收到 ${label}：${echo}，已写进你的${IM_NAME[im]}账号。还差：${missing.map((k) => card.fields.find((f) => f.key === k)?.label ?? k).join('、')}。`;
+        }
+        const r = await channels.start(botId, im);
+        const b2 = store.bot(botId);
+        return r.ok
+          ? `收到 ${label}：${echo}。${IM_NAME[im]}接上了${b2?.im?.[im]?.account ? `，那边你叫「${b2.im[im]!.account}」` : ''}。去那边发第一条消息确认一下。`
+          : `收到 ${label}：${echo}，几项都齐了，但${IM_NAME[im]}没接上：${r.note}。核对一下平台那边的设置（权限、事件、是否发布），改好后 harvest 重新收出错的那一项即可。`;
+      }
+      const env = { ...(integ!.env ?? {}), [key]: value };
+      store.patchIntegration(integ!.id, { env });
+      secretsChanged();
+      const empty = Object.entries(env).filter(([, v]) => !v).map(([k]) => k);
+      if (empty.length) return `收到 ${label}（${value.length} 位），已写进连接「${integ!.name}」。还差：${empty.join('、')}。`;
+      const after = await mcp.connect(integ!.id);
+      await bots.ops!.grant(botId, integ!.id);
+      return after?.status === 'ok' ? `收到 ${label}（${value.length} 位）。「${integ!.name}」接好了，${after.tools?.length ?? 0} 个工具在你的列表里。` : `收到 ${label}（${value.length} 位），但「${integ!.name}」没连上：${after?.note ?? ''}`;
     },
     librarySearch: (query, limit = 8) => (query.trim() ? library.search(query, limit) : library.list()).map((e) => ({ ...e, categoryLabel: LIBRARY_CATEGORIES[e.category] ?? e.category, kindLabel: KIND_LABEL[e.kind ?? 'skill'] })),
     /**

@@ -34,6 +34,8 @@ import { buildExtension } from './extensions/build.ts';
 import { libraryExtension } from './extensions/library.ts';
 import { webExtension } from './extensions/web.ts';
 import { connectExtension } from './extensions/connect.ts';
+import { harvestExtension } from './extensions/harvest.ts';
+import { redactSecrets } from './secrets.ts';
 import type { ConnectorManager } from './connectors.ts';
 import type { BotCtx, CurrentTurn } from './extensions/ctx.ts';
 import { identityExtension } from './extensions/identity.ts';
@@ -254,6 +256,10 @@ export class BotManager extends EventEmitter {
           return this.ops;
         }),
         webExtension(),
+        harvestExtension(ctx, () => {
+          if (!this.ops) throw new Error('crew ops not ready');
+          return this.ops;
+        }),
         connectExtension(ctx, () => {
           if (!this.ops) throw new Error('crew ops not ready');
           return this.ops;
@@ -358,20 +364,21 @@ export class BotManager extends EventEmitter {
         if (m.role !== 'assistant') break;
         if (m.stopReason === 'aborted') {
           // Cut short by the user. Whatever got out stays on screen, marked; no handoffs or task updates from a half-thought.
-          const said = textOf(m.content).trim();
+          const said = redactSecrets(textOf(m.content).trim(), this.store);
           if (said) {
             if (rt) rt.textCount += 1;
             this.store.addMessage({ threadId, author: 'bot', botId, text: said, ts: Date.now(), todoId: cur?.todoId, via: cur?.via, to: cur?.to, status: 'interrupted' });
           }
           break;
         }
-        let text = textOf(m.content).replace(/^（已同步）$/, '');
+        // Whatever the model is about to say, minus every credential the product holds (it may have met one on a page).
+        let text = redactSecrets(textOf(m.content).replace(/^（已同步）$/, ''), this.store);
         if (!text && !hasToolCalls(m.content)) {
           // The answer went into the thinking channel: show what it concluded rather than nothing.
           const salvaged = salvageFromThinking(thinkingOf(m.content));
           if (salvaged) {
             console.warn(`[crew] bot ${botId}: no text, showing thinking tail (${salvaged.length} chars)`);
-            text = salvaged;
+            text = redactSecrets(salvaged, this.store);
           }
         }
         if (!text) break;
