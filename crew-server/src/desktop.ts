@@ -250,7 +250,7 @@ export class DesktopManager {
       const chrome = chromiumBinary();
       if (!chrome) throw new Error('这台机器上没有浏览器（Playwright 的 Chromium 没装上）');
       const cdp = 9222 + (display - FIRST_DISPLAY);
-      run(chrome, ['--no-sandbox', `--user-data-dir=${profile}`, `--remote-debugging-port=${cdp}`, '--no-first-run', '--no-default-browser-check', '--disable-features=TranslateUI', `--window-size=${W - 80},${H - 120}`, '--window-position=40,20', 'about:blank']);
+      run(chrome, ['--no-sandbox', `--user-data-dir=${profile}`, `--remote-debugging-port=${cdp}`, '--no-first-run', '--no-default-browser-check', '--hide-crash-restore-bubble', '--disable-features=TranslateUI', `--window-size=${W - 80},${H - 120}`, '--window-position=40,20', 'about:blank']);
       const cdpDeadline = Date.now() + 20_000;
       while (!(await portOpen(cdp))) {
         if (Date.now() > cdpDeadline) throw new Error('浏览器 20 秒内没起来');

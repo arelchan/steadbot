@@ -54,7 +54,7 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
       <Resizer col="side" edge="left" />
       <div className="workspace">
         {bot && (
-          <Section title="电脑" hint={on ? '开着' : undefined} startOpen>
+          <Section title="电脑" hint={on ? '在用' : undefined} startOpen>
             <ScreenCard bot={bot} />
           </Section>
         )}

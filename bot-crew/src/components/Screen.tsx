@@ -24,7 +24,7 @@ export function ScreenCard({ bot }: { bot: Bot }) {
   const old = !!rt && rt.mode === 'active' && rt.desktops === undefined;
   const idle = !!rt && rt.mode !== 'active';
   const open = () => {
-    if (st === 'off' || st === 'error') agent.computerPower(bot.id, true);
+    if (st === 'error') agent.computerPower(bot.id, true);
     setBig(true);
   };
   return (
@@ -116,6 +116,10 @@ function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
   useEffect(() => {
     if (!on) setControl(false);
   }, [on]);
+  // The screen being open means someone wants to see it: an asleep computer wakes (also if it dozed off meanwhile).
+  useEffect(() => {
+    if (st === 'off') agent.computerPower(bot.id, true);
+  }, [st, bot.id]);
   const placeholder = stillUrl(bot.id, bot.desktop?.since ?? 0);
   return createPortal(
     <div className="overlay screen-modal" onClick={onClose}>
