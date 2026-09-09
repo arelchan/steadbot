@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useStore, markSeen, clampLayout } from './store';
 import { parseThread } from './types';
@@ -52,9 +52,24 @@ export default function App() {
       <Sidebar />
       {selection === 'inbox' ? <Inbox /> : selection === 'profile' ? <ProfileView /> : selection === 'draft-bot' ? <Draft /> : selection === 'runtime' ? <RuntimeView /> : <Thread threadId={selection as ThreadId} />}
       {right}
-      {isLive && online === false && <div className="offline-bar">后端没连上，正在重试…</div>}
+      <OfflineBar show={isLive && online === false} />
       <Toasts />
       <PreviewModal />
     </div>
   );
+}
+
+/**
+ * 「后端没连上」. Shown only once being offline has lasted a few seconds: restarts and brief network blips
+ * reconnect on their own, and flashing a warning for each of them just makes the app look broken.
+ */
+function OfflineBar({ show }: { show: boolean }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (!show) return setVisible(false);
+    const t = setTimeout(() => setVisible(true), 4000);
+    return () => clearTimeout(t);
+  }, [show]);
+  if (!visible) return null;
+  return <div className="offline-bar">后端没连上，正在重试…</div>;
 }

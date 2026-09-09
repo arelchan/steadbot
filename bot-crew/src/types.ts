@@ -217,6 +217,12 @@ export interface UpgradeStatus {
   busy?: boolean;
 }
 
+/** 全局偏好：跟着这套 bot 走，不是某个浏览器的设置 */
+export interface CrewSettings {
+  /** bot 用什么语言说话和写东西；auto = 跟着用户当时说的语言 */
+  language?: 'zh' | 'en' | 'auto';
+}
+
 /** bot 自己的电脑：bot 所在机器上的一个虚拟显示器 + 桌面 + 浏览器 */
 export interface Desktop {
   state: 'off' | 'starting' | 'on' | 'error';
@@ -408,6 +414,7 @@ export const LAYOUT_LIMITS: Record<keyof Layout, [number, number]> = { sidebar: 
 export interface State {
   /** the server this page is connected to (undefined until the first snapshot) */
   runtime?: RuntimeInfo;
+  settings?: CrewSettings;
   bots: Bot[];
   matters: Matter[];
   todos: Todo[];

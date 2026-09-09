@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
-import type { Action, Bot, Integration, Layout, Matter, Message, Panel, Panels, Pending, Selection, SkillDoc, State, ThreadId, Todo, Toast } from './types';
+import { getDesktopNotify } from './services/theme';
+import type { CrewSettings, Action, Bot, Integration, Layout, Matter, Message, Panel, Panels, Pending, Selection, SkillDoc, State, ThreadId, Todo, Toast } from './types';
 import { DEFAULT_LAYOUT, LAYOUT_LIMITS } from './types';
 import { seedState } from './data/seed';
 
@@ -78,6 +79,7 @@ export interface RemoteSink {
   patchMatter(id: string, patch: Partial<Matter>): void;
   addMatter(m: Matter): void;
   setSharedProfile(lines: string[]): void;
+  setSettings(patch: CrewSettings): void;
   undoAction(id: string): void;
   deleteBot(id: string): void;
   deleteMatter(id: string): void;
@@ -282,6 +284,11 @@ export const clearThread = (threadId: ThreadId) => {
   forward()?.clearThread(threadId);
 };
 
+export const setSettings = (patch: CrewSettings) => {
+  setState((s) => ({ settings: { ...(s.settings ?? {}), ...patch } }));
+  forward()?.setSettings(patch);
+};
+
 export const setSharedProfile = (sharedProfile: string[]) => {
   setState({ sharedProfile });
   forward()?.setSharedProfile(sharedProfile);
@@ -298,6 +305,20 @@ export const pushToast = (t: Omit<Toast, 'id' | 'ts'>) => {
   const toast: Toast = { id: uid(), ts: Date.now(), ...t };
   setState((s) => ({ toasts: [...s.toasts, toast] }));
   setTimeout(() => dismissToast(toast.id), 7000);
+  // 桌面通知（设置 › 通用）：the same interruption, visible when the window is not.
+  if (document.visibilityState !== 'visible' && getDesktopNotify()) {
+    try {
+      const bot = getState().bots.find((b) => b.id === toast.botId);
+      const n = new Notification(bot?.name ?? 'EverBot', { body: toast.text, tag: toast.threadId, icon: '/favicon.svg' });
+      n.onclick = () => {
+        window.focus();
+        select(toast.threadId);
+        n.close();
+      };
+    } catch {
+      /* the browser refused; the in-app toast still shows */
+    }
+  }
 };
 
 export const dismissToast = (id: string) => setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));

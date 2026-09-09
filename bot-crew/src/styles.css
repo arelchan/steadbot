@@ -131,6 +131,8 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
+/* 界面密度（设置 › 通用）：布局是像素单位，所以整体缩放最稳 */
+#root { zoom: var(--ui-scale, 1); }
 body {
   font-family: var(--font);
   font-size: 13px;

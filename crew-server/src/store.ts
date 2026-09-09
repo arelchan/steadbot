@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
-import type { Action, Bot, Integration, Matter, Message, Pending, Snapshot, ThreadId, Toast, Todo, GrowthEvent, GrowthKind } from './types.ts';
+import type { CrewSettings, Action, Bot, Integration, Matter, Message, Pending, Snapshot, ThreadId, Toast, Todo, GrowthEvent, GrowthKind } from './types.ts';
 import { uid } from './util.ts';
 
 export type StoreEvent =
@@ -17,6 +17,7 @@ export type StoreEvent =
   | { type: 'message'; message: Message }
   | { type: 'message_patch'; id: string; patch: Partial<Message> }
   | { type: 'shared_profile'; lines: string[] }
+  | { type: 'settings'; settings: CrewSettings }
   | { type: 'typing'; threadId: ThreadId; botId: string; on: boolean }
   | { type: 'toast'; toast: Toast };
 
@@ -310,6 +311,13 @@ export class CrewStore extends EventEmitter {
       if (m.threadId === threadId && m.author === 'user') return m;
     }
     return undefined;
+  }
+
+  setSettings(patch: CrewSettings) {
+    this.data.settings = { ...(this.data.settings ?? {}), ...patch };
+    this.save();
+    this.emitChange({ type: 'settings', settings: this.data.settings });
+    return this.data.settings;
   }
 
   setSharedProfile(lines: string[]) {

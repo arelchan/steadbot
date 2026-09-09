@@ -5,6 +5,7 @@
  */
 
 export type Theme = 'system' | 'light' | 'dark';
+export type Scale = 'sm' | 'md' | 'lg';
 export type Accent = 'clay' | 'ink' | 'moss' | 'plum';
 
 export const THEMES: { id: Theme; label: string }[] = [
@@ -19,6 +20,14 @@ export const ACCENTS: { id: Accent; label: string; swatch: string }[] = [
   { id: 'plum', label: '梅紫', swatch: '#77436b' },
 ];
 
+export const SCALES: { id: Scale; label: string }[] = [
+  { id: 'sm', label: '紧凑' },
+  { id: 'md', label: '标准' },
+  { id: 'lg', label: '宽松' },
+];
+const SCALE_OF: Record<Scale, string> = { sm: '0.92', md: '1', lg: '1.12' };
+
+const S_KEY = 'bot-crew:scale';
 const T_KEY = 'bot-crew:theme';
 const A_KEY = 'bot-crew:accent';
 const read = <T extends string>(key: string, ok: readonly T[], fallback: T): T => {
@@ -32,16 +41,19 @@ const read = <T extends string>(key: string, ok: readonly T[], fallback: T): T =
 
 export const getTheme = () => read<Theme>(T_KEY, ['system', 'light', 'dark'], 'system');
 export const getAccent = () => read<Accent>(A_KEY, ['clay', 'ink', 'moss', 'plum'], 'clay');
+export const getScale = () => read<Scale>(S_KEY, ['sm', 'md', 'lg'], 'md');
 
 const media = () => window.matchMedia?.('(prefers-color-scheme: dark)');
 
 /** Put the current preferences on <html>. `system` follows the OS and keeps following it while the app is open. */
-export function applyTheme(theme = getTheme(), accent = getAccent()) {
+export function applyTheme(theme = getTheme(), accent = getAccent(), scale = getScale()) {
   const root = document.documentElement;
   const dark = theme === 'dark' || (theme === 'system' && !!media()?.matches);
   root.dataset.theme = dark ? 'dark' : 'light';
   root.dataset.accent = accent;
   root.style.colorScheme = dark ? 'dark' : 'light';
+  // The layout is in pixels, so density is a zoom of the whole app rather than a font-size change.
+  root.style.setProperty('--ui-scale', SCALE_OF[scale]);
 }
 
 export function setTheme(theme: Theme) {
@@ -60,6 +72,45 @@ export function setAccent(accent: Accent) {
     /* private window: this session only */
   }
   applyTheme(undefined, accent);
+}
+
+export function setScale(scale: Scale) {
+  try {
+    localStorage.setItem(S_KEY, scale);
+  } catch {
+    /* private window: this session only */
+  }
+  applyTheme(undefined, undefined, scale);
+}
+
+/* ---- 桌面通知：per browser, needs the user's permission ---- */
+const N_KEY = 'bot-crew:notify';
+export const getDesktopNotify = () => {
+  try {
+    return localStorage.getItem(N_KEY) === '1' && Notification?.permission === 'granted';
+  } catch {
+    return false;
+  }
+};
+export const notifySupported = () => typeof Notification !== 'undefined';
+/** Turning it on asks the browser; returns whether it ended up on. */
+export async function setDesktopNotify(on: boolean): Promise<boolean> {
+  if (!on) {
+    try {
+      localStorage.setItem(N_KEY, '0');
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+  if (!notifySupported()) return false;
+  const p = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  try {
+    localStorage.setItem(N_KEY, p === 'granted' ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+  return p === 'granted';
 }
 
 /** Called once at startup: apply, and keep following the OS while 跟随系统 is chosen. */

@@ -98,9 +98,32 @@ export function startServer(store: CrewStore, port: number, avatarsDir: string, 
     for (const c of wss.clients) if (c.readyState === WebSocket.OPEN) c.send(data);
   };
 
+  // Keepalive. A long-haul link (the App on a laptop, the bots on a cloud machine) sits behind NAT and carrier
+  // boxes that drop idle TCP without telling anyone; without a ping the App only finds out when it next tries to
+  // speak, and looks disconnected for no reason. Ping every 30 s and drop peers that stop answering.
+  const alive = new WeakSet<WebSocket>();
+  const heartbeat = setInterval(() => {
+    for (const c of wss.clients) {
+      if (c.readyState !== WebSocket.OPEN) continue;
+      if (!alive.has(c)) {
+        c.terminate();
+        continue;
+      }
+      alive.delete(c);
+      try {
+        c.ping();
+      } catch {
+        /* it is going away anyway */
+      }
+    }
+  }, 30_000);
+  heartbeat.unref?.();
+
   store.on('change', (e: StoreEvent) => broadcast(e as ServerMessage));
 
   wss.on('connection', (socket) => {
+    alive.add(socket);
+    socket.on('pong', () => alive.add(socket));
     const reply = (m: ServerMessage) => socket.readyState === WebSocket.OPEN && socket.send(JSON.stringify(m));
     reply({
       type: 'snapshot',

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useStore } from '../store';
+import { useStore, setSettings } from '../store';
 import type { UpgradeStatus, UsageReport } from '../types';
 import { httpBase, authHeaders } from '../services/runtime';
 import { fetchUpgradeStatus, runUpgrade } from '../services/upgrade';
-import { ACCENTS, THEMES, getAccent, getTheme, setAccent, setTheme, type Accent, type Theme } from '../services/theme';
+import { ACCENTS, SCALES, THEMES, getAccent, getDesktopNotify, getScale, getTheme, notifySupported, setAccent, setDesktopNotify, setScale, setTheme, type Accent, type Scale, type Theme } from '../services/theme';
 import { RuntimeBody } from './RuntimeView';
 import { cx } from '../utils';
 
@@ -69,12 +69,32 @@ function Head({ title, sub }: { title: string; sub?: string }) {
 
 /* ---------------- 外观 ---------------- */
 
+const LANGS: { id: 'zh' | 'en' | 'auto'; label: string; hint: string }[] = [
+  { id: 'zh', label: '中文', hint: 'bot 一律用中文' },
+  { id: 'en', label: 'English', hint: 'bot 一律用英文' },
+  { id: 'auto', label: '跟着我', hint: '你用什么语言，它就用什么语言' },
+];
+
 function General() {
   const [theme, setT] = useState<Theme>(getTheme());
   const [accent, setA] = useState<Accent>(getAccent());
+  const [scale, setS] = useState<Scale>(getScale());
+  const [notify, setN] = useState(getDesktopNotify());
+  const lang = useStore((s) => s.settings?.language) ?? 'zh';
   return (
     <>
-      <Head title="外观" sub="只影响这个浏览器，换台设备要再设一次" />
+      <Head title="通用" sub="语言跟着这套 bot 走；外观只影响这个浏览器" />
+
+      <h4>语言</h4>
+      <div className="seg">
+        {LANGS.map((l) => (
+          <button key={l.id} className={cx(lang === l.id && 'on')} onClick={() => setSettings({ language: l.id })}>
+            {l.label}
+          </button>
+        ))}
+      </div>
+      <div className="cfg-note">{LANGS.find((l) => l.id === lang)?.hint}。界面本身目前只有中文。</div>
+
       <h4>主题</h4>
       <div className="seg">
         {THEMES.map((t) => (
@@ -83,6 +103,7 @@ function General() {
           </button>
         ))}
       </div>
+
       <h4>强调色</h4>
       <div className="swatches">
         {ACCENTS.map((a) => (
@@ -92,6 +113,24 @@ function General() {
           </button>
         ))}
       </div>
+
+      <h4>界面密度</h4>
+      <div className="seg">
+        {SCALES.map((x) => (
+          <button key={x.id} className={cx(scale === x.id && 'on')} onClick={() => { setS(x.id); setScale(x.id); }}>
+            {x.label}
+          </button>
+        ))}
+      </div>
+
+      <h4>桌面通知</h4>
+      <button className="tgl-row" onClick={() => void setDesktopNotify(!notify).then(setN)} role="switch" aria-checked={notify} disabled={!notifySupported()}>
+        <span className="tgl-l">
+          <span>bot 找你时弹系统通知</span>
+          <span className="tgl-h">{notifySupported() ? '页面在后台也能看到；关掉就只在应用里提示' : '这个浏览器不支持'}</span>
+        </span>
+        <span className={cx('tgl', notify && 'on')}><i /></span>
+      </button>
     </>
   );
 }

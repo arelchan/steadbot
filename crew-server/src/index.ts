@@ -870,6 +870,10 @@ async function main() {
         case 'usage':
           reply({ type: 'usage', report: usageReport(store, msg.days ?? 30) });
           break;
+        case 'set_settings':
+          store.setSettings(msg.patch);
+          // Every bot builds its prompt fresh each turn, so a language change takes effect on the next message.
+          break;
         case 'computer_power': {
           if (!store.bot(msg.botId)) throw new Error('bot 不存在');
           if (msg.on) await desktops.on(msg.botId);

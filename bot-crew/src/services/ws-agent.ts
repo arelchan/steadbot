@@ -1,9 +1,9 @@
 import { setRuntime } from './runtime';
 import type { AgentService } from './agent';
 import { getState, setState, select, setTyping, pushToast, resolvePending, removeBot, removeMatter, upsertSkill, upsertIntegration, clearThread, uid, setRemoteSink, remoteApply } from '../store';
-import { botThread, type Action, type Bot, type Channel, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo } from '../types';
+import { botThread, type Action, type Bot, type Channel, type CrewSettings, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo } from '../types';
 
-type Snapshot = Pick<ReturnType<typeof getState>, 'bots' | 'matters' | 'todos' | 'pendings' | 'actions' | 'messages' | 'sharedProfile'> & { skills?: SkillDoc[]; library?: LibraryEntry[]; integrations?: Integration[]; typing?: Record<string, string[]>; runtime?: RuntimeInfo };
+type Snapshot = Pick<ReturnType<typeof getState>, 'bots' | 'matters' | 'todos' | 'pendings' | 'actions' | 'messages' | 'sharedProfile'> & { skills?: SkillDoc[]; library?: LibraryEntry[]; integrations?: Integration[]; typing?: Record<string, string[]>; runtime?: RuntimeInfo; settings?: CrewSettings };
 
 type ServerMessage =
   | { type: 'migrate_progress'; sent: number; total: number }
@@ -19,6 +19,7 @@ type ServerMessage =
   | { type: 'bot'; bot: Bot }
   | { type: 'matter'; matter: Matter }
   | { type: 'shared_profile'; lines: string[] }
+  | { type: 'settings'; settings: CrewSettings }
   | { type: 'toast'; toast: { botId: string; text: string; threadId: ThreadId } }
   | { type: 'bot_created'; bot: Bot; draftId?: string }
   | { type: 'bot_deleted'; id: string }
@@ -74,6 +75,7 @@ export class WsAgentService implements AgentService {
       mountLibrarySkill: (botId, slug) => this.send({ type: 'mount_library_skill', botId, slug }),
       addIntegration: (i) => this.send({ type: 'add_integration', integration: i }),
       patchIntegration: (id, patch) => this.send({ type: 'patch_integration', id, patch: nullify(patch) }),
+      setSettings: (patch) => this.send({ type: 'set_settings', patch }),
       removeIntegration: (id) => this.send({ type: 'remove_integration', id }),
       testIntegration: (id) => this.send({ type: 'test_integration', id }),
       clearThread: (threadId) => this.send({ type: 'clear_thread', threadId }),
@@ -206,7 +208,7 @@ export class WsAgentService implements AgentService {
             return k === 'bot' ? m.state.bots.some((b) => b.id === id) : m.state.matters.some((x) => x.id === id);
           };
           const first = m.state.bots.slice().sort((a, b) => Number(b.pinned) - Number(a.pinned))[0];
-          setState({ ...m.state, skills: m.state.skills ?? [], library: m.state.library ?? [], integrations: m.state.integrations ?? [], typing: m.state.typing ?? {}, runtime: m.state.runtime, selection: valid(s.selection) ? s.selection : first ? botThread(first.id) : 'draft-bot' });
+          setState({ ...m.state, skills: m.state.skills ?? [], library: m.state.library ?? [], integrations: m.state.integrations ?? [], typing: m.state.typing ?? {}, runtime: m.state.runtime, settings: m.state.settings, selection: valid(s.selection) ? s.selection : first ? botThread(first.id) : 'draft-bot' });
           break;
         }
         case 'message':
@@ -257,6 +259,9 @@ export class WsAgentService implements AgentService {
           break;
         case 'shared_profile':
           setState({ sharedProfile: m.lines });
+          break;
+        case 'settings':
+          remoteApply(() => setState({ settings: m.settings }));
           break;
         case 'toast':
           // The bot already decided this was worth saying; we only skip it when the user is already looking.

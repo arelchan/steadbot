@@ -366,8 +366,15 @@ export interface LibraryEntry {
   license?: string;
 }
 
+/** 全局偏好：跟着这套 bot 走，不是某个浏览器的设置 */
+export interface CrewSettings {
+  /** bot 用什么语言说话和写东西；auto = 跟着用户当时说的语言 */
+  language?: 'zh' | 'en' | 'auto';
+}
+
 export interface Snapshot {
   runtime?: RuntimeInfo;
+  settings?: CrewSettings;
   bots: Bot[];
   matters: Matter[];
   todos: Todo[];
@@ -419,6 +426,7 @@ export type ClientMessage =
   /** 升级到这台电脑上的最新代码（bot 在云机器上时，连那台一起升） */
   | { type: 'upgrade' }
   | { type: 'usage'; days?: number }
+  | { type: 'set_settings'; patch: CrewSettings }
   | { type: 'add_integration'; integration: Pick<Integration, 'kind' | 'name' | 'transport' | 'command' | 'args' | 'url' | 'env' | 'agent' | 'agentArgs'> & { id?: string } }
   | { type: 'patch_integration'; id: string; patch: Partial<Integration> }
   | { type: 'remove_integration'; id: string }
@@ -448,6 +456,7 @@ export type ServerMessage =
   | { type: 'bot'; bot: Bot }
   | { type: 'matter'; matter: Matter }
   | { type: 'shared_profile'; lines: string[] }
+  | { type: 'settings'; settings: CrewSettings }
   | { type: 'toast'; toast: Toast }
   | { type: 'bot_created'; bot: Bot; draftId?: string }
   | { type: 'bot_deleted'; id: string }
