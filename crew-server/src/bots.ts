@@ -43,7 +43,7 @@ import { actExtension } from './extensions/act.ts';
 import { rememberExtension } from './extensions/remember.ts';
 import { machineExtension } from './extensions/machine.ts';
 import { vigilExtension } from './extensions/vigil.ts';
-import { botThread, parseThread, type Channel, type FileRef, type ThreadId } from './types.ts';
+import { CHANNEL_LABEL, botThread, parseThread, type Channel, type FileRef, type ThreadId } from './types.ts';
 import { readFileSync } from 'node:fs';
 import type { ImageContent } from '@earendil-works/pi-ai';
 import { hasToolCalls, parseMentions, salvageFromThinking, textOf, thinkingOf, filesMentioned } from './util.ts';
@@ -54,6 +54,8 @@ export interface Inbound {
   kind: 'user' | 'bot' | 'routine' | 'group' | 'system';
   text: string;
   via?: Channel;
+  /** deliver whatever the bot says this turn only to these (routines with a channel set) */
+  to?: Channel[];
   userMessageId?: string;
   fromBotId?: string;
   depth?: number;
@@ -351,7 +353,7 @@ export class BotManager extends EventEmitter {
           const said = textOf(m.content).trim();
           if (said) {
             if (rt) rt.textCount += 1;
-            this.store.addMessage({ threadId, author: 'bot', botId, text: said, ts: Date.now(), todoId: cur?.todoId, via: cur?.via, status: 'interrupted' });
+            this.store.addMessage({ threadId, author: 'bot', botId, text: said, ts: Date.now(), todoId: cur?.todoId, via: cur?.via, to: cur?.to, status: 'interrupted' });
           }
           break;
         }
@@ -379,7 +381,7 @@ export class BotManager extends EventEmitter {
           }
         }
         const files = filesMentioned(text, join(config.botsDir, botId), config.publicUrl, botId);
-        this.store.addMessage({ threadId, author: 'bot', botId, text, ts: Date.now(), todoId: cur?.todoId, via: cur?.via, mentions: mentions.length ? mentions : undefined, files: files.length ? files : undefined });
+        this.store.addMessage({ threadId, author: 'bot', botId, text, ts: Date.now(), todoId: cur?.todoId, via: cur?.via, to: cur?.to, mentions: mentions.length ? mentions : undefined, files: files.length ? files : undefined });
         // Fallback bookkeeping: only when the model did not touch the todo itself this turn. Its own
         // summary is a written progress line; a truncated reply is a poor substitute for it.
         if (cur?.todoId && !cur.receipt) {
@@ -465,6 +467,7 @@ export class BotManager extends EventEmitter {
         matterId: tk === 'matter' ? tid : undefined,
         userMessageId: inbound.userMessageId,
         via: inbound.via,
+        to: inbound.to,
         kind: inbound.kind,
         fromBotId: inbound.fromBotId,
         depth: inbound.depth ?? 0,
@@ -584,13 +587,12 @@ export class BotManager extends EventEmitter {
   }
 }
 
-const CHANNEL_NAME: Record<Channel, string> = { app: 'App', feishu: '飞书', wechat: '企业微信', slack: 'Slack', telegram: 'Telegram' };
 /**
  * Where a user message came from, as the model sees it: nothing for a plain App private message,
  * 【飞书】 for an IM channel, 【群聊「x」· 用户】 in a group, 【群聊「x」· 用户 · 飞书】 for both.
  */
 function sourceMark(groupTitle: string | undefined, via: Channel | undefined): string {
-  const ch = via && via !== 'app' ? CHANNEL_NAME[via] : undefined;
+  const ch = via && via !== 'app' ? CHANNEL_LABEL[via] : undefined;
   if (groupTitle) return `【群聊「${groupTitle}」· 用户${ch ? ` · ${ch}` : ''}】`;
   return ch ? `【${ch}】` : '';
 }

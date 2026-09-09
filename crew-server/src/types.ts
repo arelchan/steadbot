@@ -2,6 +2,8 @@
 
 export type Channel = 'app' | 'feishu' | 'wechat' | 'slack' | 'telegram';
 export type Autonomy = 'tell' | 'prepare' | 'do';
+/** 通道的中文名，界面、提示词、给 bot 看的说明都用这一份。 */
+export const CHANNEL_LABEL: Record<Channel, string> = { app: '应用内', feishu: '飞书', wechat: '企业微信', slack: 'Slack', telegram: 'Telegram' };
 export type ConnectionKind = 'browser' | 'mcp' | 'api' | 'pay' | 'calendar' | 'mail';
 
 export interface Connection {
@@ -18,6 +20,8 @@ export interface Routine {
   schedule: string;
   enabled: boolean;
   lastRun?: number;
+  /** 结果发到哪几处：'app' 是应用内提醒，其余是这个 bot 在的 IM。不填 = 它在的地方都发。 */
+  channels?: Channel[];
 }
 
 export interface Bot {
@@ -343,6 +347,8 @@ export interface Message {
   todoId?: string;
   receipt?: { kind: ReceiptKind; text: string; todoId?: string };
   via?: Channel;
+  /** 这条只发到这几处（例行任务指定了通道时）。不填 = 照常：应用 + 这个 bot 在的每个 IM。 */
+  to?: Channel[];
   mentions?: string[];
   status?: string;
 }

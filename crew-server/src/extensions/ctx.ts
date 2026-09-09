@@ -11,6 +11,8 @@ export interface CurrentTurn {
   userMessageId?: string;
   todoId?: string;
   via?: Channel;
+  /** 这一轮说的话只发到这几处（例行任务指定了通道）；不填 = 照常发给它在的每个地方 */
+  to?: Channel[];
   /** 什么触发了这一轮：用户说话、同事转达、例行任务、系统事件 */
   kind: 'user' | 'bot' | 'routine' | 'group' | 'system';
   /** kind 是 bot 时，转达过来的那位同事 */

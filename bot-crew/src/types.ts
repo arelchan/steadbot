@@ -31,6 +31,8 @@ export interface Routine {
   schedule: string; // human readable, e.g. 每天 20:30
   enabled: boolean;
   lastRun?: number;
+  /** 结果发到哪几处；不填 = 它在的地方都发 */
+  channels?: Channel[];
 }
 
 export interface Bot {
@@ -375,6 +377,8 @@ export interface Message {
   todoId?: string;
   receipt?: { kind: ReceiptKind; text: string; todoId?: string };
   via?: Channel;
+  /** 只发到这几处（例行任务指定了通道时） */
+  to?: Channel[];
   mentions?: string[];
   status?: string;
 }

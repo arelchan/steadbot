@@ -31,6 +31,8 @@ export class Notifier {
     const needsUser = m.card?.type === 'blocked' || m.card?.type === 'confirm' || m.card?.type === 'options';
     if (!needsUser) {
       if (!bot.notify) return;
+      // A routine sent somewhere else on purpose: the message is still in the thread, it just doesn't ping here.
+      if (m.to && !m.to.includes('app')) return;
       const { kind, id } = parseThread(m.threadId);
       if (kind === 'matter' && this.store.matter(id)?.notify === false) return;
     }

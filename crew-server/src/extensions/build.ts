@@ -3,7 +3,10 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import type { BotCtx } from './ctx.ts';
 import type { CrewOps } from './crew-tools.ts';
-import type { Bot } from '../types.ts';
+import { CHANNEL_LABEL, type Bot, type Channel } from '../types.ts';
+import { IMS } from '../channels.ts';
+
+const CHANNEL_ALIAS: Record<string, Channel> = { 应用: 'app', 应用内: 'app', App: 'app', app: 'app', 飞书: 'feishu', 企业微信: 'wechat', 微信: 'wechat', Slack: 'slack', slack: 'slack', Telegram: 'telegram', telegram: 'telegram', 电报: 'telegram' };
 
 type Details = { jobId?: string; aspect: string; action: string; label?: string };
 
@@ -37,7 +40,7 @@ export function buildExtension(c: BotCtx, ops: () => CrewOps): InlineExtension {
           '一次只改一个方面。trigger 写清发生了什么、哪句话；change 写清要变成什么样，具体到能直接落笔。',
           '用户给的是原话（「把人设改成：…」「叫你小张」）用 set 原样写入；给的是方向（「别这么客气」「以后先给结论」）用 rewrite 自己重写。',
           'rewrite 调用后照常继续手上的事，不要等结果；回复里最多带半句「我顺手把自己的…调一下」，用户不问就不展开。',
-          'skill：技能名沿用已有的表示改写，新名字表示新建；手册是写给以后的你看的操作步骤。routine 的 schedule 只认「每天 20:30」「每周一 09:00」「工作日 18:00」「每 30 分钟」「每小时」这几种写法。',
+          'skill：技能名沿用已有的表示改写，新名字表示新建；手册是写给以后的你看的操作步骤。routine 的 schedule 只认「每天 20:30」「每周一 09:00」「工作日 18:00」「每 30 分钟」「每小时」这几种写法；用户说「这条只发 Telegram」就带上 channels。',
           '要装东西先 library(search) 拿 slug，再 build(action=add, value=slug)——手册、外部工具、一键连接、素材包都是这一条路。装的时候依赖会自动装好，装不上会明说缺什么。',
           '装完直接接着干活，不用向用户汇报「我装了什么」；要密钥的会自动发卡，用户填完系统通知你，不要追问。',
           '这一轮装了两样以上、把一件以前做不了的事做成了，而库里没有讲这个组合的手册，就 build(aspect=skill, rewrite) 写一份：什么场景、用哪几样、怎么验证。只装了一份现成手册照着做的不用写。',
@@ -47,7 +50,7 @@ export function buildExtension(c: BotCtx, ops: () => CrewOps): InlineExtension {
           action: Type.Optional(StringEnum(['rewrite', 'set', 'add', 'remove'] as const)),
           trigger: Type.Optional(Type.String({ description: 'rewrite：发生了什么让你想改，引用用户的原话或具体事件' })),
           change: Type.Optional(Type.String({ description: 'rewrite：要变成什么样——保留什么、改掉什么、新增什么' })),
-          value: Type.Optional(Type.Any({ description: 'set：新值（name/tagline/soul/instructions 为字符串；routine 为 {title, schedule, enabled?}）。add：库里的 slug、平台 slug、agent 名、IM 名，或自己写的 MCP {name, command|url, env?}' })),
+          value: Type.Optional(Type.Any({ description: 'set：新值（name/tagline/soul/instructions 为字符串；routine 为 {title, schedule, enabled?, channels?}，channels 如 ["app"]、["telegram"]、["app","飞书"]，不填就发到你在的每个地方）。add：库里的 slug、平台 slug、agent 名、IM 名，或自己写的 MCP {name, command|url, env?}' })),
           skill: Type.Optional(Type.String({ description: 'aspect=skill 时的技能名；aspect=routine 且 remove 时可用作任务标题' })),
         }),
         async execute(_id, p) {
@@ -162,12 +165,22 @@ export function buildExtension(c: BotCtx, ops: () => CrewOps): InlineExtension {
                 if (!t) throw new Error('remove routine 需要任务标题');
                 patch.routines = b.routines.filter((r) => r.title !== t && r.id !== t);
               } else {
-                const v = p.value as { title?: string; schedule?: string; enabled?: boolean } | undefined;
+                const v = p.value as { title?: string; schedule?: string; enabled?: boolean; channels?: string[] } | undefined;
                 if (!v?.title || !v?.schedule) throw new Error('set routine 需要 value={title, schedule}，schedule 如「每天 20:30」「每周一 09:00」「工作日 18:00」「每 30 分钟」');
+                // Where the result goes. 'app' is always available; an IM only if this bot is actually on it.
+                const here: Channel[] = ['app', ...IMS.filter((ch) => b.im?.[ch]?.status === 'ok')];
+                const channels = v.channels?.length
+                  ? v.channels.map((raw) => {
+                      const want = String(raw).trim().toLowerCase();
+                      const ch = here.find((x) => x === want || CHANNEL_ALIAS[String(raw).trim()] === x);
+                      if (!ch) throw new Error(`发不到「${raw}」。现在能发的是：${here.map((x) => CHANNEL_LABEL[x]).join('、')}${here.length === 1 ? '（要发到 IM，先 build(aspect=channel, action=add)）' : ''}`);
+                      return ch;
+                    })
+                  : undefined;
                 const existing = b.routines.find((r) => r.title === v.title);
                 patch.routines = existing
-                  ? b.routines.map((r) => (r.title === v.title ? { ...r, schedule: v.schedule!, enabled: v.enabled ?? r.enabled } : r))
-                  : [...b.routines, { id: Math.random().toString(36).slice(2, 10), title: v.title, schedule: v.schedule, enabled: v.enabled ?? true }];
+                  ? b.routines.map((r) => (r.title === v.title ? { ...r, schedule: v.schedule!, enabled: v.enabled ?? r.enabled, channels: channels ?? r.channels } : r))
+                  : [...b.routines, { id: Math.random().toString(36).slice(2, 10), title: v.title, schedule: v.schedule, enabled: v.enabled ?? true, ...(channels ? { channels } : {}) }];
               }
               break;
             }

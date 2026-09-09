@@ -2,7 +2,7 @@ import type { InlineExtension } from '@earendil-works/pi-coding-agent';
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import type { BotCtx } from './ctx.ts';
-import type { Bot, BuildAspect, BuildJob, Channel, Matter, ThreadId, LibraryEntry } from '../types.ts';
+import { CHANNEL_LABEL, type Bot, type BuildAspect, type BuildJob, type Channel, type Matter, type ThreadId, type LibraryEntry } from '../types.ts';
 
 /** Product operations the tools need; implemented in index.ts where the whole system is wired. */
 export interface CrewOps {
@@ -92,7 +92,7 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
       `人设(soul，build 改): ${b.soul || '（未写）'}`,
       `自主度: ${b.autonomy}；通知: ${b.notify}；置顶: ${b.pinned}`,
       `技能: ${b.skills.join('、') || '（无）'}`,
-      `例行任务: ${b.routines.map((r) => `${r.title}（${r.schedule}${r.enabled ? '' : '，已停用'}）`).join('；') || '（无）'}`,
+      `例行任务: ${b.routines.map((r) => `${r.title}（${r.schedule}${r.channels?.length ? `，发到 ${r.channels.map((ch) => CHANNEL_LABEL[ch] ?? ch).join('、')}` : ''}${r.enabled ? '' : '，已停用'}）`).join('；') || '（无）'}`,
       `集成: ${integ.join('、') || '（无）'}`,
       `IM: ${
         Object.entries(b.im ?? {})

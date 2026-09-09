@@ -14,7 +14,7 @@ import { BotConfigModal } from './BotConfigModal';
 import { ScreenCard } from './Screen';
 import { statusLabel } from '../services/agent';
 import { cx, fmtTime, shortDay } from '../utils';
-import { useT, tn } from '../i18n';
+import { useT, tn, t as tr } from '../i18n';
 
 const when = (ts: number) => (shortDay(ts) === fmtTime(ts) ? fmtTime(ts) : `${shortDay(ts)} ${fmtTime(ts)}`);
 
@@ -111,6 +111,7 @@ function RoutineList({ bot }: { bot: Bot }) {
             <div className="rt-t">{r.title}</div>
             <div className="rt-s">
               {r.schedule}
+              {r.channels?.length ? ` · ${r.channels.map((ch) => tr(`channel.${ch}`)).join('、')}` : ''}
               {r.lastRun ? t('ws.lastRun', { when: when(r.lastRun) }) : ''}
             </div>
           </div>

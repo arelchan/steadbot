@@ -401,6 +401,7 @@ export class ChannelManager implements Hub {
       for (const ch of IMS) {
         const chatId = matter.bindings[ch];
         if (!chatId || (message.via && message.via !== ch)) continue;
+        if (message.to && !message.to.includes(ch)) continue;
         const own = this.bridges.get(key(message.botId, ch));
         if (own) {
           await own.send(chatId, text, pending).catch(warn);
@@ -417,6 +418,8 @@ export class ChannelManager implements Hub {
       const br = this.bridges.get(key(bot.id, ch));
       const chatId = bot.bindings?.[ch];
       if (!br || !chatId || (message.via && message.via !== ch)) continue;
+      // A routine can name where its result goes; everything else goes wherever the bot is.
+      if (message.to && !message.to.includes(ch)) continue;
       await br.send(chatId, text, pending).catch(warn);
     }
   }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, patchBot, patchSkill, mountLibrarySkill, select, uid, addIntegration, removeIntegration, testIntegration } from '../store';
-import { LIBRARY_CATEGORY_IDS, botThread, type Bot, type Channel, type GrowthEvent, type GrowthKind, type Integration, type SkillDoc } from '../types';
+import { LIBRARY_CATEGORY_IDS, botThread, type Bot, type Channel, type GrowthEvent, type GrowthKind, type Integration, type Routine, type SkillDoc } from '../types';
 import { agent } from '../services/agent';
 import { Avatar } from './Avatar';
 import { Sk } from './Skeleton';
@@ -380,6 +380,15 @@ function Routines({ bot }: { bot: Bot }) {
   const t = useT();
   const [title, setTitle] = useState('');
   const [schedule, setSchedule] = useState('');
+  // Where a routine's result goes. Only offered once the bot is somewhere other than here.
+  const where: Channel[] = ['app', ...(['feishu', 'wechat', 'slack', 'telegram'] as Channel[]).filter((ch) => bot.im?.[ch]?.status === 'ok')];
+  const pick = (r: Routine, ch: Channel) => {
+    const on = r.channels ?? where;
+    const next = on.includes(ch) ? on.filter((x) => x !== ch) : [...where.filter((x) => on.includes(x) || x === ch)];
+    if (!next.length) return;
+    const channels = next.length === where.length ? undefined : next;
+    patchBot(bot.id, { routines: bot.routines.map((x) => (x.id === r.id ? { ...x, channels } : x)) });
+  };
   const toggle = (id: string) => patchBot(bot.id, { routines: bot.routines.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)) });
   const remove = (id: string) => patchBot(bot.id, { routines: bot.routines.filter((r) => r.id !== id) });
   const add = () => {
@@ -398,6 +407,15 @@ function Routines({ bot }: { bot: Bot }) {
             <div className="rt-main">
               <div className="rt-t">{r.title}</div>
               <div className="rt-s">{r.schedule}{r.lastRun ? t('ws.lastRun', { when: last(r.lastRun) }) : ''}</div>
+              {where.length > 1 && (
+                <div className="rt-ch">
+                  {where.map((ch) => (
+                    <button key={ch} className={cx('chip', (r.channels ?? where).includes(ch) && 'accent')} onClick={() => pick(r, ch)}>
+                      {tr(`channel.${ch}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <button className={cx('tgl', r.enabled && 'on')} onClick={() => toggle(r.id)} role="switch" aria-checked={r.enabled}><i /></button>
             <button className="del" onClick={() => remove(r.id)} title={t('common.delete')}>✕</button>
