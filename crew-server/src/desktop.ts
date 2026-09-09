@@ -66,13 +66,16 @@ const execP = (cmd: string, args: string[], opts: { env?: NodeJS.ProcessEnv; max
 function chromiumBinary(): string | undefined {
   const root = process.env.PLAYWRIGHT_BROWSERS_PATH ?? '/ms-playwright';
   try {
-    const dir = readdirSync(root).find((d) => /^chromium-\d+$/.test(d));
-    if (!dir) return undefined;
-    const bin = join(root, dir, 'chrome-linux', 'chrome');
-    return existsSync(bin) ? bin : undefined;
+    for (const dir of readdirSync(root).filter((d) => /^chromium-\d+$/.test(d)).sort().reverse())
+      for (const rel of ['chrome-linux64/chrome', 'chrome-linux/chrome']) {
+        const bin = join(root, dir, rel);
+        if (existsSync(bin)) return bin;
+      }
   } catch {
-    return undefined;
+    /* no Playwright browsers here */
   }
+  for (const bin of ['/opt/google/chrome/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome']) if (existsSync(bin)) return bin;
+  return undefined;
 }
 
 /** The dock: launcher entries and a tint2 config that shows them, a task list and a clock, along the bottom. */
@@ -81,7 +84,9 @@ function writeDock(home: string, botId: string, botDir: string) {
   mkdirSync(apps, { recursive: true });
   const workspace = join(botDir, 'workspace');
   const chrome = chromiumBinary();
-  const browserCmd = chrome ? `${chrome} --no-sandbox --user-data-dir=${join(home, 'chrome')} --no-first-run` : 'x-www-browser';
+  // The container runs as root, which Chrome refuses without --no-sandbox; the profile is the bot's, so the user
+  // signing in here signs the bot in too.
+  const browserCmd = `${chrome ?? 'x-www-browser'} --no-sandbox --user-data-dir=${join(home, 'chrome')} --no-first-run --disable-features=TranslateUI`;
   const entries: [string, string, string, string][] = [
     ['browser', '浏览器', browserCmd, 'web-browser'],
     ['files', '文件', `pcmanfm ${workspace}`, 'system-file-manager'],
