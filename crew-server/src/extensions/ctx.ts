@@ -11,6 +11,10 @@ export interface CurrentTurn {
   userMessageId?: string;
   todoId?: string;
   via?: Channel;
+  /** 什么触发了这一轮：用户说话、同事转达、例行任务、系统事件 */
+  kind: 'user' | 'bot' | 'routine' | 'group' | 'system';
+  /** kind 是 bot 时，转达过来的那位同事 */
+  fromBotId?: string;
   /** hops in a bot-to-bot handoff chain */
   depth: number;
   receipt?: 'created' | 'updated' | 'closed';

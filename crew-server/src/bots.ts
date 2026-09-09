@@ -377,7 +377,9 @@ export class BotManager extends EventEmitter {
         }
         const files = filesMentioned(text, join(config.botsDir, botId), config.publicUrl, botId);
         this.store.addMessage({ threadId, author: 'bot', botId, text, ts: Date.now(), todoId: cur?.todoId, via: cur?.via, mentions: mentions.length ? mentions : undefined, files: files.length ? files : undefined });
-        if (cur?.todoId) {
+        // Fallback bookkeeping: only when the model did not touch the todo itself this turn. Its own
+        // summary is a written progress line; a truncated reply is a poor substitute for it.
+        if (cur?.todoId && !cur.receipt) {
           const t = this.store.todo(cur.todoId);
           if (t && t.status !== 'done') this.store.patchTodo(cur.todoId, { summary: text.length > 48 ? text.slice(0, 48) + '…' : text, ...(t.status === 'open' ? { status: 'doing' as const } : {}) });
         }
@@ -460,6 +462,8 @@ export class BotManager extends EventEmitter {
         matterId: tk === 'matter' ? tid : undefined,
         userMessageId: inbound.userMessageId,
         via: inbound.via,
+        kind: inbound.kind,
+        fromBotId: inbound.fromBotId,
         depth: inbound.depth ?? 0,
         todoId: inbound.todoId,
       };

@@ -114,6 +114,24 @@ export interface Integration {
 
 export type TodoStatus = 'open' | 'doing' | 'waiting' | 'blocked' | 'done';
 
+/**
+ * 这条事项是怎么来的：谁交办的、用户从哪个入口说的、在哪条会话里。建的时候由运行时快照，
+ * 模型填不了也改不了；之后不随更新变化（「最近一次从哪推进的」是另一回事，现在不记）。
+ */
+export interface TodoOrigin {
+  /** 谁交办的：用户、群里的同事、例行任务、系统事件 */
+  by: 'user' | 'bot' | 'routine' | 'system';
+  /** 用户是从哪个入口说的话；by 不是 user 时没有 */
+  via?: Channel;
+  /** by 是 bot 时，交办的那位同事 */
+  fromBotId?: string;
+  /** 在哪条会话里交办的：bot:X 私聊 ｜ matter:M 群聊 */
+  threadId: ThreadId;
+  /** 触发它的那条消息（用户说的话），用来跳回原文 */
+  messageId?: string;
+  at: number;
+}
+
 export interface Todo {
   id: string;
   botId: string;
@@ -125,6 +143,8 @@ export interface Todo {
   createdAt: number;
   updatedAt: number;
   fromMessageId?: string;
+  /** 怎么来的：谁交办、哪个入口、哪条会话。老数据没有。 */
+  origin?: TodoOrigin;
 }
 
 export type PendingKind = 'confirm' | 'clarify' | 'blocked';

@@ -13,24 +13,6 @@ import { parseMentions, uid } from './util.ts';
  *   handoff        -> bot A @mentions bot B -> B gets a from-bot message (depth-limited)
  *   late choice    -> user answered a card after the tool already timed out -> bot gets a user message
  */
-/**
- * A task title out of a handoff: the part addressed to this recipient (after its @, up to the next @),
- * without markers, first clause only, capped. Falls back to the whole sentence for a single-recipient message.
- */
-function taskTitle(text: string, recipient: string): string {
-  let t = text.replace(/【[^】]*】/g, ' ');
-  const at = t.indexOf('@' + recipient);
-  if (at >= 0) {
-    const rest = t.slice(at + recipient.length + 1);
-    const next = rest.search(/@\S/);
-    t = next >= 0 ? rest.slice(0, next) : rest;
-  }
-  t = t.replace(/@\S+/g, ' ').replace(/\s+/g, ' ').replace(/^[，,：:、 ]+/, '').trim();
-  const cut = t.split(/[。！？!?；;\n]/)[0].trim();
-  const title = (cut || t).replace(/[，,。]$/, '');
-  return title.length > 40 ? `${title.slice(0, 39)}…` : title || '来自群里的任务';
-}
-
 export class Router {
   constructor(
     private store: CrewStore,
@@ -39,27 +21,27 @@ export class Router {
     private events: EventEmitter,
   ) {
     events.on('crew:handoff', (h: { from: string; to: string; text: string; threadId: ThreadId; matterId?: string; depth: number; todoId?: string }) => {
-      if (h.depth > config.handoffDepth) return;
+      // An @ only carries the message across; whether it is work is the recipient's call, and if it is
+      // work the recipient files its own task. Nothing here creates tasks — except a task that was
+      // explicitly assigned (h.todoId), which already exists and rides along.
+      // A relay that cannot be delivered must not leave that task silently sitting open.
+      const undelivered = (why: string) => {
+        if (!h.todoId) return;
+        const t = store.todo(h.todoId);
+        if (t && t.status !== 'done') store.patchTodo(t.id, { status: 'blocked', summary: `没送达：${why}` });
+      };
+      if (h.depth > config.handoffDepth) return undelivered('转达层数太深，链条在这里断了');
       const from = store.bot(h.from);
       const to = store.bot(h.to);
-      if (!from || !to) return;
+      if (!from || !to) return undelivered('找不到要转达的 bot');
       if (h.matterId) {
         const m = store.matter(h.matterId);
-        if (!m || (m.ownerBotId !== h.to && !m.participantBotIds.includes(h.to))) return;
+        if (!m || (m.ownerBotId !== h.to && !m.participantBotIds.includes(h.to))) return undelivered(`${to.name} 不在这个群里`);
       }
       // Inside a matter the handoff stays in the group; otherwise it lands in the target bot's own thread.
       const threadId: ThreadId = h.matterId ? h.threadId : botThread(h.to);
       const group = h.matterId ? store.matter(h.matterId)?.title : undefined;
-      // Work handed over inside a group becomes a task on the recipient's name, mechanically: the
-      // board must reflect who took what even when the model skips its own bookkeeping.
-      let todoId = h.todoId;
-      let text = h.text;
-      if (h.matterId && !todoId) {
-        const t = store.addTodo({ botId: h.to, matterId: h.matterId, title: taskTitle(h.text, to.name), status: 'open', summary: `由 @${from.name} 交代` });
-        todoId = t.id;
-        text = `【事项 ${t.id}】${h.text}`;
-      }
-      void bots.send(h.to, { threadId, kind: 'bot', text: group ? `【群聊「${group}」· 来自 @${from.name}】${text}` : `【来自 @${from.name}】${text}`, fromBotId: h.from, depth: h.depth, todoId });
+      void bots.send(h.to, { threadId, kind: 'bot', text: group ? `【群聊「${group}」· 来自 @${from.name}】${h.text}` : `【来自 @${from.name}】${h.text}`, fromBotId: h.from, depth: h.depth, todoId: h.todoId });
     });
     broker.on('late-choice', ({ pending, label }: { pending: Pending; label: string }) => {
       const text = `关于「${pending.title}」，我选了：${label}`;

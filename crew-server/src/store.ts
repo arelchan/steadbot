@@ -69,7 +69,7 @@ export class CrewStore extends EventEmitter {
     return this.data.bots.find((b) => b.id === id);
   }
   addBot(b: Omit<Bot, 'id' | 'createdAt'> & { id?: string }): Bot {
-    const bot: Bot = { id: b.id ?? uid(), createdAt: Date.now(), ...b } as Bot;
+    const bot: Bot = { ...b, id: b.id ?? uid(), createdAt: Date.now() } as Bot;
     this.data.bots.push(bot);
     this.save();
     this.emitChange({ type: 'bot', bot });
@@ -181,7 +181,7 @@ export class CrewStore extends EventEmitter {
     return this.data.integrations.find((i) => i.id === id);
   }
   addIntegration(i: Omit<Integration, 'id' | 'createdAt'> & { id?: string }): Integration {
-    const integ: Integration = { id: i.id ?? uid(), createdAt: Date.now(), ...i } as Integration;
+    const integ: Integration = { ...i, id: i.id ?? uid(), createdAt: Date.now() } as Integration;
     this.data.integrations.push(integ);
     this.save();
     this.emitChange({ type: 'integration', integration: integ });
@@ -211,7 +211,7 @@ export class CrewStore extends EventEmitter {
     return this.data.matters.find((m) => m.id === id);
   }
   addMatter(m: Omit<Matter, 'id' | 'createdAt'> & { id?: string }): Matter {
-    const matter: Matter = { id: m.id ?? uid(), createdAt: Date.now(), ...m } as Matter;
+    const matter: Matter = { ...m, id: m.id ?? uid(), createdAt: Date.now() } as Matter;
     this.data.matters.push(matter);
     this.save();
     this.emitChange({ type: 'matter', matter });
@@ -234,7 +234,7 @@ export class CrewStore extends EventEmitter {
     return this.data.todos.filter((t) => t.botId === botId && (matterId ? t.matterId === matterId : true));
   }
   addTodo(t: Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>): Todo {
-    const todo: Todo = { id: uid(), createdAt: Date.now(), updatedAt: Date.now(), ...t };
+    const todo: Todo = { ...t, id: uid(), createdAt: Date.now(), updatedAt: Date.now() };
     this.data.todos.push(todo);
     this.save();
     this.emitChange({ type: 'todo', todo });
@@ -254,7 +254,7 @@ export class CrewStore extends EventEmitter {
     return this.data.pendings.find((p) => p.id === id);
   }
   addPending(p: Omit<Pending, 'id' | 'createdAt'> & { id?: string }): Pending {
-    const pending: Pending = { id: p.id ?? uid(), createdAt: Date.now(), ...p } as Pending;
+    const pending: Pending = { ...p, id: p.id ?? uid(), createdAt: Date.now() } as Pending;
     this.data.pendings.push(pending);
     this.save();
     this.emitChange({ type: 'pending', pending });
@@ -271,7 +271,7 @@ export class CrewStore extends EventEmitter {
 
   /* ---- actions ---- */
   addAction(a: Omit<Action, 'id' | 'ts'>): Action {
-    const action: Action = { id: uid(), ts: Date.now(), ...a };
+    const action: Action = { ...a, id: uid(), ts: Date.now() };
     this.data.actions.push(action);
     this.save();
     this.emitChange({ type: 'action', action });
@@ -291,7 +291,9 @@ export class CrewStore extends EventEmitter {
     return this.data.messages.find((m) => m.id === id);
   }
   addMessage(m: Omit<Message, 'id'> & { id?: string }): Message {
-    const message: Message = { id: m.id ?? uid(), ...m } as Message;
+    // Spread first: a caller that passes an explicit `id: undefined` (every IM message does) would
+    // otherwise overwrite the generated one, leaving the message unaddressable.
+    const message: Message = { ...m, id: m.id ?? uid() } as Message;
     this.data.messages.push(message);
     this.save();
     this.emitChange({ type: 'message', message });
