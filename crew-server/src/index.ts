@@ -21,6 +21,7 @@ import { AgentRunner, McpManager, seedIntegrations } from './integrations.ts';
 import { ChannelManager, IMS, type Im } from './channels.ts';
 import { DesktopManager } from './desktop.ts';
 import { Upgrader } from './upgrade.ts';
+import { restoreAll } from './tools.ts';
 import { versionLine } from './version.ts';
 import { usageReport } from './usage.ts';
 import { Runtime } from './runtime.ts';
@@ -47,6 +48,8 @@ async function main() {
   const broker = new PendingBroker(store, config.askTimeoutMs);
   const skills = new SkillStore(join(config.piAgentDir, 'skills'));
   const library = new Library(config.libraryDir);
+  // Packages a bot installed for a skill live on the data volume, not in the image: put back whatever this machine lost.
+  void restoreAll().catch((e: Error) => console.warn('[crew] tools restore failed:', e.message));
   const mcp = new McpManager(store);
   const runner = new AgentRunner();
   const connectors = new ConnectorManager(store);

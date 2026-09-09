@@ -46,6 +46,8 @@ interface FileConfig {
   googleClientSecret?: string;
   /** Composio API key: connectors authenticate through Composio's managed OAuth apps (no Google registration needed) */
   composioApiKey?: string;
+  /** mirrors for machines where the default indexes are slow; empty = official */
+  tools?: { pipIndex?: string; npmRegistry?: string };
   fake?: boolean;
 }
 
@@ -102,6 +104,7 @@ export const config = {
   composio: (process.env.CREW_COMPOSIO_API_KEY ?? file.composioApiKey) ? { apiKey: (process.env.CREW_COMPOSIO_API_KEY ?? file.composioApiKey)! } : undefined,
   connectionsDir: join(home, 'connections'),
   libraryDir: join(home, 'library'),
+  tools: { pipIndex: process.env.CREW_PIP_INDEX ?? file.tools?.pipIndex, npmRegistry: process.env.CREW_NPM_REGISTRY ?? file.tools?.npmRegistry },
   handoffDepth: 3,
 };
 

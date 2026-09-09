@@ -3,14 +3,15 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BotCtx } from './ctx.ts';
 import { config } from '../config.ts';
+import { toolsEnv } from '../tools.ts';
 
 const SECRET = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH/i;
 
-/** process.env without anything that looks like a credential. */
+/** process.env without anything that looks like a credential, plus whatever this machine has installed for skills. */
 function sanitizedEnv(): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = {};
   for (const [k, v] of Object.entries(process.env)) if (!SECRET.test(k)) out[k] = v;
-  return out;
+  return toolsEnv(out);
 }
 
 /**

@@ -115,12 +115,16 @@ export class Runtime {
    */
   async exportArchive(): Promise<string> {
     const out = join(tmpdir(), `crew-export-${Date.now()}.tar.gz`);
-    const skip = ['lease.json', 'instance.json', 'moved.json', 'machine.json', 'config.json', 'pi-agent/auth.json', 'library'];
+    // `tools` is deliberately not here: it holds this platform's binaries (a Mac venv is no use on a Linux box).
+    // What travels is the record of what was installed — tools/manifest.json and tools/system.json — which the
+    // receiving server replays on startup (tools.ts).
+    const skip = ['lease.json', 'instance.json', 'moved.json', 'machine.json', 'config.json', 'pi-agent/auth.json', 'library', 'tools'];
     const entries = readdirSync(config.home).filter((n) => !skip.includes(n) && !n.startsWith('.') && !n.endsWith('.tmp'));
     // The library mirror: only what the user added travels. Skills mirrored from the bundled library (tracked in
     // .bundled.json, each carrying .source.json) are re-mirrored by the receiving server from its own copy, so
     // shipping them would only push ~20 MB over the link for nothing.
     entries.push(...userLibraryEntries());
+    for (const f of ['tools/manifest.json', 'tools/system.json']) if (existsSync(join(config.home, f))) entries.push(f);
     // config.json goes in as a stripped copy so keys and IM credentials arrive, but not port/bind/token.
     const stripped: Record<string, unknown> = { ...(readFileConfig() as Record<string, unknown>) };
     for (const k of ['port', 'bind', 'authToken', 'publicUrl', 'machine', 'movedTo']) delete stripped[k];

@@ -10,6 +10,7 @@ import type { AgentId, Bot, Channel, Integration } from './types.ts';
 import { config } from './config.ts';
 import { AcpPool, type AcpClient, type AcpPermissionRequest, type AcpUpdate } from './acp.ts';
 import type { AgentHosts } from './host.ts';
+import { toolsEnv } from './tools.ts';
 
 const CHANNELS: { channel: Channel; name: string }[] = [
   { channel: 'telegram', name: 'Telegram' },
@@ -77,7 +78,7 @@ export const agentSpec = (id: string | undefined) => AGENTS.find((a) => a.agent 
 
 export function whichBin(bin: string): Promise<boolean> {
   return new Promise((resolve) => {
-    const p = spawn('/bin/sh', ['-lc', `command -v ${bin}`], { stdio: 'ignore' });
+    const p = spawn('/bin/sh', ['-lc', `command -v ${bin}`], { stdio: 'ignore', env: toolsEnv() });
     p.on('exit', (code) => resolve(code === 0));
     p.on('error', () => resolve(false));
   });
@@ -140,7 +141,7 @@ export class McpManager {
         await client.connect(new StreamableHTTPClientTransport(new URL(integ.url)));
       } else {
         if (!integ.command) throw new Error('缺少命令');
-        await client.connect(new StdioClientTransport({ command: integ.command, args: integ.args ?? [], env: { ...(process.env as Record<string, string>), ...(integ.env ?? {}) }, stderr: 'ignore' }));
+        await client.connect(new StdioClientTransport({ command: integ.command, args: integ.args ?? [], env: { ...(toolsEnv() as Record<string, string>), ...(integ.env ?? {}) }, stderr: 'ignore' }));
       }
       const { tools } = await client.listTools();
       this.clients.set(id, client);
@@ -240,7 +241,7 @@ export class AgentRunner {
     const key = `${cwd}::${spec.agent}`;
     let acquired: { client: AcpClient; sessionId: string; fresh: boolean };
     try {
-      acquired = await this.pool.acquire(key, { ...launch, cwd, env: process.env });
+      acquired = await this.pool.acquire(key, { ...launch, cwd, env: toolsEnv() });
     } catch (e) {
       const msg = (e as Error).message;
       if (/auth|login|unauthor|credential|401/i.test(msg)) throw new Error(`${spec.name} 还没登录：${spec.loginHint}（${msg.slice(0, 160)}）`);
@@ -304,7 +305,7 @@ export class AgentRunner {
       args = [...(integ.args ?? []), task];
     }
     return new Promise((resolve, reject) => {
-      const p = spawn(command, args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+      const p = spawn(command, args, { cwd, env: toolsEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
       let out = '';
       let err = '';
       const timer = setTimeout(() => p.kill('SIGTERM'), timeoutMs);
