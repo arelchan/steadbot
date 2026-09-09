@@ -139,7 +139,7 @@ export function scanRequires(dir: string): Requires {
           if (CLI_WORTH.has(tok)) bin.add(tok);
         }
       }
-      for (const m of text.matchAll(/pip3?\s+install\s+([^\n`]+)/g)) {
+      for (const m of text.matchAll(/pip3?\s+install\s+([^\n`；，。）)]+)/g)) {
         const parts = m[1].split(/\s+/);
         for (let i = 0; i < parts.length; i++) {
           const t = parts[i];
@@ -148,7 +148,17 @@ export function scanRequires(dir: string): Requires {
           else if (t && !t.startsWith('-') && !/\.(txt|whl|tar\.gz)$/.test(t) && !t.includes('/')) pip.add(t.split(/[<>=[;]/)[0]);
         }
       }
-      for (const m of text.matchAll(/npm\s+(?:install|i)\s+(?:-g\s+)?([^\n`]+)/g)) for (const t of m[1].split(/\s+/)) if (t && !t.startsWith('-')) npm.add(t.replace(/@[^@/]+$/, ''));
+      // Package names only, and only up to the first thing that is not one: prose after the command ("；终端运行 claude…") is not a package list.
+      const NPM_NAME = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
+      for (const m of text.matchAll(/npm\s+(?:install|i)\s+(?:-g\s+)?([^\n`；，。）)]+)/g)) {
+        for (const t of m[1].split(/\s+/)) {
+          if (!t) continue;
+          if (t.startsWith('-')) continue;
+          const name = t.replace(/@[^@/]+$/, '');
+          if (!NPM_NAME.test(name)) break;
+          npm.add(name);
+        }
+      }
       // "requires ffmpeg", "需要 LibreOffice"
       for (const m of text.matchAll(/`([\w.@/-]+)`[^.\n]{0,40}(?:preinstalled|is installed|must be installed|required|需要)/g)) {
         const tok = m[1].toLowerCase();

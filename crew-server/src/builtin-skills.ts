@@ -217,6 +217,8 @@ export function seedBuiltinSkills(skills: SkillStore) {
   for (const s of [...BUILTIN_SKILLS, STEWARD_SKILL]) {
     const cur = skills.get(s.name);
     if (!cur || cur.body.trim() !== s.body.trim() || cur.description !== s.description) skills.write(s.name, s.description, s.body);
+    // The dependency scanner may have changed since the manual was last written; what it thinks is missing is shown to bots and users.
+    else skills.refreshRequires(s.name);
   }
 }
 

@@ -43,6 +43,14 @@ export class SkillStore extends EventEmitter {
 
   /** Directory a skill's files live in (created on write). */
   /** What this skill needs on the machine, as last scanned. */
+  /** Rescan a manual's dependencies (the scanner improved, or the files changed under it). */
+  refreshRequires(name: string) {
+    const slug = this.index[name.trim()];
+    if (!slug) return;
+    const prev = this.read(name.trim());
+    writeRequires(join(this.dir, slug), { derivedFrom: prev?.library ? 'static' : 'static:own' });
+  }
+
   requiresOf(name: string) {
     const slug = this.index[name.trim()];
     return slug ? readRequires(join(this.dir, slug)) : undefined;
