@@ -564,7 +564,7 @@ async function main() {
         if (!r.ok) return { kind, text: `装不了「${e.title}」：${r.note ?? ''}。告诉用户这台机器上装不上，或者换一条路。` };
       }
       const env = Object.fromEntries((m.env ?? []).map((f) => [f.key, '']));
-      const added = await bots.ops!.addMcp({ name: e.title, command: m.command, args: m.args, url: m.url, env: (m.env ?? []).length ? env : undefined });
+      const added = await bots.ops!.addMcp({ name: e.title, command: m.command, args: m.args, url: m.url, env: (m.env ?? []).length ? env : undefined, headers: m.headers });
       await grant(added.id);
       if ((m.env ?? []).length) {
         // Keys are the user's to bring: the card writes them straight into the connection, out of the conversation.
@@ -600,7 +600,7 @@ async function main() {
       await bots.refreshTools(botId);
     },
     async addMcp(i) {
-      const integ = store.addIntegration({ kind: 'mcp', name: i.name, transport: i.url ? 'http' : 'stdio', command: i.command, args: i.args, url: i.url, env: i.env, status: 'connecting' });
+      const integ = store.addIntegration({ kind: 'mcp', name: i.name, transport: i.url ? 'http' : 'stdio', command: i.command, args: i.args, url: i.url, env: i.env, headers: i.headers, status: 'connecting' });
       const done = await mcp.connect(integ.id);
       return { id: integ.id, status: done?.status ?? 'error', note: done?.note, tools: done?.tools?.length };
     },

@@ -138,7 +138,10 @@ export class McpManager {
       const client = new Client({ name: 'crew-server', version: '0.1.0' });
       if (integ.transport === 'http') {
         if (!integ.url) throw new Error('缺少 url');
-        await client.connect(new StreamableHTTPClientTransport(new URL(integ.url)));
+        // Keys travel in headers: the template names the header, the card's value fills the placeholder.
+        const headers = Object.fromEntries(Object.entries(integ.headers ?? {}).map(([k, v]) => [k, v.replace(/\$\{(\w+)\}/g, (_, key: string) => integ.env?.[key] ?? '')]));
+        if (Object.values(headers).some((v) => /^Bearer\s*$/i.test(v) || v === '')) throw new Error('缺凭据：先填卡');
+        await client.connect(new StreamableHTTPClientTransport(new URL(integ.url), Object.keys(headers).length ? { requestInit: { headers } } : undefined));
       } else {
         if (!integ.command) throw new Error('缺少命令');
         await client.connect(new StdioClientTransport({ command: integ.command, args: integ.args ?? [], env: { ...(toolsEnv() as Record<string, string>), ...(integ.env ?? {}) }, stderr: 'ignore' }));

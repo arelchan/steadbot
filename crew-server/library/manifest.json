@@ -667,6 +667,48 @@
         "风险",
         "决策"
       ]
+    },
+    {
+      "slug": "generate2dsprite",
+      "category": "design",
+      "repo": "0x0funky/agent-sprite-forge",
+      "path": "skills/generate2dsprite",
+      "tags": [
+        "精灵图",
+        "sprite",
+        "角色",
+        "动画",
+        "攻击",
+        "行走",
+        "待机",
+        "透明 PNG",
+        "GIF",
+        "游戏",
+        "game",
+        "2D",
+        "素材",
+        "像素"
+      ]
+    },
+    {
+      "slug": "generate2dmap",
+      "category": "design",
+      "repo": "0x0funky/agent-sprite-forge",
+      "path": "skills/generate2dmap",
+      "tags": [
+        "地图",
+        "map",
+        "瓦片",
+        "tilemap",
+        "场景",
+        "关卡",
+        "碰撞",
+        "Godot",
+        "游戏",
+        "game",
+        "2D",
+        "素材"
+      ]
     }
   ],
   "$comment2": "tools：池里不是手册的条目——MCP 服务、素材包。纯数据，不用同步，不落盘。走产品 OAuth 服务的平台（Gmail、Notion…）在 src/connectors.ts 的 TOOLKITS 里，不写在这。",
@@ -712,6 +754,9 @@
             "进账号 / API 页面创建一个 API Key",
             "把 Key 填在卡上"
           ]
+        },
+        "headers": {
+          "Authorization": "Bearer ${PIXELLAB_API_KEY}"
         }
       }
     },
@@ -739,6 +784,104 @@
       "assets": {
         "url": "https://kenney.nl/media/pages/assets/pixel-platformer/33bb4921eb-1696667883/kenney_pixel-platformer.zip",
         "howto": "先定一套风格再从同一个包里取，混用不同包会花。要别的题材去 kenney.nl/assets 找，下载地址给用户或自己 curl。"
+      }
+    },
+    {
+      "slug": "fal",
+      "kind": "mcp",
+      "category": "design",
+      "title": "fal.ai",
+      "description": "六百多个生成模型一个口进：图片（FLUX、SDXL 等）、视频、音乐、语音、抠图、放大。适合出海报图、概念图、短视频片段、配乐；结果是文件地址，下载到工作区再用。按量计费，用用户自己的 key。",
+      "tags": [
+        "生图",
+        "图片",
+        "image",
+        "视频",
+        "video",
+        "音乐",
+        "音频",
+        "audio",
+        "语音",
+        "FLUX",
+        "生成",
+        "AI 绘画",
+        "海报",
+        "概念图",
+        "fal"
+      ],
+      "source": "https://fal.ai/docs/documentation/setting-up/mcp",
+      "mcp": {
+        "transport": "http",
+        "url": "https://mcp.fal.ai/mcp",
+        "tools": "搜模型、看参数、跑生成（图 / 视频 / 音频）、上传文件、查文档。",
+        "headers": {
+          "Authorization": "Bearer ${FAL_KEY}"
+        },
+        "env": [
+          {
+            "key": "FAL_KEY",
+            "label": "fal API Key",
+            "hint": "fal.ai 控制台 Keys 页创建",
+            "secret": true
+          }
+        ],
+        "help": {
+          "url": "https://fal.ai/dashboard/keys",
+          "urlLabel": "打开 fal 控制台",
+          "steps": [
+            "登录 fal.ai",
+            "Keys 页 Add key，复制",
+            "把 Key 填在卡上"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "retro-diffusion",
+      "kind": "mcp",
+      "category": "design",
+      "title": "Retro Diffusion",
+      "description": "真像素画：角色、精灵图动画、瓦片集，九十多种像素风格可选，出来就是干净的像素格（不是模糊的「像素风」）。先免费估价再生成，按张计费（约一分钱一张），用用户自己的 key。",
+      "tags": [
+        "像素",
+        "pixel",
+        "精灵图",
+        "sprite",
+        "瓦片",
+        "tileset",
+        "动画",
+        "游戏",
+        "game",
+        "素材",
+        "像素画",
+        "复古",
+        "2D"
+      ],
+      "source": "https://github.com/Retro-Diffusion/retro-diffusion-mcp",
+      "mcp": {
+        "transport": "http",
+        "url": "https://mcp.retrodiffusion.ai/mcp",
+        "tools": "浏览风格、估价、生成像素图 / 动画 / 瓦片集、修复放大发糊的像素画。",
+        "headers": {
+          "Authorization": "Bearer ${RETRO_DIFFUSION_API_KEY}"
+        },
+        "env": [
+          {
+            "key": "RETRO_DIFFUSION_API_KEY",
+            "label": "Retro Diffusion API Key",
+            "hint": "rdpk- 开头",
+            "secret": true
+          }
+        ],
+        "help": {
+          "url": "https://retrodiffusion.ai/",
+          "urlLabel": "打开 Retro Diffusion",
+          "steps": [
+            "注册登录（新账号有免费额度）",
+            "Developer Tools → Create API Key",
+            "把 Key 填在卡上"
+          ]
+        }
       }
     }
   ]

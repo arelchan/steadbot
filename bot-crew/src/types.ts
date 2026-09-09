@@ -97,6 +97,8 @@ export interface Integration {
   command?: string;
   args?: string[];
   env?: Record<string, string>;
+  /** http transport: request headers, `${KEY}` placeholders filled from env at connect time (e.g. Authorization: Bearer ${FAL_KEY}) */
+  headers?: Record<string, string>;
   url?: string;
   tools?: { name: string; description?: string; write?: boolean }[];
   connector?: string;
@@ -433,6 +435,8 @@ export interface LibraryEntry {
     help?: { url?: string; urlLabel?: string; steps?: string[] };
     /** one line about what its tools do, for search and for the bot */
     tools?: string;
+    /** http: headers to send, with `${ENV_KEY}` placeholders for the card's values */
+    headers?: Record<string, string>;
   };
   /** kind=mcp behind the product's OAuth service: the toolkit slug; authorization is a click, not a key */
   service?: string;

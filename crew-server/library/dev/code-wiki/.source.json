@@ -1,9 +1,9 @@
 {
   "repo": "NousResearch/hermes-agent",
   "path": "optional-skills/software-development/code-wiki",
-  "commit": "14ca27f",
+  "commit": "ead7e91",
   "url": "https://github.com/NousResearch/hermes-agent/tree/HEAD/optional-skills/software-development/code-wiki",
   "license": "MIT",
   "licenseFile": "LICENSE",
-  "fetchedAt": "2026-09-06T15:47:59.164Z"
+  "fetchedAt": "2026-09-09T15:25:40.141Z"
 }

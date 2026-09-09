@@ -12,7 +12,7 @@ export interface CrewOps {
   disconnectChannel(botId: string, channel: Exclude<Channel, 'app'>): void;
   createBot(brief: string, opts: { name?: string; byBotId: string; task?: string }): Promise<Bot>;
   createGroup(opts: { title: string; summary?: string; memberIds: string[]; leadId: string; task?: string; byBotId: string }): Promise<Matter>;
-  addMcp(i: { name: string; command?: string; args?: string[]; url?: string; env?: Record<string, string> }): Promise<{ id: string; status: string; note?: string; tools?: number }>;
+  addMcp(i: { name: string; command?: string; args?: string[]; url?: string; env?: Record<string, string>; headers?: Record<string, string> }): Promise<{ id: string; status: string; note?: string; tools?: number }>;
   /** give this bot an existing integration (and put its tools in front of it right away) */
   grant(botId: string, integrationId: string): Promise<void>;
   removeIntegration(id: string): void;

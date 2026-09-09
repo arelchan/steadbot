@@ -141,6 +141,8 @@ export interface Integration {
   command?: string;
   args?: string[];
   env?: Record<string, string>;
+  /** http transport: request headers, `${KEY}` placeholders filled from env at connect time (e.g. Authorization: Bearer ${FAL_KEY}) */
+  headers?: Record<string, string>;
   url?: string;
   tools?: { name: string; description?: string; write?: boolean }[];
   /** built-in connector id (gmail, google-calendar…); tools come from connectors.ts, not an MCP process */
@@ -417,6 +419,8 @@ export interface LibraryEntry {
     help?: { url?: string; urlLabel?: string; steps?: string[] };
     /** one line about what its tools do, for search and for the bot */
     tools?: string;
+    /** http: headers to send, with `${ENV_KEY}` placeholders for the card's values */
+    headers?: Record<string, string>;
   };
   /** kind=mcp, hosted behind the product's OAuth connector service: the toolkit slug. Authorization is a click on a card, not a key. */
   service?: string;
