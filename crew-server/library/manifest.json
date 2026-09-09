@@ -883,6 +883,57 @@
           ]
         }
       }
+    },
+    {
+      "slug": "replicate",
+      "kind": "mcp",
+      "category": "design",
+      "title": "Replicate",
+      "description": "几千个开源模型按次调用：生图（FLUX、SDXL）、生视频（Wan、LTX 等）、放大、抠图、语音、音乐。按秒计费，用用户自己的 token。和 fal 二选一即可，Replicate 模型更多、fal 更快。",
+      "tags": [
+        "生图",
+        "图片",
+        "image",
+        "视频",
+        "video",
+        "放大",
+        "upscale",
+        "抠图",
+        "语音",
+        "音乐",
+        "模型",
+        "FLUX",
+        "Replicate",
+        "生成"
+      ],
+      "source": "https://replicate.com/docs/reference/mcp",
+      "mcp": {
+        "transport": "stdio",
+        "command": "npx",
+        "args": [
+          "-y",
+          "replicate-mcp"
+        ],
+        "npm": "replicate-mcp",
+        "tools": "搜模型、看输入参数、跑预测、查结果、列出自己的历史。",
+        "env": [
+          {
+            "key": "REPLICATE_API_TOKEN",
+            "label": "Replicate API Token",
+            "hint": "r8_ 开头",
+            "secret": true
+          }
+        ],
+        "help": {
+          "url": "https://replicate.com/account/api-tokens",
+          "urlLabel": "打开 Replicate",
+          "steps": [
+            "登录 replicate.com",
+            "Account → API tokens → Create token",
+            "把 token 填在卡上"
+          ]
+        }
+      }
     }
   ]
 }
