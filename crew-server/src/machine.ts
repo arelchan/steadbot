@@ -466,13 +466,13 @@ export async function pairMachine(l: MachineLink): Promise<{ url: string; name: 
 }
 
 /** Can this machine reach that one over HTTP, and is it ours (the token is accepted)? */
-export async function probeMachine(m: { url: string; token: string }): Promise<{ reachable: boolean; note?: string; mode?: string; hostname?: string; build?: string }> {
+export async function probeMachine(m: { url: string; token: string }): Promise<{ reachable: boolean; note?: string; mode?: string; hostname?: string; build?: string; busy?: string[] }> {
   try {
     const r = await fetch(`${m.url}/runtime/info`, { headers: { authorization: `Bearer ${m.token}` }, signal: AbortSignal.timeout(6000) });
     if (r.status === 401) return { reachable: true, note: '那台机器拒绝了配对信息：服务被重装过，重新 machine_pair 一次' };
     if (!r.ok) return { reachable: false, note: `那台机器回应异常（${r.status}）` };
-    const info = (await r.json()) as { mode?: string; hostname?: string; build?: string };
-    return { reachable: true, mode: info.mode, hostname: info.hostname, build: info.build };
+    const info = (await r.json()) as { mode?: string; hostname?: string; build?: string; busy?: string[] };
+    return { reachable: true, mode: info.mode, hostname: info.hostname, build: info.build, busy: info.busy };
   } catch {
     return { reachable: false, note: `从外面连不上 ${portOf(m.url)} 端口：多半是云厂商的防火墙还没放开它` };
   }

@@ -555,6 +555,8 @@ export interface RuntimeInfo {
   desktopsNote?: string;
   /** fingerprint of the code this process is running (see version.ts) */
   build?: string;
+  /** bots in the middle of a turn right now (an upgrade waits for them) */
+  busy?: string[];
 }
 
 /** 用量：token 和花费，按 bot / 天 / 模型汇总（从每个 bot 的会话日志读出来，见 usage.ts） */

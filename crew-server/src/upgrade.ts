@@ -32,6 +32,8 @@ export class Upgrader extends EventEmitter {
     private machineBuild: () => string | undefined,
     /** stop this process so the supervisor starts it again on the new code */
     private restart: () => void,
+    /** bots mid-turn here (the local target); a restart waits for them */
+    private busyBots: () => string[] = () => [],
   ) {
     super();
   }
@@ -88,6 +90,7 @@ export class Upgrader extends EventEmitter {
         });
         log(out.stdout.trim().split('\n').slice(-3).join('\n') || '已经拉到最新');
         log(`现在是 ${currentCommit() ?? '?'}，重启一下就生效。`);
+        await waitIdle(log, async () => this.busyBots());
         setTimeout(() => this.restart(), 400);
         return { restarting: true };
       }
@@ -98,6 +101,8 @@ export class Upgrader extends EventEmitter {
       await l.connect();
       await ensureCheckout(l, log);
       const changed = await pullOnMachine(l, st.latest, log);
+      // The restart cuts off whatever a bot is in the middle of; let them finish the turn first.
+      await waitIdle(log, async () => (m.url && m.token ? ((await probeMachine({ url: m.url, token: m.token })).busy ?? []) : []));
       await applyOnMachine(l, changed, log);
       try {
         const p = await pairMachine(l);
@@ -162,6 +167,26 @@ async function addDeployKey(pub: string, title: string) {
 }
 
 /** Fetch and check out the newest commit; returns the paths that changed. */
+/** Hold until no bot is mid-turn (polling every few seconds), at most ten minutes; says who it is waiting for. */
+async function waitIdle(log: (s: string) => void, busy: () => Promise<string[]>) {
+  const deadline = Date.now() + 10 * 60_000;
+  let said = '';
+  for (;;) {
+    const names = await busy().catch(() => [] as string[]);
+    if (!names.length) {
+      if (said) log('都空下来了，重启。');
+      return;
+    }
+    if (Date.now() > deadline) {
+      log(`等了十分钟 ${names.join('、')} 还在忙，不等了。`);
+      return;
+    }
+    const line = `等 ${names.join('、')} 忙完这一轮再重启…`;
+    if (line !== said) log((said = line));
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+}
+
 async function pullOnMachine(l: MachineLink, want: string, log: (s: string) => void): Promise<string[]> {
   log(`那台机器直接从 GitHub 拉 ${want}…`);
   const r = await root(

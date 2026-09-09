@@ -485,12 +485,16 @@ function TaskRow({ t: todo, showBot }: { t: Todo; showBot?: boolean }) {
   const fresh = Date.now() - todo.updatedAt < 4000;
   // In a bot's own board, work born in a group carries the group's name (click = jump to the group).
   const group = !showBot && todo.matterId ? s.matters.find((m) => m.id === todo.matterId) : undefined;
+  // Where the work came from, when it was not the user in the App: a routine, a colleague, an IM.
+  const o = todo.origin;
+  const origin = !o ? undefined : o.by === 'routine' ? t('task.fromRoutine') : o.by === 'bot' ? `@${s.bots.find((b) => b.id === o.fromBotId)?.name ?? ''}` : o.by === 'user' && o.via && o.via !== 'app' ? tr(`channel.${o.via}`) : undefined;
   return (
     <button className={cx('task', todo.status, fresh && 'fresh')} onClick={() => openTask(todo.id)} key={todo.updatedAt}>
       <div className="task-l1">
         {showBot && <Avatar bot={bot} size="xs" />}
         <span className="task-t">{todo.title}</span>
         {group && <span className="chip task-grp" role="link" onClick={(e) => { e.stopPropagation(); select(matterThread(group.id)); }} title={t('task.fromGroup')}>{group.title}</span>}
+        {origin && <span className="chip task-org">{origin}</span>}
         <span className={cx('st', todo.status)}>{statusLabel(todo.status)}</span>
       </div>
       {todo.summary && <div className="task-s">{todo.summary}</div>}

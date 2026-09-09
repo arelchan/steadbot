@@ -519,4 +519,6 @@ export interface RuntimeInfo {
   desktopsNote?: string;
   /** 正在跑的代码指纹（用于判断有没有新版本） */
   build?: string;
+  /** bots in the middle of a turn right now (an upgrade waits for them) */
+  busy?: string[];
 }

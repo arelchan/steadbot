@@ -22,7 +22,7 @@ import { ChannelManager, CHANNEL_KEYS, CHANNEL_PATTERNS, CHANNEL_PUBLIC_KEYS, IM
 import { secretsChanged } from './secrets.ts';
 import { DesktopManager } from './desktop.ts';
 import { Upgrader } from './upgrade.ts';
-import { ensure, restoreAll } from './tools.ts';
+import { describe, ensure, restoreAll } from './tools.ts';
 import { fetchAssets } from './assets.ts';
 import { versionLine } from './version.ts';
 import { usageReport } from './usage.ts';
@@ -91,7 +91,7 @@ async function main() {
   const hosts = new AgentHosts(store);
   runner.hosts = hosts;
   let hostClient: HostClient | undefined;
-  runtime.extra = () => ({ agentHost: hosts.status(), hostLink: hostClient ? hostClient.state : runtime.mode === 'moved' ? 'no_token' : undefined, desktops: active ? desktops.capable : undefined, desktopsNote: active && !desktops.capable ? desktops.capableNote : undefined });
+  runtime.extra = () => ({ agentHost: hosts.status(), hostLink: hostClient ? hostClient.state : runtime.mode === 'moved' ? 'no_token' : undefined, desktops: active ? desktops.capable : undefined, desktopsNote: active && !desktops.capable ? desktops.capableNote : undefined, busy: active ? bots.busyNames() : undefined });
   const startHostLink = () => {
     const t = loadMovedTarget(runtime.movedTo);
     hostClient?.stop();
@@ -777,7 +777,7 @@ async function main() {
       broadcastUpgrade();
     }
   };
-  const upgrader = new Upgrader(runtime, () => machineBuild, () => process.exit(75));
+  const upgrader = new Upgrader(runtime, () => machineBuild, () => process.exit(75), () => (active ? bots.busyNames() : []));
   void upgrader.refreshLatest();
   setInterval(() => void upgrader.refreshLatest().then(broadcastUpgrade), 10 * 60_000).unref();
   const broadcastUpgrade = () => server?.broadcast({ type: 'upgrade_status', status: upgrader.status() });
@@ -810,6 +810,23 @@ async function main() {
           }
           return true;
         }
+      }
+      if (url.pathname === '/machine/readiness' || (url.pathname === '/machine/ensure' && req.method === 'POST')) {
+        // 「这台机器」: which manuals' tools are installed here, which are not; POST installs what is missing.
+        const rows: { skill: string; requires: string[]; ready: boolean; note: string }[] = [];
+        for (const d of skills.list()) {
+          const need = skills.requiresOf(d.name);
+          if (!need) continue;
+          if (url.pathname === '/machine/ensure') {
+            const state = await describe(need);
+            if (state !== '就位') await ensure(need, d.name).catch(() => undefined);
+          }
+          const state = await describe(need);
+          rows.push({ skill: d.name, requires: [...(need.pip ?? []).map((x) => `pip ${x}`), ...(need.npm ?? []).map((x) => `npm ${x}`), ...(need.bin ?? [])], ready: state === '就位', note: state });
+        }
+        res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+        res.end(JSON.stringify({ rows, desktops: active ? desktops.capable : undefined }));
+        return true;
       }
       if (url.pathname === '/usage') {
         res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });

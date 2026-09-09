@@ -427,6 +427,13 @@ export class BotManager extends EventEmitter {
     return this.resolved.get(botId);
   }
 
+  /** Bots in the middle of a turn right now, by name: a restart would cut them off. */
+  busyNames(): string[] {
+    const out: string[] = [];
+    for (const [id, rt] of this.resolved) if (rt.running || rt.session.isStreaming) out.push(this.store.bot(id)?.name ?? id);
+    return out;
+  }
+
   /** Queue inbound work for a bot. Resolves when the bot has settled. */
   /**
    * Inbound user messages take one of three paths:
