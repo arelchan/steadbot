@@ -63,18 +63,18 @@ export interface Bot {
   /** 正在值守的长程任务（vigil 工具）；持久化，重启后继续 */
   vigil?: Vigil;
   /** 它自己的电脑（云机器上的一个桌面，用户在 App 里能实时看到屏幕）；没有这个字段 = 从未开过机 */
-  desktop?: Desktop;
 }
 
 /** A bot's own computer: a virtual display on the machine the bots run on, with a browser the bot drives. */
-export interface Desktop {
+/** The one computer all bots share on the machine they run on (desktop.ts): a desktop with a browser, one tab per bot. */
+export interface Computer {
   state: 'off' | 'starting' | 'on' | 'error';
   note?: string;
-  /** X display number; the VNC port is 5900 + display */
-  display?: number;
   since?: number;
-  /** last time the bot used it or someone watched it */
+  /** last time any bot drove it or someone watched it */
   lastUsed?: number;
+  /** bots that drove it in the last couple of minutes */
+  users?: string[];
 }
 
 export interface Vigil {
@@ -435,6 +435,8 @@ export interface CrewSettings {
 export interface Snapshot {
   runtime?: RuntimeInfo;
   settings?: CrewSettings;
+  /** the shared computer's state; absent on a runtime that cannot host one */
+  computer?: Computer;
   bots: Bot[];
   matters: Matter[];
   todos: Todo[];
@@ -482,7 +484,7 @@ export type ClientMessage =
   /** 断开一个 bot 在某个 IM 上的账号：停桥、删凭据 */
   | { type: 'disconnect_channel'; botId: string; channel: Channel }
   /** 给 bot 的电脑开机 / 关机 */
-  | { type: 'computer_power'; botId: string; on: boolean }
+  | { type: 'computer_power'; on: boolean }
   /** 升级到这台电脑上的最新代码（bot 在云机器上时，连那台一起升） */
   | { type: 'upgrade' }
   | { type: 'usage'; days?: number }

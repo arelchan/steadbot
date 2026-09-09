@@ -56,7 +56,7 @@ async function main() {
   const connectors = new ConnectorManager(store);
   const bots = new BotManager(store, broker, memory, events, skills, mcp, runner, connectors);
   await seedIntegrations(store);
-  // Each bot can have its own computer here (a desktop + browser the user watches live), if this machine can host one.
+  // The bots share one computer here (a desktop + browser the user watches live), if this machine can host one.
   const desktops = new DesktopManager(store, mcp, (id) => bots.refreshTools(id));
   bots.desktops = desktops;
   // Who runs the bots: this instance, unless the home was moved to another server or another live server holds the lease.
@@ -648,14 +648,13 @@ async function main() {
     snapshotExtra: () => ({ runtime: runtime.info(), skills: skills.list(), library: library.list(), typing: store.typingSnapshot(), upgrade: upgrader.status() }),
     // Only the runtime that runs the bots borrows agents; a signpost has no bots to lend them to.
     onHost: active ? (socket) => hosts.attach(socket) : undefined,
-    onVnc: active ? (botId, req, socket, head) => desktops.proxy(botId, req, socket, head) : undefined,
+    onVnc: active ? (req, socket, head) => desktops.proxy(req, socket, head) : undefined,
     http: async (req, res) => {
       const url = new URL(req.url ?? '/', config.publicUrl);
       {
-        // A still of a bot's screen, for the card (desktop.ts). 404 when the computer is off.
-        const shot = /^\/screen\/([A-Za-z0-9_-]+)\.jpg$/.exec(url.pathname);
-        if (shot) {
-          const p = desktops.snapshot(shot[1], Math.min(1280, Math.max(160, Number(url.searchParams.get('w') ?? 640))));
+        // A still of the computer's screen, for the card (desktop.ts). 404 when the computer is off.
+        if (url.pathname === '/screen.jpg') {
+          const p = desktops.snapshot(Math.min(1280, Math.max(160, Number(url.searchParams.get('w') ?? 640))));
           if (!p) {
             res.writeHead(404, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
             res.end('{"error":"off"}');
@@ -1015,9 +1014,8 @@ async function main() {
           // Every bot builds its prompt fresh each turn, so a language change takes effect on the next message.
           break;
         case 'computer_power': {
-          if (!store.bot(msg.botId)) throw new Error('bot 不存在');
-          if (msg.on) await desktops.on(msg.botId);
-          else await desktops.off(msg.botId);
+          if (msg.on) await desktops.wake();
+          else await desktops.off();
           break;
         }
         case 'add_integration': {

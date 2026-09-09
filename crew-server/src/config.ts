@@ -86,6 +86,8 @@ export const config = {
   avatarsDir: join(home, 'avatars'),
   botsDir: join(home, 'bots'),
   sharedDir: join(home, 'shared'),
+  /** the bots' shared computer: browser profile (logins), dock config, last frame of the screen */
+  computerDir: join(home, 'computer'),
   port: Number(process.env.CREW_PORT ?? file.port ?? 5200),
   authToken: process.env.CREW_AUTH_TOKEN ?? file.authToken,
   bind: process.env.CREW_BIND ?? file.bind ?? ((process.env.CREW_AUTH_TOKEN ?? file.authToken) ? '0.0.0.0' : '127.0.0.1'),

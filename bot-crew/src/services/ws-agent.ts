@@ -1,10 +1,10 @@
 import { setRuntime, healRuntimeTarget } from './runtime';
 import type { AgentService } from './agent';
 import { getState, setState, select, setTyping, pushToast, resolvePending, removeBot, removeMatter, upsertSkill, upsertIntegration, clearThread, uid, setRemoteSink, remoteApply } from '../store';
-import { botThread, type Action, type Bot, type Channel, type CrewSettings, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo } from '../types';
+import { botThread, type Action, type Bot, type Channel, type Computer, type CrewSettings, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo } from '../types';
 import { t } from '../i18n';
 
-type Snapshot = Pick<ReturnType<typeof getState>, 'bots' | 'matters' | 'todos' | 'pendings' | 'actions' | 'messages' | 'sharedProfile'> & { skills?: SkillDoc[]; library?: LibraryEntry[]; integrations?: Integration[]; typing?: Record<string, string[]>; runtime?: RuntimeInfo; settings?: CrewSettings };
+type Snapshot = Pick<ReturnType<typeof getState>, 'bots' | 'matters' | 'todos' | 'pendings' | 'actions' | 'messages' | 'sharedProfile'> & { skills?: SkillDoc[]; library?: LibraryEntry[]; integrations?: Integration[]; typing?: Record<string, string[]>; runtime?: RuntimeInfo; settings?: CrewSettings; computer?: Computer };
 
 type ServerMessage =
   | { type: 'migrate_progress'; sent: number; total: number }
@@ -21,6 +21,7 @@ type ServerMessage =
   | { type: 'matter'; matter: Matter }
   | { type: 'shared_profile'; lines: string[] }
   | { type: 'settings'; settings: CrewSettings }
+  | { type: 'computer'; computer: Computer }
   | { type: 'toast'; toast: { botId: string; text: string; threadId: ThreadId } }
   | { type: 'bot_created'; bot: Bot; draftId?: string }
   | { type: 'bot_deleted'; id: string }
@@ -187,8 +188,8 @@ export class WsAgentService implements AgentService {
     this.send({ type: 'disconnect_channel', botId, channel });
   }
 
-  computerPower(botId: string, on: boolean) {
-    this.send({ type: 'computer_power', botId, on });
+  computerPower(on: boolean) {
+    this.send({ type: 'computer_power', on });
   }
 
   onPendingChoice(pendingId: string, optionId: string) {
@@ -218,7 +219,7 @@ export class WsAgentService implements AgentService {
             const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
             if (tz && !m.state.settings?.timezone) this.send({ type: 'set_settings', patch: { timezone: tz } });
           }
-          setState({ ...m.state, skills: m.state.skills ?? [], library: m.state.library ?? [], integrations: m.state.integrations ?? [], typing: m.state.typing ?? {}, runtime: m.state.runtime, settings: m.state.settings, selection: valid(s.selection) ? s.selection : first ? botThread(first.id) : 'draft-bot' });
+          setState({ ...m.state, skills: m.state.skills ?? [], library: m.state.library ?? [], integrations: m.state.integrations ?? [], typing: m.state.typing ?? {}, runtime: m.state.runtime, settings: m.state.settings, computer: m.state.computer, selection: valid(s.selection) ? s.selection : first ? botThread(first.id) : 'draft-bot' });
           break;
         }
         case 'message':
@@ -272,6 +273,9 @@ export class WsAgentService implements AgentService {
           break;
         case 'settings':
           remoteApply(() => setState({ settings: m.settings }));
+          break;
+        case 'computer':
+          setState({ computer: m.computer });
           break;
         case 'toast':
           // The bot already decided this was worth saying; we only skip it when the user is already looking.

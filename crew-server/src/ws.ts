@@ -19,8 +19,8 @@ export interface WsHandlers {
   onClient: (msg: ClientMessage, reply: (m: ServerMessage) => void) => void | Promise<void>;
   /** A computer offering its agents over `/host` (see host.ts). */
   onHost?: (socket: WebSocket) => void;
-  /** A viewer of a bot's computer screen over `/vnc/<botId>` (see desktop.ts); the handler completes the upgrade itself. */
-  onVnc?: (botId: string, req: IncomingMessage, socket: Duplex, head: Buffer) => void;
+  /** A viewer of the bots' computer screen over `/vnc` (see desktop.ts); the handler completes the upgrade itself. */
+  onVnc?: (req: IncomingMessage, socket: Duplex, head: Buffer) => void;
 }
 
 /** HTTP (avatars, health) + WebSocket (/ws) front door. Store changes fan out to every client. */
@@ -67,14 +67,13 @@ export function startServer(store: CrewStore, port: number, avatarsDir: string, 
   const hostWss = new WebSocketServer({ noServer: true });
   http.on('upgrade', (req, socket, head) => {
     const path = new URL(req.url ?? '/', 'http://localhost').pathname;
-    const vnc = /^\/vnc\/([A-Za-z0-9_-]+)$/.exec(path);
-    if (vnc && handlers.onVnc) {
+    if (path === '/vnc' && handlers.onVnc) {
       if (!authorized(req)) {
         socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
         socket.destroy();
         return;
       }
-      handlers.onVnc(vnc[1], req, socket, head);
+      handlers.onVnc(req, socket, head);
       return;
     }
     const target = path === '/ws' ? wss : path === '/host' && handlers.onHost ? hostWss : undefined;

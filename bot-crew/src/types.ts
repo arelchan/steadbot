@@ -63,7 +63,6 @@ export interface Bot {
   /** 它在各个 IM 上的账号：每个 bot 在飞书 / Telegram / Slack / 企业微信里都是独立的机器人 */
   im?: Partial<Record<Channel, ImLink>>;
   /** 它自己的电脑（云机器上的桌面，屏幕能实时看）；没有 = 从未开过机 */
-  desktop?: Desktop;
   /** 正在进行的自我构建（build 工具）：界面显示 "soul building…" */
   building?: BuildJob[];
   /** 成长动线：从诞生起每一次变化 */
@@ -248,12 +247,14 @@ export interface CrewSettings {
 }
 
 /** bot 自己的电脑：bot 所在机器上的一个虚拟显示器 + 桌面 + 浏览器 */
-export interface Desktop {
+/** The one computer all bots share on the machine they run on: a desktop with a browser, one tab per bot. */
+export interface Computer {
   state: 'off' | 'starting' | 'on' | 'error';
   note?: string;
-  display?: number;
   since?: number;
   lastUsed?: number;
+  /** bots that drove it in the last couple of minutes */
+  users?: string[];
 }
 
 /** bot 在一个 IM 上的账号状态；account 是它在那边的名字 */
@@ -463,6 +464,8 @@ export interface State {
   /** the server this page is connected to (undefined until the first snapshot) */
   runtime?: RuntimeInfo;
   settings?: CrewSettings;
+  /** the bots' shared computer; absent on a runtime that cannot host one */
+  computer?: Computer;
   bots: Bot[];
   matters: Matter[];
   todos: Todo[];

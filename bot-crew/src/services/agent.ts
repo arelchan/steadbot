@@ -45,8 +45,8 @@ export interface AgentService {
   connectChannel(botId: string, channel: Channel): void;
   /** 把一个 bot 从某个 IM 断开：停掉那边的机器人，删掉凭据 */
   disconnectChannel(botId: string, channel: Channel): void;
-  /** 给 bot 的电脑开机 / 关机 */
-  computerPower(botId: string, on: boolean): void;
+  /** 唤醒 / 休眠 bot 们共用的电脑 */
+  computerPower(on: boolean): void;
   start(): void;
   stop(): void;
 }

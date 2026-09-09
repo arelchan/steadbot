@@ -2,31 +2,32 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import RFB from '@novnc/novnc';
 import { useStore, select } from '../store';
-import type { Bot } from '../types';
 import { agent } from '../services/agent';
 import { httpBase, withToken } from '../services/runtime';
 import { cx } from '../utils';
 import { useT } from '../i18n';
 
 /**
- * The bot's own computer. It is always *there*: the card shows what is on the screen — live while the bot is
- * using it, the last frame dimmed while it sleeps. There is no power to manage: 「打开」 wakes it if it is asleep
- * (about ten seconds), and it dozes off on its own when nobody has touched it for a while. With no computer
- * available (the bots run on the user's own machine) the same frame stays dark, with the one action that would
- * give the bot one.
+ * The bots' computer — one, shared by all of them, so every workspace shows this same screen. It is always
+ * *there*: the card shows what is on the screen — live while a bot is using it, the last frame dimmed while it
+ * sleeps. There is no power to manage: 「打开」 wakes it if it is asleep (about ten seconds), and it dozes off on
+ * its own when nobody has touched it for a while. With no computer available (the bots run on the user's own
+ * machine) the same frame stays dark, with the one action that would give them one.
  */
 type ScreenState = 'on' | 'starting' | 'off' | 'error' | 'none';
 
-export function ScreenCard({ bot }: { bot: Bot }) {
+export function ScreenCard() {
   const t = useT();
   const rt = useStore((s) => s.runtime);
+  const d = useStore((s) => s.computer);
+  const bots = useStore((s) => s.bots);
   const [big, setBig] = useState(false);
-  const d = bot.desktop;
   const st: ScreenState = rt?.desktops ? (d?.state ?? 'off') : 'none';
   const old = !!rt && rt.mode === 'active' && rt.desktops === undefined;
   const idle = !!rt && rt.mode !== 'active';
+  const using = (st === 'on' ? (d?.users ?? []) : []).map((id) => bots.find((b) => b.id === id)?.name).filter((n): n is string => !!n);
   const open = () => {
-    if (st === 'error') agent.computerPower(bot.id, true);
+    if (st === 'error') agent.computerPower(true);
     setBig(true);
   };
   return (
@@ -35,7 +36,7 @@ export function ScreenCard({ bot }: { bot: Bot }) {
         <div className={cx('sc-frame', st)}>
           {st !== 'none' ? (
             <>
-              <Still botId={bot.id} live={st === 'on'} epoch={d?.since ?? 0} />
+              <Still live={st === 'on'} epoch={d?.since ?? 0} />
               <button className="sc-open" onClick={open}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9.5 2.5H13.5V6.5M13.5 2.5L9 7M6.5 13.5H2.5V9.5M2.5 13.5L7 9" />
@@ -52,7 +53,8 @@ export function ScreenCard({ bot }: { bot: Bot }) {
         </div>
         <div className="sc-cap">
           <span className={cx('sc-dot', st)} />
-          {t('screen.of', { name: bot.name })}
+          {t('screen.computer')}
+          {st === 'on' && using.length > 0 && <span className="sc-state"> · {t('screen.usedBy', { names: using.join('、') })}</span>}
           {st === 'off' && <span className="sc-state">{t('screen.idle')}</span>}
           {st === 'starting' && <span className="sc-state">{t('screen.waking')}</span>}
           {st === 'error' && <span className="sc-state err">{t('screen.noResponse')}</span>}
@@ -60,21 +62,21 @@ export function ScreenCard({ bot }: { bot: Bot }) {
         {st === 'error' && <div className="sc-note">{t('screen.retryHint')}</div>}
         {st === 'none' && !old && !idle && !rt?.local && rt?.desktopsNote && <div className="sc-note">{rt.desktopsNote}</div>}
       </div>
-      {big && st !== 'none' && <ScreenModal bot={bot} onClose={() => setBig(false)} />}
+      {big && st !== 'none' && <ScreenModal onClose={() => setBig(false)} />}
     </>
   );
 }
 
 /** The still the server keeps: live, refreshed every couple of seconds; asleep, the frame it fell asleep on. */
-function stillUrl(botId: string, tick: number, width = 640) {
-  return withToken(`${httpBase || window.location.origin}/screen/${botId}.jpg?w=${width}&t=${tick}`);
+function stillUrl(tick: number, width = 640) {
+  return withToken(`${httpBase || window.location.origin}/screen.jpg?w=${width}&t=${tick}`);
 }
 
 /**
  * A JPEG of the screen. An <img>, so a slow link just keeps the last frame. While live it polls; asleep it loads
  * once (the frame does not change), and again when the computer has been up since (`epoch`).
  */
-function Still({ botId, live, epoch }: { botId: string; live: boolean; epoch: number }) {
+function Still({ live, epoch }: { live: boolean; epoch: number }) {
   const t = useT();
   const [tick, setTick] = useState(() => Date.now());
   const [dead, setDead] = useState(false);
@@ -88,7 +90,7 @@ function Still({ botId, live, epoch }: { botId: string; live: boolean; epoch: nu
   }, [live, epoch]);
   return (
     <>
-      <img className={cx('sc-still', dead && 'hidden')} src={stillUrl(botId, tick)} alt="" draggable={false} onError={() => setDead(true)} onLoad={() => setDead(false)} />
+      <img className={cx('sc-still', dead && 'hidden')} src={stillUrl(tick)} alt="" draggable={false} onError={() => setDead(true)} onLoad={() => setDead(false)} />
       {dead && live && <span className="sc-msg sc-still-msg">{t('screen.noFrame')}</span>}
     </>
   );
@@ -102,10 +104,11 @@ function Still({ botId, live, epoch }: { botId: string; live: boolean; epoch: nu
  * drives its browser through a separate channel (CDP), so both can act at once, like two people at one machine.
  * A small tag shows while the user is actively moving or typing, so it is clear whose hands are on it.
  */
-function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
+function ScreenModal({ onClose }: { onClose: () => void }) {
   const t = useT();
   const [hands, setHands] = useState(false);
-  const st = bot.desktop?.state ?? 'off';
+  const d = useStore((s) => s.computer);
+  const st = d?.state ?? 'off';
   const on = st === 'on';
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -117,16 +120,16 @@ function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
   }, [onClose]);
   // The screen being open means someone wants to see it: an asleep computer wakes (also if it dozed off meanwhile).
   useEffect(() => {
-    if (st === 'off') agent.computerPower(bot.id, true);
-  }, [st, bot.id]);
-  const placeholder = stillUrl(bot.id, bot.desktop?.since ?? 0);
+    if (st === 'off') agent.computerPower(true);
+  }, [st]);
+  const placeholder = stillUrl(d?.since ?? 0);
   return createPortal(
     <div className="overlay screen-modal" onClick={onClose}>
       <div className="screen-modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="sc-head">
           <span className="sc-title">
             <i className={cx('sc-dot', st)} />
-            {t('screen.computerOf', { name: bot.name })}
+            {t('screen.computer')}
             {on && hands && <span className="chip cn-chip">{t('screen.yourHands')}</span>}
           </span>
           <span className="sc-actions">
@@ -135,15 +138,15 @@ function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
         </div>
         <div className="sc-big">
           {on ? (
-            <Vnc botId={bot.id} placeholder={placeholder} onHands={setHands} />
+            <Vnc placeholder={placeholder} onHands={setHands} />
           ) : (
             <div className="sc-wait">
               <img className="sc-ghost" src={placeholder} alt="" draggable={false} onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} />
               {st === 'error' ? (
                 <span className="sc-wait-msg">
                   <b>{t('screen.dead')}</b>
-                  {bot.desktop?.note && <small>{bot.desktop.note}</small>}
-                  <button className="btn sm" onClick={() => agent.computerPower(bot.id, true)}>{t('common.retry')}</button>
+                  {d?.note && <small>{d.note}</small>}
+                  <button className="btn sm" onClick={() => agent.computerPower(true)}>{t('common.retry')}</button>
                 </span>
               ) : (
                 <span className="sc-wait-msg pulse">{t('screen.waking2')}</span>
@@ -158,12 +161,12 @@ function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
 }
 
 /**
- * One noVNC connection to the bot's display. The desktop takes the size of this box (SetDesktopSize → Xvnc's
+ * One noVNC connection to the computer's display. The desktop takes the size of this box (SetDesktopSize → Xvnc's
  * RandR), so pixels map 1:1 and text is crisp instead of a fixed frame stretched to fit. The last still sits
  * underneath until the first real frame has been painted, so opening the screen never shows a black box. Tuned
  * for a long link: moderate compression (the machine has two CPUs; heavy zlib costs more than it saves).
  */
-function Vnc({ botId, placeholder, onHands }: { botId: string; placeholder: string; onHands: (v: boolean) => void }) {
+function Vnc({ placeholder, onHands }: { placeholder: string; onHands: (v: boolean) => void }) {
   const t = useT();
   const box = useRef<HTMLDivElement>(null);
   const rfb = useRef<RFB | null>(null);
@@ -177,7 +180,7 @@ function Vnc({ botId, placeholder, onHands }: { botId: string; placeholder: stri
     setPainted(false);
     setStatus('connecting');
     let retry: ReturnType<typeof setTimeout> | undefined;
-    const url = withToken(`${(httpBase || window.location.origin).replace(/^http/, 'ws')}/vnc/${botId}`);
+    const url = withToken(`${(httpBase || window.location.origin).replace(/^http/, 'ws')}/vnc`);
     const r = new RFB(el, url, { shared: true });
     r.viewOnly = false;
     r.resizeSession = true;
@@ -217,7 +220,7 @@ function Vnc({ botId, placeholder, onHands }: { botId: string; placeholder: stri
         /* already gone */
       }
     };
-  }, [botId, attempt]);
+  }, [attempt]);
   // "你在操作" while the user's hands are on it: any pointer or key activity, fading out shortly after.
   const idle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const touch = () => {

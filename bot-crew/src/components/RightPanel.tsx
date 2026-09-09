@@ -44,7 +44,8 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
   const open = todos.filter((t) => t.status !== 'done').length;
   const wait = todos.filter((t) => t.status === 'waiting' || t.status === 'blocked').length;
   const detail = s.panel.mode === 'task';
-  const on = bot?.desktop?.state === 'on';
+  const computer = s.computer;
+  const using = (computer?.state === 'on' ? (computer.users ?? []) : []).map((id) => s.bots.find((b) => b.id === id)?.name).filter((n): n is string => !!n);
   const routines = bot?.routines ?? [];
   const live = routines.filter((r) => r.enabled).length;
   return (
@@ -52,8 +53,8 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
       <Resizer col="side" edge="left" />
       <div className="workspace">
         {bot && (
-          <Section title={t('ws.computer')} hint={on ? t('ws.inUse') : undefined} startOpen>
-            <ScreenCard bot={bot} />
+          <Section title={t('ws.computer')} hint={using.length ? t('screen.usedBy', { names: using.join('、') }) : undefined} startOpen>
+            <ScreenCard />
           </Section>
         )}
         <Section

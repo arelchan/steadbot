@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
-import type { CrewSettings, Action, Bot, Integration, Matter, Message, Pending, Snapshot, ThreadId, Toast, Todo, GrowthEvent, GrowthKind } from './types.ts';
+import type { Computer, CrewSettings, Action, Bot, Integration, Matter, Message, Pending, Snapshot, ThreadId, Toast, Todo, GrowthEvent, GrowthKind } from './types.ts';
 import { uid } from './util.ts';
 
 export type StoreEvent =
@@ -18,6 +18,7 @@ export type StoreEvent =
   | { type: 'message_patch'; id: string; patch: Partial<Message> }
   | { type: 'shared_profile'; lines: string[] }
   | { type: 'settings'; settings: CrewSettings }
+  | { type: 'computer'; computer: Computer }
   | { type: 'typing'; threadId: ThreadId; botId: string; on: boolean }
   | { type: 'toast'; toast: Toast };
 
@@ -42,6 +43,8 @@ export class CrewStore extends EventEmitter {
       b.soul ??= '';
       b.notify ??= true;
       b.pinned ??= false;
+      // Bots used to have a computer each; now they share one (desktop.ts).
+      delete (b as { desktop?: unknown }).desktop;
     }
     if (!existsSync(file)) this.flush();
   }
@@ -313,6 +316,13 @@ export class CrewStore extends EventEmitter {
       if (m.threadId === threadId && m.author === 'user') return m;
     }
     return undefined;
+  }
+
+  setComputer(patch: Partial<Computer>) {
+    this.data.computer = { state: 'off', ...(this.data.computer ?? {}), ...patch };
+    this.save();
+    this.emitChange({ type: 'computer', computer: this.data.computer });
+    return this.data.computer;
   }
 
   setSettings(patch: CrewSettings) {
