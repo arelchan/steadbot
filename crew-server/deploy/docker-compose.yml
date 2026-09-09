@@ -12,6 +12,7 @@ services:
       CREW_PUBLIC_URL: ${CREW_PUBLIC_URL}
       CREW_PORT: "5200"
       CREW_BIND: 0.0.0.0
+      CREW_COMMIT: ${CREW_COMMIT:-}
     volumes:
       - crew-data:/data
       # The code is bind-mounted from the checkout, so pulling a new commit only needs a restart, not a rebuild.

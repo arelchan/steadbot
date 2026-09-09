@@ -30,8 +30,14 @@ const git = (args: string[], cwd = repoDir): string | undefined => {
 
 export const hasGit = () => existsSync(join(repoDir, '.git'));
 
-/** The commit this code is, short form. */
+/**
+ * The commit this code is, short form. In a container there is no .git: the commit arrives as CREW_COMMIT (set by
+ * the installer and refreshed on every upgrade, so a restart-only upgrade still reports the right one), and the
+ * stamp baked at image build time is the last resort.
+ */
 export function currentCommit(): string | undefined {
+  const fromEnv = process.env.CREW_COMMIT?.trim();
+  if (fromEnv) return fromEnv.slice(0, 12);
   const fromGit = hasGit() ? git(['rev-parse', '--short=12', 'HEAD']) : undefined;
   if (fromGit) return fromGit;
   try {

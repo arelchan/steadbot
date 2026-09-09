@@ -194,7 +194,12 @@ async function applyOnMachine(l: MachineLink, changed: string[], log: (s: string
     return;
   }
   log('只是代码变了，重启容器就行（几秒）…');
-  const compose = `cd ${CHECKOUT}/crew-server/deploy && docker compose`;
-  const r = await root(l, `${compose} up -d --no-build >/dev/null 2>&1 || ${compose} restart >/dev/null 2>&1; ${compose} ps --status running | tail -1; echo DONE`, 5 * 60_000);
+  const dep = `${CHECKOUT}/crew-server/deploy`;
+  // The container has no .git, so tell it which commit it is now running (version.ts reads CREW_COMMIT).
+  const stamp =
+    `cd ${dep} && C=$(git -C ${CHECKOUT} rev-parse HEAD) && ` +
+    `if grep -q '^CREW_COMMIT=' .env 2>/dev/null; then sed -i "s/^CREW_COMMIT=.*/CREW_COMMIT=$C/" .env; else echo "CREW_COMMIT=$C" >> .env; fi`;
+  const compose = `cd ${dep} && docker compose`;
+  const r = await root(l, `${stamp} && (${compose} up -d --no-build >/dev/null 2>&1 || ${compose} restart >/dev/null 2>&1); echo DONE`, 5 * 60_000);
   if (!clean(r.out).includes('DONE')) throw new Error(`重启失败：${clean(r.out).trim().slice(-240)}`);
 }
