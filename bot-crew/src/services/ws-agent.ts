@@ -1,4 +1,4 @@
-import { setRuntime } from './runtime';
+import { setRuntime, healRuntimeTarget } from './runtime';
 import type { AgentService } from './agent';
 import { getState, setState, select, setTyping, pushToast, resolvePending, removeBot, removeMatter, upsertSkill, upsertIntegration, clearThread, uid, setRemoteSink, remoteApply } from '../store';
 import { botThread, type Action, type Bot, type Channel, type CrewSettings, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo } from '../types';
@@ -108,6 +108,9 @@ export class WsAgentService implements AgentService {
       }
       remoteApply(() => setState({ online: false }));
       if (this.stopped) return;
+      // A few failures in a row usually means the stored pairing is stale (the machine was reinstalled); the
+      // EverBot on this computer knows the current one, so ask it and follow before retrying forever.
+      if (this.retry === 3) void healRuntimeTarget().then((changed) => changed && window.location.reload());
       const delay = Math.min(10_000, 500 * 2 ** this.retry++);
       setTimeout(() => this.connect(), delay);
     };

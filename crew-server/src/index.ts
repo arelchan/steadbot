@@ -555,6 +555,19 @@ async function main() {
         res.end(JSON.stringify(upgrader.status()));
         return true;
       }
+      if (url.pathname === '/runtime/target') {
+        // Where the bots actually are, for an App whose stored pairing went stale (a reinstall regenerates the
+        // token). Loopback only: on a machine with a token this would be handing out that machine's credentials.
+        if (config.authToken) {
+          res.writeHead(404, { 'content-type': 'application/json' });
+          res.end('{}');
+          return true;
+        }
+        const t = runtime.mode === 'moved' ? loadMovedTarget(runtime.movedTo) : undefined;
+        res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+        res.end(JSON.stringify(t ? { url: t.url, token: t.token, name: t.name } : { local: true }));
+        return true;
+      }
       if (url.pathname === '/runtime/info') {
         res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
         res.end(JSON.stringify(runtime.info()));

@@ -104,3 +104,29 @@ export function oneShot<T extends { type: string }>(ws: string, msg: object, wan
     };
   });
 }
+
+/**
+ * A stored pairing can go stale: reinstalling the machine regenerates its token, and the App then retries a
+ * connection that will never succeed. The EverBot on this computer always knows where the bots are, so ask it and
+ * follow. Returns true when the target changed (the caller reloads).
+ */
+export async function healRuntimeTarget(): Promise<boolean> {
+  if (!localHttpBase) return false;
+  try {
+    const r = await fetch(`${localHttpBase}/runtime/target`, { signal: AbortSignal.timeout(4000) });
+    if (!r.ok) return false;
+    const t = (await r.json()) as { url?: string; token?: string; name?: string; local?: boolean };
+    const cur = getRuntime();
+    if (t.local) {
+      if (cur.kind === 'local') return false;
+      setRuntime({ kind: 'local' });
+      return true;
+    }
+    if (!t.url || !t.token) return false;
+    if (cur.kind === 'remote' && cur.url.replace(/\/$/, '') === t.url.replace(/\/$/, '') && cur.token === t.token) return false;
+    setRuntime({ kind: 'remote', url: t.url.replace(/\/$/, ''), token: t.token, name: t.name, provider: 'byo' });
+    return true;
+  } catch {
+    return false;
+  }
+}
