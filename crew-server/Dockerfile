@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       tigervnc-standalone-server openbox tint2 x11-xserver-utils dbus-x11 \
       # …and what makes it look and work like one: wallpaper, a file manager, a terminal, icons, screenshots
       feh pcmanfm lxterminal adwaita-icon-theme imagemagick \
+      # hands (gui.ts): a vision model working the screen through synthetic mouse and keyboard
+      xdotool \
       # PowerPoint / Word / Excel, both for the bots to open and for the app's preview (office.ts converts them to PDF)
       libreoffice-impress libreoffice-writer libreoffice-calc \
       # rendering PDF pages to look at them when a file has no text layer (see.ts)

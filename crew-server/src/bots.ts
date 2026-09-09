@@ -35,6 +35,8 @@ import { libraryExtension } from './extensions/library.ts';
 import { webExtension } from './extensions/web.ts';
 import { connectExtension } from './extensions/connect.ts';
 import { harvestExtension } from './extensions/harvest.ts';
+import { operateExtension } from './extensions/operate.ts';
+import type { Hands } from './gui.ts';
 import { redactSecrets } from './secrets.ts';
 import type { ConnectorManager } from './connectors.ts';
 import type { BotCtx, CurrentTurn } from './extensions/ctx.ts';
@@ -112,6 +114,8 @@ export class BotManager extends EventEmitter {
   lightModel: Model<Api> | undefined;
   /** The model that reads pictures for bots whose own model has no eyes (vision.ts). */
   eyes: Eyes | undefined;
+  /** The model that works a screen from screenshots (gui.ts): guiModel, else the eyes. */
+  hands: Hands | undefined;
   fake: FakeBrain | undefined;
   /** Product-level operations for create_bot / create_group / configure; set by index.ts before use. */
   ops: CrewOps | undefined;
@@ -157,6 +161,12 @@ export class BotManager extends EventEmitter {
     this.eyes = resolveEyes(this.modelRuntime, vision, this.model, this.lightModel);
     if (this.eyes) console.log(`[crew] vision: ${this.eyes.model.provider}/${this.eyes.model.id}`);
     else console.warn('[crew] no vision model: bots can read documents but not pictures (set visionModel in config.json)');
+    // Hands for the `operate` tool: the model set for it (a computer-use model), else whatever the eyes are.
+    if (config.guiModel && this.modelRuntime) {
+      const gui = pick(config.guiModel) ?? this.registerConfiguredModel(config.guiModel, { vision: true });
+      this.hands = gui ? { runtime: this.modelRuntime, model: gui } : this.eyes;
+    } else this.hands = this.eyes;
+    if (this.hands) console.log(`[crew] hands: ${this.hands.model.provider}/${this.hands.model.id}${config.guiModel ? '' : ' (no guiModel; using the eyes)'}`);
   }
 
   /**
@@ -288,6 +298,7 @@ export class BotManager extends EventEmitter {
         mcpExt,
         agentExtension(ctx, this.runner),
         computerExtension(ctx, () => this.desktops),
+        operateExtension(ctx, () => this.hands, () => this.desktops),
         seeExtension(ctx, () => this.eyes),
         ...(canDraw() ? [drawExtension(ctx)] : []),
         readExtension(ctx),

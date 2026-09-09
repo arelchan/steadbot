@@ -382,6 +382,18 @@ export class DesktopManager {
     return !!this.live;
   }
 
+  /** The X display while the computer is on (for the hands, gui.ts). */
+  get display(): string | undefined {
+    return this.live ? `:${DISPLAY}` : undefined;
+  }
+
+  /** A bot used the screen through something other than its browser tools (the hands); keeps the computer awake. */
+  touch(botId: string) {
+    if (!this.live) return;
+    this.live.bots.set(botId, Date.now());
+    this.patch({ lastUsed: Date.now(), users: this.users() });
+  }
+
   private cdp: Promise<import('playwright-core').Browser> | undefined;
 
   /**
