@@ -101,21 +101,23 @@ function Still({ botId, live, epoch }: { botId: string; live: boolean; epoch: nu
 /**
  * The live screen, full size. Rendered on <body> (not inside the workspace panel): a modal has to sit above every
  * other layer, and it should not be zoomed with the UI density either — noVNC maps the mouse in real pixels.
+ *
+ * There is no "take over": the screen is live and the mouse and keyboard on it are simply the user's. The bot
+ * drives its browser through a separate channel (CDP), so both can act at once, like two people at one machine.
+ * A small tag shows while the user is actively moving or typing, so it is clear whose hands are on it.
  */
 function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
-  const [control, setControl] = useState(false);
+  const [hands, setHands] = useState(false);
   const st = bot.desktop?.state ?? 'off';
   const on = st === 'on';
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !control) onClose();
+      // Escape closes the screen only when the keyboard is not on the remote desktop.
+      if (e.key === 'Escape' && !document.activeElement?.closest('.vnc')) onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [control, onClose]);
-  useEffect(() => {
-    if (!on) setControl(false);
-  }, [on]);
+  }, [onClose]);
   // The screen being open means someone wants to see it: an asleep computer wakes (also if it dozed off meanwhile).
   useEffect(() => {
     if (st === 'off') agent.computerPower(bot.id, true);
@@ -128,16 +130,15 @@ function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
           <span className="sc-title">
             <i className={cx('sc-dot', st)} />
             {bot.name} 的电脑
-            {control && <span className="chip cn-chip">你在操作</span>}
+            {on && hands && <span className="chip cn-chip">你在操作</span>}
           </span>
           <span className="sc-actions">
-            {on && <button className={cx('btn sm', control && 'primary')} onClick={() => setControl((v) => !v)}>{control ? '交回给它' : '接管'}</button>}
             <button className="link quiet-link" onClick={onClose}>关闭</button>
           </span>
         </div>
         <div className="sc-big">
           {on ? (
-            <Vnc botId={bot.id} viewOnly={!control} placeholder={placeholder} />
+            <Vnc botId={bot.id} placeholder={placeholder} onHands={setHands} />
           ) : (
             <div className="sc-wait">
               <img className="sc-ghost" src={placeholder} alt="" draggable={false} onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} />
@@ -156,9 +157,7 @@ function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
         <div className="sc-note">
           {!on
             ? '它的电脑闲着时会休眠，省下云机器的内存；打开就醒，登录过的网站都还在。'
-            : control
-              ? '鼠标键盘现在归你：底部一排是浏览器、它的文件和终端。比如替它登录一个网站，登好点「交回给它」。'
-              : '只看不动。要替它操作（比如登录），点「接管」。这是实时画面，网络远会有一点延迟。'}
+            : '实时画面，直接点、直接打字就是在它的电脑上操作，比如替它登录一个网站；它自己的操作会同时进行。底部一排是浏览器、它的文件和终端。'}
         </div>
       </div>
     </div>,
@@ -167,11 +166,12 @@ function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
 }
 
 /**
- * One noVNC connection to the bot's display, scaled into its box. The last still sits underneath until the first
- * real frame has been painted, so opening the screen never shows a black box. Tuned for a long link: smaller
- * frames, moderate compression (the machine has two CPUs; heavy zlib costs more than it saves).
+ * One noVNC connection to the bot's display. The desktop takes the size of this box (SetDesktopSize → Xvnc's
+ * RandR), so pixels map 1:1 and text is crisp instead of a fixed frame stretched to fit. The last still sits
+ * underneath until the first real frame has been painted, so opening the screen never shows a black box. Tuned
+ * for a long link: moderate compression (the machine has two CPUs; heavy zlib costs more than it saves).
  */
-function Vnc({ botId, viewOnly, placeholder }: { botId: string; viewOnly: boolean; placeholder: string }) {
+function Vnc({ botId, placeholder, onHands }: { botId: string; placeholder: string; onHands: (v: boolean) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const rfb = useRef<RFB | null>(null);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'lost'>('connecting');
@@ -181,7 +181,8 @@ function Vnc({ botId, viewOnly, placeholder }: { botId: string; viewOnly: boolea
     if (!el) return;
     const url = withToken(`${(httpBase || window.location.origin).replace(/^http/, 'ws')}/vnc/${botId}`);
     const r = new RFB(el, url, { shared: true });
-    r.viewOnly = viewOnly;
+    r.viewOnly = false;
+    r.resizeSession = true;
     r.scaleViewport = true;
     r.background = 'transparent';
     r.qualityLevel = 5;
@@ -216,12 +217,21 @@ function Vnc({ botId, viewOnly, placeholder }: { botId: string; viewOnly: boolea
       }
     };
   }, [botId]);
-  useEffect(() => {
-    if (rfb.current) rfb.current.viewOnly = viewOnly;
-    if (!viewOnly) rfb.current?.focus();
-  }, [viewOnly]);
+  // "你在操作" while the user's hands are on it: any pointer or key activity, fading out shortly after.
+  const idle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const touch = () => {
+    onHands(true);
+    if (idle.current) clearTimeout(idle.current);
+    idle.current = setTimeout(() => onHands(false), 2500);
+  };
+  useEffect(
+    () => () => {
+      if (idle.current) clearTimeout(idle.current);
+    },
+    [],
+  );
   return (
-    <div className={cx('vnc', status, painted && 'painted')}>
+    <div className={cx('vnc', status, painted && 'painted')} onPointerDown={touch} onPointerMove={touch} onKeyDown={touch} onWheel={touch}>
       <img className="sc-ghost" src={placeholder} alt="" draggable={false} onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} />
       <div className="vnc-screen" ref={box} />
       {!painted && status !== 'lost' && <span className="sc-wait-msg pulse">连接屏幕…</span>}

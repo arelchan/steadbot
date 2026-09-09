@@ -7,6 +7,8 @@ services:
         CREW_COMMIT: ${CREW_COMMIT:-}
     image: crew-server:local
     restart: unless-stopped
+    # the bots' browsers render through shared memory; Docker's default 64 MB makes Chrome crawl
+    shm_size: 1gb
     environment:
       CREW_AUTH_TOKEN: ${CREW_AUTH_TOKEN}
       CREW_PUBLIC_URL: ${CREW_PUBLIC_URL}

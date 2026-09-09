@@ -250,7 +250,10 @@ export class DesktopManager {
       const chrome = chromiumBinary();
       if (!chrome) throw new Error('这台机器上没有浏览器（Playwright 的 Chromium 没装上）');
       const cdp = 9222 + (display - FIRST_DISPLAY);
-      run(chrome, ['--no-sandbox', `--user-data-dir=${profile}`, `--remote-debugging-port=${cdp}`, '--no-first-run', '--no-default-browser-check', '--hide-crash-restore-bubble', '--disable-features=TranslateUI', `--window-size=${W - 80},${H - 120}`, '--window-position=40,20', 'about:blank']);
+      // Container + software-rendered X: no GPU (SwiftShader compositing is slower than plain CPU here), no reliance on
+      // the tiny /dev/shm, no smooth scrolling (dozens of in-between frames over VNC read as lag). Maximized, so the
+      // window follows the desktop when the viewer resizes it.
+      run(chrome, ['--no-sandbox', `--user-data-dir=${profile}`, `--remote-debugging-port=${cdp}`, '--no-first-run', '--no-default-browser-check', '--hide-crash-restore-bubble', '--disable-features=TranslateUI', '--disable-gpu', '--disable-dev-shm-usage', '--disable-smooth-scrolling', '--force-device-scale-factor=1', '--start-maximized', 'about:blank']);
       const cdpDeadline = Date.now() + 20_000;
       while (!(await portOpen(cdp))) {
         if (Date.now() > cdpDeadline) throw new Error('浏览器 20 秒内没起来');
