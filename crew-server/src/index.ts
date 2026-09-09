@@ -394,11 +394,6 @@ async function main() {
         return { kind, text: ready?.ok === false ? `${head}\n注意：${ready.note}。手册里用到这部分的步骤在这台机器上跑不了，换个做法，或者告诉用户差什么。` : head };
       }
 
-      if (kind === 'connector') {
-        const r = await bots.ops!.connect(botId, threadId, e.service ?? e.slug, e.description);
-        return { kind, text: r.text };
-      }
-
       if (kind === 'assets') {
         if (!e.assets?.url) throw new Error(`「${e.slug}」没写素材包地址`);
         const dir = join(config.botsDir, botId, 'workspace', '_assets', e.slug);
@@ -408,7 +403,12 @@ async function main() {
         return { kind, text: `素材包「${e.title}」已经放到 ${relative(join(config.botsDir, botId), got.dir)}（${got.files} 个文件）。${e.assets.howto ?? ''}${e.license ? ` 许可：${e.license}。` : ''}` };
       }
 
-      // mcp
+      // mcp behind the product's OAuth service: the card is a login, not a key
+      if (e.service) {
+        const r = await bots.ops!.connect(botId, threadId, e.service, e.description);
+        return { kind, text: r.text };
+      }
+      // mcp the bot connects to itself
       const m = e.mcp;
       if (!m) throw new Error(`「${e.slug}」没写怎么连`);
       const existing = store.data.integrations.find((i) => i.kind === 'mcp' && i.name === e.title);

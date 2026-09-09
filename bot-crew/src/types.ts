@@ -400,11 +400,11 @@ export interface SkillDoc {
 }
 
 /** One entry of the curated skill library. */
-export type LibraryKind = 'skill' | 'mcp' | 'connector' | 'assets';
+export type LibraryKind = 'skill' | 'mcp' | 'assets';
 
 /**
- * One thing a bot can equip itself with. A manual, an MCP server, a one-click connector, a pack of assets — the
- * differences are in how they are installed, not in how they are found, so they share one index and one search.
+ * One thing a bot can equip itself with. A manual, an external tool set (MCP server or a platform behind the OAuth
+ * service), a pack of assets — the differences are in how they are installed, not in how they are found.
  */
 export interface LibraryEntry {
   slug: string;
@@ -416,6 +416,8 @@ export interface LibraryEntry {
   license?: string;
   /** what kind of thing this is; absent in old data means a skill */
   kind?: LibraryKind;
+  /** kind=skill: the manual's SKILL.md on the machine */
+  path?: string;
   /** kind=mcp: how to start it and what it needs */
   mcp?: {
     transport: 'stdio' | 'http';
@@ -431,7 +433,7 @@ export interface LibraryEntry {
     /** one line about what its tools do, for search and for the bot */
     tools?: string;
   };
-  /** kind=connector: the toolkit slug behind the one-click card */
+  /** kind=mcp behind the product's OAuth service: the toolkit slug; authorization is a click, not a key */
   service?: string;
   /** kind=assets: a pack to download into the workspace */
   assets?: { url: string; howto?: string };

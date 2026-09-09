@@ -669,7 +669,7 @@
       ]
     }
   ],
-  "$comment2": "tools：池里不是手册的条目——MCP 服务、一键连接、素材包。纯数据，不用同步，不落盘。",
+  "$comment2": "tools：池里不是手册的条目——MCP 服务、素材包。纯数据，不用同步，不落盘。走产品 OAuth 服务的平台（Gmail、Notion…）在 src/connectors.ts 的 TOOLKITS 里，不写在这。",
   "tools": [
     {
       "slug": "pixellab",

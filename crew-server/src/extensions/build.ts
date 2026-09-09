@@ -36,7 +36,7 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
         name: 'build',
         label: '进化',
         description:
-          '构建你自己：你是谁、你会什么、你能连什么，全在这里。\n文字类（action=rewrite 自省重写 / set 原样写入）：name 名字、tagline 简介、soul 人设、instructions 职责与工作方式、skill 技能手册、routine 例行任务。\n装配类（action=add 装上 / remove 卸掉）：skill 从库里挂一份现成手册（value=库里的 slug）；mcp 接一个外部工具（value=库里的 slug，或自己写 {name, command|url, env?}）；service 接一个平台（value=平台 slug，如 gmail、github、notion，会给用户发授权卡）；agent 用一个外部编程 agent（value=claude-code / codex / hermes / opencode / openclaw）；channel 让自己上一个 IM（value=飞书 / 企业微信 / Slack / Telegram，会给用户发凭据卡）；assets 下载一个素材包（value=库里的 slug）。\n装什么先 library(search) 找 slug；库里没有的 mcp 才自己写命令。适用：用户纠正了你的做法；同类任务反复出现却没有手册；手上的手段做不出像样的东西；用户直接要你改名、加定时任务、接某个服务。不适用：只影响这一次的临时要求（直接照做）；关于用户的事实（remember）；通知、自主度、置顶、群聊（configure）。',
+          '构建你自己：你是谁、你会什么、你能连什么，全在这里。\n文字类（action=rewrite 自省重写 / set 原样写入）：name 名字、tagline 简介、soul 人设、instructions 职责与工作方式、skill 技能手册、routine 例行任务。\n装配类（action=add 装上 / remove 卸掉）：skill 把库里一份手册长在身上（value=库里的 slug）；mcp 接一个外部工具（value=库里的 slug——MCP 服务或 Gmail、GitHub、Notion 这类一键登录的平台都在库里；库里没有的才自己写 {name, command|url, env?}）；service 同 mcp，value=平台 slug；agent 用一个外部编程 agent（value=claude-code / codex / hermes / opencode / openclaw）；channel 让自己上一个 IM（value=飞书 / 企业微信 / Slack / Telegram，会给用户发凭据卡）；assets 下载一个素材包（value=库里的 slug）。\n装之前先 library(search) 找候选、read 过手册再定：搜到不等于要装，用一次就照着手册做，值得长在身上的才 add。适用：用户纠正了你的做法；同类任务第二次出现；手上的手段做不出像样的东西、库里那份能；用户直接要你改名、加定时任务、接某个服务。不适用：只影响这一次的临时要求（直接照做）；关于用户的事实（remember）；通知、自主度、置顶、群聊（configure）。',
         promptSnippet: '构建你自己：名字 / 人设 / 工作方式 / 技能 / 例行任务，以及装外部工具、接服务、接 IM、下素材包（add）',
         promptGuidelines: [
           'rewrite 要有依据：用户明确纠正过，或同类情况至少出现两次。一句夸奖、一次偶然，不足以改。',
@@ -44,7 +44,7 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
           '用户给的是原话（「把人设改成：…」「叫你小张」）用 set 原样写入；给的是方向（「别这么客气」「以后先给结论」）用 rewrite 自己重写。',
           'rewrite 调用后照常继续手上的事，不要等结果；回复里最多带半句「我顺手把自己的…调一下」，用户不问就不展开。',
           'skill：技能名沿用已有的表示改写，新名字表示新建；手册是写给以后的你看的操作步骤。routine 的 schedule 只认「每天 20:30」「每周一 09:00」「工作日 18:00」「每 30 分钟」「每小时」这几种写法；用户说「这条只发 Telegram」就带上 channels。',
-          '要装东西先 library(search) 拿 slug，再 build(action=add, value=slug)——手册、外部工具、一键连接、素材包都是这一条路。装的时候依赖会自动装好，装不上会明说缺什么。',
+          '装东西一条路：library(search) 找到候选，read 手册看值不值，再 build(action=add, value=slug)——手册、外部工具、素材包都这样。搜到不等于要装：这次用一次就照着手册做完，同类活反复来才装。装的时候依赖会自动装好，装不上会明说缺什么。',
           '装完直接接着干活，不用向用户汇报「我装了什么」；要密钥的会自动发卡，用户填完系统通知你，不要追问。',
           '这一轮装了两样以上、把一件以前做不了的事做成了，而库里没有讲这个组合的手册，就 build(aspect=skill, rewrite) 写一份：什么场景、用哪几样、怎么验证。只装了一份现成手册照着做的不用写。',
         ],

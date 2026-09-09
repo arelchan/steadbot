@@ -384,11 +384,12 @@ export interface SkillDoc {
 }
 
 /** What a bot can equip itself with, from the pool (crew-server/library + manifest, mirrored to ~/.crew/library). */
-export type LibraryKind = 'skill' | 'mcp' | 'connector' | 'assets';
+export type LibraryKind = 'skill' | 'mcp' | 'assets';
 
 /**
- * One thing a bot can equip itself with. A manual, an MCP server, a one-click connector, a pack of assets — the
- * differences are in how they are installed, not in how they are found, so they share one index and one search.
+ * One thing a bot can equip itself with. A manual, an external tool set (an MCP server, or a platform behind the
+ * product's OAuth service — both end up as tools on the bot; only the authorization differs), a pack of assets.
+ * The differences are in how they are installed, not in how they are found, so they share one index and one search.
  */
 export interface LibraryEntry {
   slug: string;
@@ -400,7 +401,9 @@ export interface LibraryEntry {
   license?: string;
   /** what kind of thing this is; absent in old data means a skill */
   kind?: LibraryKind;
-  /** kind=mcp: how to start it and what it needs */
+  /** kind=skill: the manual's SKILL.md on this machine — readable (read tool) without mounting it */
+  path?: string;
+  /** kind=mcp: how to start it and what it needs. Absent when the tools come through `service`. */
   mcp?: {
     transport: 'stdio' | 'http';
     command?: string;
@@ -415,7 +418,7 @@ export interface LibraryEntry {
     /** one line about what its tools do, for search and for the bot */
     tools?: string;
   };
-  /** kind=connector: the toolkit slug behind the one-click card */
+  /** kind=mcp, hosted behind the product's OAuth connector service: the toolkit slug. Authorization is a click on a card, not a key. */
   service?: string;
   /** kind=assets: a pack to download into the workspace */
   assets?: { url: string; howto?: string };

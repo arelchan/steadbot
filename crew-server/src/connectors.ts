@@ -216,8 +216,34 @@ const CALENDAR: Connector = {
 
 export const CONNECTORS: Connector[] = [GMAIL, CALENDAR];
 export const connectorById = (id: string) => CONNECTORS.find((c) => c.id === id || c.name === id);
+/**
+ * Platforms behind the product's OAuth connector service. Each is an MCP-style tool set the bot gets after the user
+ * clicks a login card; in the pool they read as external tools whose authorization is a click, not a key.
+ */
+export const TOOLKITS: { slug: string; title: string; description: string; tags: string[]; category: string }[] = [
+  { slug: 'gmail', title: 'Gmail', description: '读邮件、搜邮件、代用户发邮件和回复。', tags: ['邮件', '邮箱', 'email', 'mail', 'gmail', '收件箱', '发邮件'], category: 'productivity' },
+  { slug: 'googlecalendar', title: 'Google 日历', description: '看日程、找空闲、建会议、改会议、发邀请。', tags: ['日历', '日程', '会议', 'calendar', '排期', '邀请'], category: 'productivity' },
+  { slug: 'googledrive', title: 'Google Drive', description: '找文件、读文件、上传和分享云盘里的东西。', tags: ['云盘', '文件', 'drive', '共享', '上传'], category: 'productivity' },
+  { slug: 'googlesheets', title: 'Google Sheets', description: '读写在线表格：查行、追加、改单元格、建表。', tags: ['表格', 'sheets', '电子表格', '数据', '在线表格'], category: 'productivity' },
+  { slug: 'googledocs', title: 'Google Docs', description: '读和写在线文档，建新文档、追加段落。', tags: ['文档', 'docs', '在线文档', '写作'], category: 'productivity' },
+  { slug: 'notion', title: 'Notion', description: '读页面和数据库、建页面、追加块、查库里的记录。', tags: ['notion', '笔记', '知识库', '数据库', '页面', 'wiki'], category: 'productivity' },
+  { slug: 'slack', title: 'Slack（读写工作区）', description: '搜消息、读频道、发消息到频道或私信；这是读写用户 Slack 的工具，不是让你自己上 Slack 当机器人。', tags: ['slack', '频道', '消息', '工作区'], category: 'productivity' },
+  { slug: 'github', title: 'GitHub', description: '读仓库、看代码和提交、找 PR 和 issue，也能建 issue、提 PR、评审、合并。', tags: ['github', '代码', '仓库', 'PR', 'issue', '提交', 'git'], category: 'dev' },
+  { slug: 'linear', title: 'Linear', description: '查、建、改 Linear 里的 issue 和项目。', tags: ['linear', 'issue', '任务', '项目管理', '迭代'], category: 'dev' },
+  { slug: 'jira', title: 'Jira', description: '查、建、改 Jira 里的工单和看板。', tags: ['jira', '工单', 'issue', '看板', '项目管理'], category: 'dev' },
+  { slug: 'trello', title: 'Trello', description: '看板、卡片、清单的读写。', tags: ['trello', '看板', '卡片', '任务'], category: 'productivity' },
+  { slug: 'asana', title: 'Asana', description: '任务、项目、负责人和截止日期的读写。', tags: ['asana', '任务', '项目管理', '截止'], category: 'productivity' },
+  { slug: 'outlook', title: 'Outlook', description: '微软邮箱和日历：读邮件、发邮件、看日程。', tags: ['outlook', '邮件', '邮箱', '日历', '微软', 'office'], category: 'productivity' },
+  { slug: 'dropbox', title: 'Dropbox', description: '找、读、上传、分享 Dropbox 里的文件。', tags: ['dropbox', '云盘', '文件', '分享'], category: 'productivity' },
+  { slug: 'airtable', title: 'Airtable', description: '读写 Airtable 的表和记录。', tags: ['airtable', '表格', '数据库', '记录'], category: 'productivity' },
+  { slug: 'hubspot', title: 'HubSpot', description: '联系人、公司、交易的 CRM 读写。', tags: ['hubspot', 'crm', '客户', '销售', '联系人', '线索'], category: 'business' },
+  { slug: 'discord', title: 'Discord', description: '读频道、发消息、管服务器里的内容。', tags: ['discord', '频道', '社群', '消息'], category: 'productivity' },
+  { slug: 'lark', title: 'Lark（海外版飞书）', description: '海外版飞书的文档、日历、消息。国内飞书不走这里。', tags: ['lark', '文档', '日历'], category: 'productivity' },
+  { slug: 'twitter', title: 'X（Twitter）', description: '搜推文、读时间线、发推、回复。', tags: ['twitter', 'x', '推特', '推文', '社交'], category: 'business' },
+  { slug: 'youtube', title: 'YouTube', description: '搜视频、看频道和视频信息、拿字幕。', tags: ['youtube', '视频', '频道', '字幕'], category: 'research' },
+];
 /** Common Composio toolkit slugs, for the tool description and for guessing what the user meant. */
-export const POPULAR_TOOLKITS = ['gmail', 'googlecalendar', 'googledrive', 'googlesheets', 'googledocs', 'notion', 'slack', 'github', 'linear', 'jira', 'trello', 'asana', 'outlook', 'dropbox', 'airtable', 'hubspot', 'discord', 'lark', 'twitter', 'youtube'];
+export const POPULAR_TOOLKITS = TOOLKITS.map((t) => t.slug);
 
 interface DynTool { slug: string; name: string; description: string; schema: TSchema; write: boolean }
 /** Read-only operations by slug verb; everything else changes state on the user's account. */

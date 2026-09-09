@@ -273,14 +273,15 @@ function LibraryPicker({ bot, onBack }: { bot: Bot; onBack: () => void }) {
   const [cat, setCat] = useState<string | null>(null);
   const has = new Set(bot.skills);
   const needle = q.trim().toLowerCase();
-  const hits = library.filter((e) => (!cat || e.category === cat) && (!needle || [e.title, e.description, ...e.tags].some((t) => t.toLowerCase().includes(needle))));
-  const cats = LIBRARY_CATEGORY_IDS.filter((c) => library.some((e) => e.category === c));
+  const manuals = library.filter((e) => (e.kind ?? 'skill') === 'skill');
+  const hits = manuals.filter((e) => (!cat || e.category === cat) && (!needle || [e.title, e.description, ...e.tags].some((t) => t.toLowerCase().includes(needle))));
+  const cats = LIBRARY_CATEGORY_IDS.filter((c) => manuals.some((e) => e.category === c));
   const groups = cats.map((c) => ({ c, items: hits.filter((e) => e.category === c) })).filter((g) => g.items.length);
   return (
     <div className="lib-picker">
       <div className="sd-top">
         <button className="back" onClick={onBack}>{t('cfg.backSkills')}</button>
-        <span className="quiet">{tn('cfg.manuals', library.length)}</span>
+        <span className="quiet">{tn('cfg.manuals', manuals.length)}</span>
       </div>
       <input className="sd-desc-edit" autoFocus placeholder={t('cfg.libSearch')} value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="lib-cats">

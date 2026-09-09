@@ -5,10 +5,12 @@ import type { Api, Model } from '@earendil-works/pi-ai';
 import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import type { LibraryEntry, LibraryKind } from './types.ts';
 import type { SkillStore } from './skills.ts';
-import { POPULAR_TOOLKITS } from './connectors.ts';
+import { POPULAR_TOOLKITS, TOOLKITS, isChinesePlatform } from './connectors.ts';
 
 /** How each kind reads in a list the bot sees. */
-export const KIND_LABEL: Record<LibraryKind, string> = { skill: '手册', mcp: '外部工具', connector: '一键连接', assets: '素材包' };
+export const KIND_LABEL: Record<LibraryKind, string> = { skill: '手册', mcp: '外部工具', assets: '素材包' };
+/** How an external tool set gets authorized: a login click, a key on a card, or nothing. */
+export const authLabel = (e: LibraryEntry) => (e.service ? '一键登录' : e.mcp?.env?.length ? '填密钥' : '不用授权');
 
 export const LIBRARY_CATEGORIES: Record<string, string> = {
   dev: '开发',
@@ -24,8 +26,8 @@ export const LIBRARY_CATEGORIES: Record<string, string> = {
 interface Manifest {
   categories?: Record<string, string>;
   skills: { slug: string; category: string; repo?: string; path?: string; tags?: string[] }[];
-  /** Everything in the pool that is not a manual: MCP servers, one-click connectors, asset packs. Pure data —
-   *  nothing to clone, nothing on disk, so they live in the manifest and nowhere else. */
+  /** Everything in the pool that is not a manual: MCP servers, asset packs. Pure data — nothing to clone, nothing on
+   *  disk, so they live in the manifest and nowhere else. Platforms behind the OAuth service come from connectors.ts. */
   tools?: LibraryEntry[];
 }
 
@@ -129,11 +131,16 @@ export class Library {
       if (!t.slug || !t.kind || t.kind === 'skill') continue;
       this.entries.set(t.slug, { ...t, title: t.title || t.slug, category: t.category || 'design', description: t.description ?? '', tags: t.tags ?? [], body: '', dir: '' });
     }
+    // Platforms behind the product's OAuth service are external tools too; the bot should find Gmail where it finds PixelLab.
+    for (const t of TOOLKITS) {
+      if (isChinesePlatform(t.slug) || this.entries.has(t.slug)) continue;
+      this.entries.set(t.slug, { slug: t.slug, kind: 'mcp', category: t.category, title: t.title, description: t.description, tags: t.tags, service: t.slug, body: '', dir: '' });
+    }
     console.log(`[crew] pool: ${skillCount} skills + ${this.entries.size - skillCount} tools in ${new Set([...this.entries.values()].map((e) => e.category)).size} categories`);
   }
 
   list(): LibraryEntry[] {
-    return [...this.entries.values()].map(({ body: _b, dir: _d, ...e }) => e).sort((a, b) => a.category.localeCompare(b.category) || a.title.localeCompare(b.title));
+    return [...this.entries.values()].map(strip).sort((a, b) => a.category.localeCompare(b.category) || a.title.localeCompare(b.title));
   }
 
   get(slug: string) {
@@ -157,10 +164,7 @@ export class Library {
       })
       .filter((x) => x.s > 0)
       .sort((a, b) => b.s - a.s);
-    return scored.slice(0, limit).map(({ e }) => {
-      const { body: _b, dir: _d, ...rest } = e;
-      return rest;
-    });
+    return scored.slice(0, limit).map(({ e }) => strip(e));
   }
 
   /** Compact catalog for prompts: one line per entry. */
@@ -213,7 +217,7 @@ export class Library {
   mount(slug: string, skills: SkillStore): { name: string; fresh: boolean } {
     const e = this.get(slug);
     if (!e) throw new Error(`库里没有「${slug}」`);
-    if ((e.kind ?? 'skill') !== 'skill') throw new Error(`「${slug}」不是手册，是${e.kind}，用 build(action=add) 装`);
+    if ((e.kind ?? 'skill') !== 'skill') throw new Error(`「${slug}」不是手册，是${KIND_LABEL[e.kind ?? 'skill']}，用 build(action=add) 装`);
     if (skills.get(e.title)) return { name: e.title, fresh: false };
     const dst = skills.dirFor(e.title);
     mkdirSync(dst, { recursive: true });
@@ -224,6 +228,12 @@ export class Library {
     skills.write(e.title, e.description, e.body, { library: e.slug, category: e.category, source: e.source });
     return { name: e.title, fresh: true };
   }
+}
+
+/** The entry as the bot and the app see it: no body, no directory; a manual carries the path of its SKILL.md. */
+function strip(e: Loaded): LibraryEntry {
+  const { body: _b, dir, ...rest } = e;
+  return dir ? { ...rest, path: join(dir, 'SKILL.md') } : rest;
 }
 
 function tokens(s: string): Set<string> {
