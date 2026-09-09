@@ -23,7 +23,7 @@ export interface CrewOps {
   /** lexical search over the curated skill library; empty query lists everything */
   librarySearch(query: string, limit?: number): (LibraryEntry & { categoryLabel: string })[];
   /** copy a library skill onto a bot (idempotent) */
-  libraryMount(botId: string, slug: string): Promise<{ name: string; already: boolean }>;
+  libraryMount(botId: string, slug: string): Promise<{ name: string; already: boolean; ready?: string }>;
   /** steward only: this machine, and the machine the user is moving the bots to (if one was installed) */
   machineStatus(): Promise<MachineStatus>;
   /** the vigil manager, for the vigil (值守) tool */

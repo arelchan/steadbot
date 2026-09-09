@@ -45,7 +45,8 @@ export function libraryExtension(c: BotCtx, ops: () => CrewOps): InlineExtension
           }
           if (!p.slug?.trim()) throw new Error('mount 需要 slug');
           const r = await ops().libraryMount(c.botId, p.slug.trim());
-          return text(r.already ? `「${r.name}」已经在你的技能里了，直接照着做。` : `已挂载「${r.name}」，手册现在在你的技能列表里，按它的步骤做。`);
+          const head = r.already ? `「${r.name}」已经在你的技能里了，直接照着做。` : `已挂载「${r.name}」，手册现在在你的技能列表里，按它的步骤做。`;
+          return text(r.ready ? `${head}\n注意：${r.ready}。手册里用到这部分的步骤在这台机器上跑不了，换个做法，或者告诉用户差什么。` : head);
         },
       });
     },

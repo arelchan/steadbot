@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readRequires, writeRequires } from './requires.ts';
 import type { SkillDoc } from './types.ts';
 
 /**
@@ -41,6 +42,12 @@ export class SkillStore extends EventEmitter {
   }
 
   /** Directory a skill's files live in (created on write). */
+  /** What this skill needs on the machine, as last scanned. */
+  requiresOf(name: string) {
+    const slug = this.index[name.trim()];
+    return slug ? readRequires(join(this.dir, slug)) : undefined;
+  }
+
   dirFor(name: string) {
     return join(this.dir, this.slugFor(name));
   }
@@ -130,6 +137,13 @@ export class SkillStore extends EventEmitter {
       '',
     ].join('\n');
     writeFileSync(join(this.dir, slug, 'SKILL.md'), fm + body.trim() + '\n');
+    // What this manual needs to actually run, read out of the manual and its scripts (requires.ts). Written here so
+    // a skill the bot wrote itself is treated exactly like one from the library.
+    try {
+      writeRequires(join(this.dir, slug), { derivedFrom: prev.library ? 'static' : 'static:own' });
+    } catch (e) {
+      console.warn('[crew] requires scan failed for', n, (e as Error).message);
+    }
     this.generating.delete(n);
     const doc = this.read(n)!;
     this.emit('change', doc);

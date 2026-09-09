@@ -33,6 +33,8 @@ interface Manifest {
   platform?: string;
   pip: Record<string, { for: string[]; at: number }>;
   npm: Record<string, { for: string[]; at: number }>;
+  /** names that are not real packages (a scanner reads `import png`, the distribution is `pypng`): do not keep retrying */
+  failed?: Record<string, { kind: string; at: number }>;
 }
 interface SystemNeeds {
   /** apt package name -> which library entries need it */
@@ -144,34 +146,69 @@ export interface Ready {
  * computer that would be taking over their machine, and in the container they are the image's job (recorded in
  * system.json so a rebuilt machine can put them back).
  */
+const COOLDOWN = 7 * 24 * 60 * 60_000;
+
 export async function ensure(req: Requires, forEntry: string): Promise<Ready> {
-  const need = await missing(req);
+  const all = await missing(req);
+  // Something that failed to install a moment ago will fail again; retrying it on every mount only burns minutes.
+  const failed = manifest().failed ?? {};
+  const fresh = (kind: string, n: string) => !(failed[`${kind}:${n}`] && Date.now() - failed[`${kind}:${n}`].at < COOLDOWN);
+  const need: Requires = { pip: (all.pip ?? []).filter((n) => fresh('pip', n)), npm: (all.npm ?? []).filter((n) => fresh('npm', n)), bin: all.bin };
   const installed = { pip: [] as string[], npm: [] as string[] };
   const errors: string[] = [];
+
+  /**
+   * Install as one batch, and if that fails, one at a time. A dependency list read out of a manual always contains
+   * a name or two that is not a real package (`import png` is the `pypng` distribution), and both pip and npm fail
+   * the whole transaction on one bad name — so a single wrong guess would leave the bot with nothing.
+   */
+  const install = async (kind: 'pip' | 'npm', names: string[], one: (batch: string[]) => Promise<void>) => {
+    try {
+      await one(names);
+      installed[kind] = names;
+      return;
+    } catch (e) {
+      if (names.length === 1) {
+        errors.push(`${kind}：${(e as Error).message.split('\n').slice(-1)[0].slice(0, 160)}`);
+        return;
+      }
+    }
+    const bad: string[] = [];
+    for (const n of names) {
+      try {
+        await one([n]);
+        installed[kind].push(n);
+      } catch {
+        bad.push(n);
+      }
+    }
+    if (bad.length) {
+      errors.push(`${kind} 装不了：${bad.join('、')}`);
+      const m = manifest();
+      m.failed = { ...m.failed };
+      for (const n of bad) m.failed[`${kind}:${n}`] = { kind, at: Date.now() };
+      save(manifestFile, m);
+    }
+  };
 
   if (need.pip?.length) {
     await serial(async () => {
       try {
         await ensureVenv();
-        const args = ['install', '--no-input', ...(config.tools.pipIndex ? ['-i', config.tools.pipIndex] : []), ...need.pip!];
-        await run(join(pyBin, 'pip'), args, 15 * 60_000);
-        installed.pip = need.pip!;
       } catch (e) {
-        errors.push(`pip：${(e as Error).message.split('\n').slice(-1)[0].slice(0, 200)}`);
+        errors.push(`python 环境建不起来：${(e as Error).message.slice(0, 160)}`);
+        return;
       }
+      await install('pip', need.pip!, (batch) => run(join(pyBin, 'pip'), ['install', '--no-input', ...(config.tools.pipIndex ? ['-i', config.tools.pipIndex] : []), ...batch], 15 * 60_000).then(() => undefined));
     });
   }
   if (need.npm?.length) {
     await serial(async () => {
-      try {
-        mkdirSync(nodeDir, { recursive: true });
-        if (!existsSync(join(nodeDir, 'package.json'))) writeFileSync(join(nodeDir, 'package.json'), JSON.stringify({ name: 'crew-tools', private: true }, null, 2));
-        const args = ['install', '--prefix', nodeDir, '--no-audit', '--no-fund', '--omit=dev', ...(config.tools.npmRegistry ? ['--registry', config.tools.npmRegistry] : []), ...need.npm!];
-        await run('npm', args, 15 * 60_000);
-        installed.npm = need.npm!;
-      } catch (e) {
-        errors.push(`npm：${(e as Error).message.split('\n').slice(-1)[0].slice(0, 200)}`);
-      }
+      mkdirSync(nodeDir, { recursive: true });
+      if (!existsSync(join(nodeDir, 'package.json'))) writeFileSync(join(nodeDir, 'package.json'), JSON.stringify({ name: 'crew-tools', private: true }, null, 2));
+      await install('npm', need.npm!, (batch) =>
+        run('npm', ['install', '--prefix', nodeDir, '--no-audit', '--no-fund', '--omit=dev', ...(config.tools.npmRegistry ? ['--registry', config.tools.npmRegistry] : []), ...batch], 15 * 60_000).then(() => undefined),
+      );
     });
   }
   if (installed.pip.length || installed.npm.length) {
@@ -189,9 +226,7 @@ export async function ensure(req: Requires, forEntry: string): Promise<Ready> {
 
   const left = await missing(req);
   const ok = !left.pip?.length && !left.npm?.length && !left.bin?.length;
-  const note = ok
-    ? undefined
-    : [left.bin?.length ? `这台机器上没有 ${left.bin.join('、')}` : '', ...errors, left.pip?.length || left.npm?.length ? `装不上：${[...(left.pip ?? []), ...(left.npm ?? [])].join('、')}` : ''].filter(Boolean).join('；');
+  const note = ok ? undefined : [left.bin?.length ? `这台机器上没有 ${left.bin.join('、')}` : '', ...errors].filter(Boolean).join('；') || `装不上：${[...(left.pip ?? []), ...(left.npm ?? [])].join('、')}`;
   return { ok, installed, missing: left, note };
 }
 

@@ -21,7 +21,7 @@ import { AgentRunner, McpManager, seedIntegrations } from './integrations.ts';
 import { ChannelManager, IMS, type Im } from './channels.ts';
 import { DesktopManager } from './desktop.ts';
 import { Upgrader } from './upgrade.ts';
-import { restoreAll } from './tools.ts';
+import { ensure, restoreAll } from './tools.ts';
 import { versionLine } from './version.ts';
 import { usageReport } from './usage.ts';
 import { Runtime } from './runtime.ts';
@@ -341,7 +341,12 @@ async function main() {
       if (!e) throw new Error(`技能库里没有「${slug}」，先用 search 找到 slug`);
       const before = store.bot(botId)?.skills ?? [];
       const added = mountLibrary(botId, [e.slug]);
-      return { name: e.title, already: !added.length && before.includes(e.title) };
+      const already = !added.length && before.includes(e.title);
+      // Mounting a manual that cannot run here is worse than not having it: the bot follows the steps and hits an
+      // import error halfway through. So install what it needs now and say plainly what is still missing.
+      const req = skills.requiresOf(e.title);
+      const ready = req ? await ensure(req, e.slug) : undefined;
+      return { name: e.title, already, ready: ready?.ok === false ? ready.note : undefined };
     },
     async createGroup(o) {
       const matter = router.createMatter({ title: o.title, summary: o.summary, memberIds: o.memberIds, leadId: o.leadId });
