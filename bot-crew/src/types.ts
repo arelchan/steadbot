@@ -394,6 +394,12 @@ export interface SkillDoc {
 }
 
 /** One entry of the curated skill library. */
+export type LibraryKind = 'skill' | 'mcp' | 'connector' | 'assets';
+
+/**
+ * One thing a bot can equip itself with. A manual, an MCP server, a one-click connector, a pack of assets — the
+ * differences are in how they are installed, not in how they are found, so they share one index and one search.
+ */
 export interface LibraryEntry {
   slug: string;
   title: string;
@@ -402,8 +408,28 @@ export interface LibraryEntry {
   tags: string[];
   source?: string;
   license?: string;
+  /** what kind of thing this is; absent in old data means a skill */
+  kind?: LibraryKind;
+  /** kind=mcp: how to start it and what it needs */
+  mcp?: {
+    transport: 'stdio' | 'http';
+    command?: string;
+    args?: string[];
+    url?: string;
+    /** package to install into the product's own prefix first, so the server does not download itself on every start */
+    npm?: string;
+    pip?: string;
+    /** credentials the user has to bring; asked for with a card, never through the conversation */
+    env?: { key: string; label: string; hint?: string; secret?: boolean }[];
+    help?: { url?: string; urlLabel?: string; steps?: string[] };
+    /** one line about what its tools do, for search and for the bot */
+    tools?: string;
+  };
+  /** kind=connector: the toolkit slug behind the one-click card */
+  service?: string;
+  /** kind=assets: a pack to download into the workspace */
+  assets?: { url: string; howto?: string };
 }
-
 /** Library categories the backend tags skills with; their names live in the language catalogs (`lib.<id>`). */
 export const LIBRARY_CATEGORY_IDS = ['dev', 'docs', 'writing', 'research', 'productivity', 'business', 'design', 'meta'];
 

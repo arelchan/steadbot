@@ -13,6 +13,8 @@ export interface CrewOps {
   createBot(brief: string, opts: { name?: string; byBotId: string; task?: string }): Promise<Bot>;
   createGroup(opts: { title: string; summary?: string; memberIds: string[]; leadId: string; task?: string; byBotId: string }): Promise<Matter>;
   addMcp(i: { name: string; command?: string; args?: string[]; url?: string; env?: Record<string, string> }): Promise<{ id: string; status: string; note?: string; tools?: number }>;
+  /** give this bot an existing integration (and put its tools in front of it right away) */
+  grant(botId: string, integrationId: string): Promise<void>;
   removeIntegration(id: string): void;
   /** start an asynchronous self-build; resolves as soon as the job is registered */
   build(botId: string, spec: BuildSpec): Promise<BuildJob>;
@@ -21,9 +23,11 @@ export interface CrewOps {
   /** start an asynchronous memory update (consolidated in the background); resolves once registered */
   remember(botId: string, spec: MemorySpec): Promise<BuildJob>;
   /** lexical search over the curated skill library; empty query lists everything */
-  librarySearch(query: string, limit?: number): (LibraryEntry & { categoryLabel: string })[];
+  librarySearch(query: string, limit?: number): (LibraryEntry & { categoryLabel: string; kindLabel: string })[];
   /** copy a library skill onto a bot (idempotent) */
-  libraryMount(botId: string, slug: string): Promise<{ name: string; already: boolean; ready?: string }>;
+  /** Equip this bot with one pool entry, whatever kind it is: mount a manual, connect an MCP server, send a
+   *  one-click card, download an asset pack. Installing dependencies is part of it. */
+  equip(botId: string, slug: string, threadId: ThreadId): Promise<{ text: string; kind: string }>;
   /** steward only: this machine, and the machine the user is moving the bots to (if one was installed) */
   machineStatus(): Promise<MachineStatus>;
   /** the vigil manager, for the vigil (值守) tool */
@@ -51,16 +55,16 @@ export interface BuildSpec {
 }
 
 const ConfigureParams = Type.Object({
-  target: StringEnum(['bot', 'matter', 'profile', 'integration'] as const),
+  target: StringEnum(['bot', 'matter', 'profile'] as const),
   action: StringEnum(['get', 'set', 'add', 'remove'] as const),
-  id: Type.Optional(Type.String({ description: 'bot / 群聊 / 集成 的 id 或名字；缺省为你自己' })),
+  id: Type.Optional(Type.String({ description: 'bot 或群聊的 id 或名字；缺省为你自己' })),
   field: Type.Optional(
     Type.String({
       description:
-        'bot（只有产品层设置）: autonomy(tell|prepare|do) | notify | pinned | integrations | avatar(regen 重画 / reset 用默认 / 一句外观描述 / 你生成的图片文件绝对路径)；matter: title | summary | members | lead | notify | pinned；profile: 只读；integration: 见说明',
+        'bot（只有产品层设置）: autonomy(tell|prepare|do) | notify | pinned | avatar(regen 重画 / reset 用默认 / 一句外观描述 / 你生成的图片文件绝对路径)；matter: title | summary | members | lead | notify | pinned；profile: 只读',
     }),
   ),
-  value: Type.Optional(Type.Any({ description: 'set 的新值；add/remove 的条目。routines 条目为 {title, schedule}，如 {"title":"扫描发票","schedule":"每天 20:30"}；integration add 为 {name, command|url}' })),
+  value: Type.Optional(Type.Any({ description: 'set 的新值；add/remove 的条目' })),
 });
 
 /**
@@ -93,7 +97,7 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
       `IM: ${
         Object.entries(b.im ?? {})
           .map(([ch, l]) => `${{ feishu: '飞书', telegram: 'Telegram', slack: 'Slack', wechat: '企业微信', app: 'App' }[ch] ?? ch}（${l?.status === 'ok' ? `已接${l.account ? `，那边叫「${l.account}」` : ''}` : l?.status === 'connecting' ? '连接中' : `没接上：${l?.note ?? ''}`}）`)
-          .join('；') || '（没接任何 IM；用 configure(field=integrations, action=add, value="飞书") 接）'
+          .join('；') || '（没接任何 IM；用 build(aspect=channel, action=add, value="飞书") 接）'
       }`,
       `记忆: ${b.viewOfYou.join('；') || '（无）'}`,
     ].join('\n');
@@ -160,12 +164,12 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
         name: 'configure',
         label: '改配置',
         description:
-          '读取或修改产品层面的设置——bot 之外、围绕 bot 的东西。target=bot：autonomy(tell|prepare|do 自主度) / notify(消息通知，用户的静音开关；什么时候该找用户是你自己判断，不是这里设的) / pinned(置顶) / integrations(add|remove 集成名或 id，即授权) / avatar(头像：value=regen 重画一张、reset 换回默认、一句外观描述按描述画、或你在工作区生成的 png/jpg 绝对路径直接用作头像)。名字、简介、人设、职责与工作方式、技能、例行任务属于 bot 自己，用 build 改；关于用户的记忆用 remember 记或忘。这里都不收。target=matter：title / summary / members(add|remove bot) / lead / notify / pinned；target=profile：get 查看共享记忆（改动用 remember）；target=integration：get 列出全部，add value={name,command|url} 新建 MCP 连接，remove 删除连接。action=get 不带 field 返回完整配置；不带 id 列出全部。',
+          '读取或修改产品层面的设置——bot 之外、围绕 bot 的东西。target=bot：autonomy(tell|prepare|do 自主度) / notify(消息通知，用户的静音开关；什么时候该找用户是你自己判断，不是这里设的) / pinned(置顶) / avatar(头像：value=regen 重画一张、reset 换回默认、一句外观描述按描述画、或你在工作区生成的 png/jpg 绝对路径直接用作头像)。target=matter：title / summary / members(add|remove bot) / lead / notify / pinned；target=profile：get 查看共享记忆（改动用 remember）。action=get 不带 field 返回完整配置；不带 id 列出全部。\n不收的：你自己的一切——名字、简介、人设、职责与工作方式、技能、例行任务、外部工具、服务、外部 agent、IM 渠道、素材——全用 build；关于用户的记忆用 remember。',
         promptSnippet: '产品设置：通知、置顶、自主度、打扰策略、授权、群聊、连接（bot 自身用 build，记忆用 remember）',
         promptGuidelines: [
-          '用户要改产品设置（通知、置顶、自主度、打扰策略、授权集成、群成员、群名）用 configure 直接改，改完一句话确认，不要只是口头答应。名字、简介、人设、工作方式、技能、例行任务是 build 的事；关于用户的记忆是 remember 的事。',
+          '用户要改产品设置（通知、置顶、自主度、打扰策略、群成员、群名）用 configure 直接改，改完一句话确认，不要只是口头答应。你自己是谁、会什么、能连什么是 build 的事；关于用户的记忆是 remember 的事。',
           '改别的 bot 之前先 configure(action=get) 看清现状；remove 类操作先用 ask_user 确认。',
-          '用户想接 IM 渠道、MCP 或外部 agent、终端时，先按对应技能文档一步步引导；能替他做的（新建 MCP 连接、授权集成）用 configure 做。',
+          '用户想接 IM 渠道、外部工具或外部 agent 时，用 build(aspect=channel/mcp/agent, action=add) 自己接，别让他改配置文件。',
         ],
         parameters: ConfigureParams,
         executionMode: 'sequential',
@@ -178,51 +182,6 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
             const lines = c.store.data.sharedProfile;
             if (p.action === 'get') return ok(lines.length ? lines.map((l, i) => `${i + 1}. ${l}`).join('\n') : '（共享记忆为空）');
             throw new Error('共享记忆用 remember(scope=shared) 记或忘，configure 只读');
-          }
-
-          if (p.target === 'integration') {
-            const all = c.store.data.integrations;
-            const find = (ref?: string) => (ref ? all.find((i) => i.id === ref || i.name === ref) : undefined);
-            const describe = (i: (typeof all)[number]) =>
-              `[${i.id}] ${i.name} · ${i.kind}${i.connector ? '（一键连接）' : ''} · ${i.status}${i.note ? ` · ${i.note}` : ''}${i.tools?.length ? ` · 工具：${i.tools.map((t) => t.name).slice(0, 12).join('、')}` : ''}${i.env ? ` · 环境变量：${Object.keys(i.env).join('、')}` : ''}`;
-            if (p.action === 'get') {
-              const one = find(p.id);
-              return ok(one ? describe(one) : all.map(describe).join('\n') || '（没有任何集成）');
-            }
-            if (p.action === 'add' || p.action === 'set') {
-              let v: unknown = val;
-              if (typeof v === 'string') {
-                try {
-                  v = JSON.parse(v);
-                } catch {
-                  v = { name: p.id ?? 'MCP', command: v };
-                }
-              }
-              const o = (v ?? {}) as { name?: string; command?: string; args?: string[]; url?: string; env?: Record<string, string> };
-              if (!o.name || (!o.command && !o.url)) throw new Error('add 需要 value={name, command|url, env?}；command 可以带参数，如 "python3 /path/server.py"');
-              let command = o.command;
-              let args = o.args;
-              if (command && !args?.length) {
-                const parts = command.match(/(?:[^\s"]+|"[^"]*")+/g) ?? [command];
-                command = parts[0].replace(/"/g, '');
-                args = parts.slice(1).map((x) => x.replace(/"/g, ''));
-              }
-              const r = await ops().addMcp({ name: o.name, command, args, url: o.url, env: o.env });
-              return ok(
-                r.status === 'ok'
-                  ? `已连接「${o.name}」（id ${r.id}），${r.tools ?? 0} 个工具。要给 bot 用：configure(target=bot, field=integrations, action=add, value="${o.name}")。`
-                  : `连接「${o.name}」已创建（id ${r.id}），当前状态 ${r.status}：${r.note ?? ''}。凭据还没填的话这是正常的，接着用 request_credentials 发凭据卡；不是凭据问题就检查命令和路径。`,
-                { id: r.id, status: r.status },
-              );
-            }
-            if (p.action === 'remove') {
-              const i = find(p.id) ?? find(str(val));
-              if (!i) throw new Error('找不到这个集成');
-              if (i.kind !== 'mcp') throw new Error('渠道、外部 agent、终端是内置的，不能删，只能取消授权');
-              ops().removeIntegration(i.id);
-              return ok(`已删除连接「${i.name}」。`);
-            }
-            throw new Error('integration 只支持 get / add / remove');
           }
 
           if (p.target === 'matter') {
@@ -278,24 +237,6 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
               const msg = await ops().avatar(b.id, str(val));
               c.events.emit('crew:bot-configured', { botId: b.id, fields: ['avatar'] });
               return ok(msg, { botId: b.id, avatar: str(val) });
-            }
-            case 'integrations': {
-              const ref = str(val);
-              const i = c.store.data.integrations.find((x) => x.id === ref || x.name === ref);
-              if (!i) throw new Error(`找不到集成「${ref}」；configure(target=integration, action=get) 可以列出全部`);
-              if (i.kind === 'channel' && i.channel && i.channel !== 'app') {
-                // An IM is not granted, it is joined: the bot gets its own account there, credentials via a card.
-                if (p.action === 'remove') {
-                  ops().disconnectChannel(b.id, i.channel);
-                  return ok(`${b.name} 已从${i.name}断开。`, { botId: b.id, channel: i.channel });
-                }
-                if (b.im?.[i.channel]?.status === 'ok') return ok(`${b.name} 已经在${i.name}上了${b.im[i.channel]?.account ? `，那边叫「${b.im[i.channel]!.account}」` : ''}。`, { botId: b.id, channel: i.channel });
-                ops().connectChannel(b.id, i.channel, c.current()?.threadId);
-                return ok(`凭据卡已发到对话里：用户按卡上的步骤在${i.name}里给 ${b.name} 建一个机器人，凭据填在卡上，填完系统会自动接上并通知你。现在不要追问，也不要让他改配置文件。`, { botId: b.id, channel: i.channel });
-              }
-              const cur = b.integrationIds ?? [];
-              patch.integrationIds = p.action === 'remove' ? cur.filter((x) => x !== i.id) : Array.from(new Set([...cur, i.id]));
-              break;
             }
             default:
               throw new Error(`bot 不支持字段「${f}」`);

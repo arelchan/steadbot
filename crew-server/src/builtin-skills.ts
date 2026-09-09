@@ -18,7 +18,7 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
 每个 bot 在飞书 / Telegram / Slack / 企业微信里都是**独立的机器人**，有自己的名字和头像、自己的凭据。用户私聊那个机器人就是在和这个 bot 说话；把几个机器人拉进同一个群，它们就在群里一起干活（@谁谁回，群在这里对应一个「群聊」）。没有「先接渠道再绑会话」这回事，也没有 /bind 命令。
 
 ## 流程（只有三步，不要多说）
-1. 用 configure(target=bot, field=integrations, action=add, value="飞书") 接入。系统会往对话里发一张凭据卡，卡上写着在那个平台上给你建机器人的步骤和要填的项。你只说一句「按卡上的步骤建一个机器人，凭据填在卡上」。
+1. 用 build(aspect=channel, action=add, value="飞书") 接入。系统会往对话里发一张凭据卡，卡上写着在那个平台上给你建机器人的步骤和要填的项。你只说一句「按卡上的步骤建一个机器人，凭据填在卡上」。
 2. 用户填完，系统自动接上并通知你（成功会告诉你那边的机器人名字；失败会给原因）。成功后一句话告诉用户：在那个 IM 里找到这个机器人私聊就是你；想让你和别的 bot 一起干活，建个群把几个机器人都拉进去。
 3. 失败就把原因说成人话，让他核对后重填：request_credentials，integration 填平台名（如「飞书」），fields 用卡上同样的 key。
 凭据永远不进对话：不要问用户要 token / Secret，不要让他改配置文件，也不要自己去改配置。
@@ -58,7 +58,7 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
 2. 你判断要接哪个平台，先 connect 试一键接入：认识就出卡，用户点一下登录即接好。
 3. connect 说不认识，才手动接。顺序是「先搭桥，再要凭据」，不要反过来：
    a. 先干活：有现成 MCP 服务器就用（下面有清单，没有就搜「<平台> MCP server」）；确实没有、而你有「外部 agent」，立刻用 delegate_agent 让它照该平台的开放接口写一个最小的 stdio MCP 服务器，只做用户这次要的一两个接口（例：QQ 邮箱 = IMAP 收 + SMTP 发），凭据一律从环境变量读，写到你的工作区里。
-   b. 用 configure(target=integration, action=add, value={"name":"…","command":"python3 /路径/server.py"}) 建连接。此时凭据还没有，状态是 error，正常。
+   b. 用 build(aspect=mcp, action=add, value={"name":"…","command":"python3 /路径/server.py"}) 建连接。此时凭据还没有，状态是 error，正常。
    c. 用 request_credentials 发一张凭据卡：fields 的 key 就是桥读的环境变量名，label 用人话，hint 写去哪拿（例：QQ 邮箱 → 设置 › 账户 › 开启 IMAP/SMTP 服务 → 16 位授权码）。用户填在卡上，值直接进连接，不经过对话。
    d. 系统重连后通知你：成功就直接开始办事；失败就判断是凭据不对还是桥有 bug，分别重发凭据卡或让 agent 修。
    全程不要让用户把密码、授权码、token 打在对话里；也不要先问一堆再动手，用户只该看到「我去搭一下」→ 一张凭据卡 → 「接好了」。没有外部 agent 时，如实说需要在「集成 › 外部 agent」里开启 Claude Code、Codex、Hermes、OpenCode 或 OpenClaw。
@@ -72,9 +72,8 @@ MCP（Model Context Protocol）是把外部系统的能力包装成「工具」�
 流程：
 1. 问清用户要连什么、想让你用它做什么，判断该用哪个 MCP 服务器。
 2. 需要凭据的，告诉用户去对应平台申请；凭据不要贴在对话里，stdio 类的放在启动命令的环境变量里，由用户在「集成」页填写。
-3. 用 configure(target=integration, action=add, value={"name":"…","command":"…"}) 或 value={"name":"…","url":"…"} 创建连接，系统自动连接并列出工具数。
-4. 用 configure(target=integration, action=get) 看状态：ok 且有工具数即成功；error 时把 note 里的报错原样告诉用户。
-5. 用 configure(target=bot, field=integrations, action=add, value="连接名") 授权给需要的 bot（可以是你自己），工具名以连接名开头。
+3. 用 build(aspect=mcp, action=add, value={"name":"…","command":"…"}) 或 value={"name":"…","url":"…"} 建连接，系统自动连上、列出工具数，并直接授权给你。库里已经有的（library search 能搜到）不要自己写，用 build(aspect=mcp, action=add, value=slug)。
+4. 在「你的集成」里看状态：ok 且有工具数即成功；error 时把报错原样告诉用户。工具名以连接名开头。
 6. 让用户说一句要用到它的话，实际跑一次验证。
 
 常用 MCP 服务器：
@@ -120,9 +119,9 @@ MCP（Model Context Protocol）是把外部系统的能力包装成「工具」�
 用户说「让你能写代码」「帮我跑个脚本」「批量改一堆文件」「深挖一下这个项目」「接一下 Claude Code / Codex / Hermes」。
 
 ## 流程
-1. configure(target=integration, action=get) 看「外部 agent」状态：ok 表示本机已装好；off 表示没有对应命令。
+1. 看系统提示词里「你的集成」中的「外部 agent」：ok 表示本机已装好；off 表示没有对应命令。
 2. 没装的，按下面步骤带用户安装并登录，装完让用户在「集成」页点「重新检测」，或直接告诉你，你再 get 一次确认变成 ok。
-3. configure(target=bot, field=integrations, action=add, value="Claude Code") 授权给需要它的 bot。
+3. build(aspect=agent, action=add, value="Claude Code") 让它归你用。
 4. 之后 bot 就能用 delegate_agent 了。让用户说一个具体任务试一下，比如「把 workspace 里的 csv 合并成一个表」。
 
 ## 安装与登录

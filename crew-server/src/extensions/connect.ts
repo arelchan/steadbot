@@ -42,8 +42,8 @@ export function connectExtension(c: BotCtx, ops: () => CrewOps): InlineExtension
           '向用户要授权码、App Secret、API token 这类凭据，但不是在对话里要：对话里出现一张凭据卡，用户填在卡上，值直接写进指定连接的环境变量，你和对话记录都看不到。用于手动接入（第 3 步）：桥已经搭好、连接已经用 configure 建好（凭据留空）之后，用它把凭据要过来。用户填完系统会自动重连并通知你连接状态。',
         promptSnippet: '发凭据卡让用户填授权码 / token（不经过对话，直接进连接的环境变量）',
         promptGuidelines: [
-          '任何密码、授权码、App Secret、token 都不要让用户发在对话里；一律 request_credentials 发卡。用户已经贴出来了，就提醒他以后用卡片，并把值原样传给 configure 建连接后不再复述。',
-          '先搭桥（delegate_agent 写好、configure 建好连接），再发凭据卡：用户填完立刻能用，不用等。',
+          '任何密码、授权码、App Secret、token 都不要让用户发在对话里；一律 request_credentials 发卡。用户已经贴出来了，就提醒他以后用卡片，并把值原样传给 build(aspect=mcp, action=add) 建连接后不再复述。',
+          '先搭桥（delegate_agent 写好、build(aspect=mcp, action=add) 建好连接），再发凭据卡：用户填完立刻能用，不用等。',
           'fields 的 key 必须和桥读取的环境变量名一致；label 用用户看得懂的话（「QQ 邮箱授权码」而不是 IMAP_PASSWORD）。',
           'help 必填：url 是用户点开就能到达的那一页（设置页、开放平台的应用页），steps 三步以内写清在那一页点什么。用户不该需要自己找路。',
         ],
@@ -68,7 +68,7 @@ export function connectExtension(c: BotCtx, ops: () => CrewOps): InlineExtension
         }),
         async execute(_id, p) {
           const integ = c.store.data.integrations.find((i) => i.id === p.integration || i.name === p.integration);
-          if (!integ) throw new Error(`找不到连接「${p.integration}」，先用 configure(target=integration, action=add) 建好`);
+          if (!integ) throw new Error(`找不到连接「${p.integration}」，先用 build(aspect=mcp, action=add) 建好`);
           const cur = c.current();
           const threadId = cur?.threadId ?? (`bot:${c.botId}` as const);
           c.store.addMessage({ threadId, author: 'bot', botId: c.botId, text: `${p.title}。填在卡上就行，我看不到内容，填完自动接。`, ts: Date.now(), card: { type: 'secrets', integrationId: integ.id, title: p.title, fields: p.fields.map((f) => ({ ...f, secret: f.secret ?? /code|secret|token|pass|key|pwd/i.test(f.key) })), help: p.help } });

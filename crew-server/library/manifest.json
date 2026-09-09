@@ -646,5 +646,78 @@
         "决策"
       ]
     }
+  ],
+  "$comment2": "tools：池里不是手册的条目——MCP 服务、一键连接、素材包。纯数据，不用同步，不落盘。",
+  "tools": [
+    {
+      "slug": "pixellab",
+      "kind": "mcp",
+      "category": "design",
+      "title": "PixelLab",
+      "description": "像素风游戏素材：4/8 方向角色、走跑待机动画、无缝瓦片集，透明底，出来直接能进引擎。生成是异步的，一次两到五分钟。",
+      "tags": [
+        "像素",
+        "pixel",
+        "精灵图",
+        "sprite",
+        "游戏",
+        "game",
+        "素材",
+        "角色",
+        "动画",
+        "瓦片",
+        "tileset",
+        "2D"
+      ],
+      "source": "https://www.pixellab.ai/mcp",
+      "mcp": {
+        "transport": "http",
+        "url": "https://api.pixellab.ai/mcp",
+        "tools": "画角色、生成行走/待机动画、出瓦片集、按参考图保持同一个角色。",
+        "env": [
+          {
+            "key": "PIXELLAB_API_KEY",
+            "label": "PixelLab API Key",
+            "hint": "在 pixellab.ai 账号页复制",
+            "secret": true
+          }
+        ],
+        "help": {
+          "url": "https://www.pixellab.ai/",
+          "urlLabel": "打开 PixelLab",
+          "steps": [
+            "注册并登录 PixelLab",
+            "进账号 / API 页面创建一个 API Key",
+            "把 Key 填在卡上"
+          ]
+        }
+      }
+    },
+    {
+      "slug": "kenney-pixel-platformer",
+      "kind": "assets",
+      "category": "design",
+      "title": "Kenney 像素平台素材包",
+      "description": "CC0 像素平台游戏素材：角色、瓦片、道具、背景，一套风格，商用免署名。做 2D 原型先用它，比一张张生成又快又统一。",
+      "tags": [
+        "素材",
+        "assets",
+        "游戏",
+        "game",
+        "CC0",
+        "免费",
+        "UI",
+        "瓦片",
+        "精灵图",
+        "2D",
+        "原型"
+      ],
+      "source": "https://kenney.nl/assets/pixel-platformer",
+      "license": "CC0",
+      "assets": {
+        "url": "https://kenney.nl/media/pages/assets/pixel-platformer/33bb4921eb-1696667883/kenney_pixel-platformer.zip",
+        "howto": "先定一套风格再从同一个包里取，混用不同包会花。要别的题材去 kenney.nl/assets 找，下载地址给用户或自己 curl。"
+      }
+    }
   ]
 }

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { rmSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, realpathSync, copyFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { mimeOf, fileUrl } from './util.ts';
 import { config } from './config.ts';
 import { CrewStore, seedSnapshot, type StoreEvent } from './store.ts';
@@ -14,7 +14,7 @@ import { AvatarService } from './avatar.ts';
 import { FakeBrain } from './fake-brain.ts';
 import { fromTemplate, inferBot, inferSkillDocs, inferSoul } from './infer-bot.ts';
 import { SkillStore } from './skills.ts';
-import { Library, LIBRARY_CATEGORIES } from './library.ts';
+import { KIND_LABEL, Library, LIBRARY_CATEGORIES } from './library.ts';
 import { buildLabel, runBuild, runMemory } from './builder.ts';
 import { ConnectorManager, POPULAR_TOOLKITS, isChinesePlatform } from './connectors.ts';
 import { AgentRunner, McpManager, seedIntegrations } from './integrations.ts';
@@ -22,6 +22,7 @@ import { ChannelManager, IMS, type Im } from './channels.ts';
 import { DesktopManager } from './desktop.ts';
 import { Upgrader } from './upgrade.ts';
 import { ensure, restoreAll } from './tools.ts';
+import { fetchAssets } from './assets.ts';
 import { versionLine } from './version.ts';
 import { usageReport } from './usage.ts';
 import { Runtime } from './runtime.ts';
@@ -335,18 +336,73 @@ async function main() {
       const probe = m.url && m.token ? await probeMachine({ url: m.url, token: m.token }) : undefined;
       return { here, target: { name: m.name, host: m.host, user: m.user, connectedAt: m.connectedAt, url: m.url, port: m.url ? portOf(m.url) : undefined, pairedAt: m.pairedAt, reachable: probe?.reachable, note: probe?.note } };
     },
-    librarySearch: (query, limit = 8) => (query.trim() ? library.search(query, limit) : library.list()).map((e) => ({ ...e, categoryLabel: LIBRARY_CATEGORIES[e.category] ?? e.category })),
-    async libraryMount(botId, slug) {
+    librarySearch: (query, limit = 8) => (query.trim() ? library.search(query, limit) : library.list()).map((e) => ({ ...e, categoryLabel: LIBRARY_CATEGORIES[e.category] ?? e.category, kindLabel: KIND_LABEL[e.kind ?? 'skill'] })),
+    /**
+     * Equip a bot with one entry from the pool. Four kinds, four ways in, one door: the bot says what it wants and
+     * gets back either "ready" or exactly what is missing. Dependencies, credentials and grants are handled here so
+     * the bot never has to know that a manual is a directory and an MCP server is a process.
+     */
+    async equip(botId, slug, threadId) {
       const e = library.get(slug);
-      if (!e) throw new Error(`技能库里没有「${slug}」，先用 search 找到 slug`);
-      const before = store.bot(botId)?.skills ?? [];
-      const added = mountLibrary(botId, [e.slug]);
-      const already = !added.length && before.includes(e.title);
-      // Mounting a manual that cannot run here is worse than not having it: the bot follows the steps and hits an
-      // import error halfway through. So install what it needs now and say plainly what is still missing.
-      const req = skills.requiresOf(e.title);
-      const ready = req ? await ensure(req, e.slug) : undefined;
-      return { name: e.title, already, ready: ready?.ok === false ? ready.note : undefined };
+      if (!e) throw new Error(`库里没有「${slug}」，先用 library(search) 找到 slug`);
+      const bot = store.bot(botId);
+      if (!bot) throw new Error('找不到这个 bot');
+      const kind = e.kind ?? 'skill';
+
+      if (kind === 'skill') {
+        const before = bot.skills ?? [];
+        const added = mountLibrary(botId, [e.slug]);
+        const already = !added.length && before.includes(e.title);
+        // A manual whose tools are not here is worse than no manual: the bot follows it and hits the wall halfway.
+        const req = skills.requiresOf(e.title);
+        const ready = req ? await ensure(req, e.slug) : undefined;
+        const head = already ? `「${e.title}」已经在你的技能里了，直接照着做。` : `已挂上「${e.title}」，按手册的步骤做。`;
+        return { kind, text: ready?.ok === false ? `${head}\n注意：${ready.note}。手册里用到这部分的步骤在这台机器上跑不了，换个做法，或者告诉用户差什么。` : head };
+      }
+
+      if (kind === 'connector') {
+        const r = await bots.ops!.connect(botId, threadId, e.service ?? e.slug, e.description);
+        return { kind, text: r.text };
+      }
+
+      if (kind === 'assets') {
+        if (!e.assets?.url) throw new Error(`「${e.slug}」没写素材包地址`);
+        const dir = join(config.botsDir, botId, 'workspace', '_assets', e.slug);
+        const got = await fetchAssets(e.assets.url, dir);
+        return { kind, text: `素材包「${e.title}」已经放到 ${relative(join(config.botsDir, botId), got.dir)}（${got.files} 个文件）。${e.assets.howto ?? ''}${e.license ? ` 许可：${e.license}。` : ''}` };
+      }
+
+      // mcp
+      const m = e.mcp;
+      if (!m) throw new Error(`「${e.slug}」没写怎么连`);
+      const existing = store.data.integrations.find((i) => i.kind === 'mcp' && i.name === e.title);
+      const grant = (id: string) => bots.ops!.grant(botId, id);
+      if (existing) {
+        await grant(existing.id);
+        return { kind, text: existing.status === 'ok' ? `「${e.title}」已经连着了，工具就在你的列表里。` : `「${e.title}」连接已存在但状态是 ${existing.status}${existing.note ? `（${existing.note}）` : ''}。缺凭据就用 request_credentials 发卡。` };
+      }
+      // The server itself is a package: install it into the product's prefix so it does not download on every start
+      // and does not vanish when the container is rebuilt.
+      if (m.npm || m.pip) {
+        const r = await ensure({ npm: m.npm ? [m.npm] : [], pip: m.pip ? [m.pip] : [] }, e.slug);
+        if (!r.ok) return { kind, text: `装不了「${e.title}」：${r.note ?? ''}。告诉用户这台机器上装不上，或者换一条路。` };
+      }
+      const env = Object.fromEntries((m.env ?? []).map((f) => [f.key, '']));
+      const added = await bots.ops!.addMcp({ name: e.title, command: m.command, args: m.args, url: m.url, env: (m.env ?? []).length ? env : undefined });
+      await grant(added.id);
+      if ((m.env ?? []).length) {
+        // Keys are the user's to bring: the card writes them straight into the connection, out of the conversation.
+        store.addMessage({
+          threadId,
+          author: 'bot',
+          botId,
+          text: `${e.title} 要一个${m.env!.length > 1 ? '组' : ''}密钥才能用。填在卡上就行，我看不到内容，填完自动接。`,
+          ts: Date.now(),
+          card: { type: 'secrets', integrationId: added.id, title: `填一下 ${e.title} 的密钥`, fields: m.env!.map((f) => ({ ...f, secret: f.secret ?? true })), help: m.help },
+        });
+        return { kind, text: `「${e.title}」已经建好连接，凭据卡发到对话里了（要 ${m.env!.map((f) => f.label).join('、')}）。用户填完系统会自动接上并通知你；现在不要追问，先做别的或结束这一轮。` };
+      }
+      return { kind, text: added.status === 'ok' ? `「${e.title}」接好了，${added.tools ?? 0} 个工具已经在你的列表里。${m.tools ?? ''}` : `「${e.title}」连接建好了，状态 ${added.status}：${added.note ?? ''}` };
     },
     async createGroup(o) {
       const matter = router.createMatter({ title: o.title, summary: o.summary, memberIds: o.memberIds, leadId: o.leadId });
@@ -360,6 +416,12 @@ async function main() {
         }
       }
       return matter;
+    },
+    async grant(botId, integrationId) {
+      const b = store.bot(botId);
+      if (!b || (b.integrationIds ?? []).includes(integrationId)) return;
+      store.patchBot(botId, { integrationIds: [...(b.integrationIds ?? []), integrationId] });
+      await bots.refreshTools(botId);
     },
     async addMcp(i) {
       const integ = store.addIntegration({ kind: 'mcp', name: i.name, transport: i.url ? 'http' : 'stdio', command: i.command, args: i.args, url: i.url, env: i.env, status: 'connecting' });
