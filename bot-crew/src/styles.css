@@ -1318,14 +1318,28 @@ textarea.ident-desc:focus { outline: 0; border-color: var(--accent-hair); backgr
 .sc-off { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #9aa0a6; font-size: 12px; }
 .sc-msg { color: #9aa0a6; font-size: 12px; }
 .sc-msg.err { color: #f0a0a0; padding: 0 12px; text-align: center; }
-.sc-msg.pulse { animation: sc-pulse 1.2s ease-in-out infinite; }
+.sc-msg.pulse, .sc-wait-msg.pulse { animation: sc-pulse 1.2s ease-in-out infinite; }
 .sc-note { margin-top: 6px; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
-.vnc { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-.vnc > div { width: 100%; height: 100%; }
+/* the live screen: the last still sits under the canvas until the first real frame has painted (no black box) */
+.vnc { position: absolute; inset: 0; }
+.vnc-screen { position: absolute; inset: 0; opacity: 0; transition: opacity 0.25s var(--ease); }
+.vnc.painted .vnc-screen { opacity: 1; }
+.vnc-screen > div { width: 100%; height: 100%; }
 .vnc canvas { cursor: default; }
-.screen-modal { display: flex; align-items: center; justify-content: center; }
-.screen-modal-box { width: min(1280px, 94vw); background: var(--bg); border-radius: 14px; padding: 14px 16px 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
-.sc-big { position: relative; aspect-ratio: 16 / 10; border-radius: 10px; overflow: hidden; background: #0f1013; border: 1px solid var(--hair-2); }
+.sc-ghost { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: brightness(0.55) saturate(0.6); }
+.vnc.painted .sc-ghost { display: none; }
+.sc-wait { position: absolute; inset: 0; }
+.sc-wait-msg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 12px; background: rgba(20, 20, 22, 0.78); color: #fff; font-size: 13px; backdrop-filter: blur(6px); white-space: nowrap; }
+.sc-wait-msg small { color: #c8c8cc; font-size: 11.5px; white-space: normal; max-width: 360px; text-align: center; }
+.sc-wait-msg .btn { margin-top: 2px; }
+/* The screen modal lives on <body> (above every panel, and outside the density zoom). It fits the window in both
+   directions: as wide as it can be, never taller than the window. */
+.screen-modal { padding: 16px; }
+.screen-modal-box { display: flex; flex-direction: column; width: max-content; max-width: 100%; max-height: 100%; background: var(--bg); border-radius: 14px; padding: 12px 16px 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
+.screen-modal-box .sc-head { flex: none; }
+.screen-modal-box .sc-note { flex: none; }
+.sc-big { position: relative; width: min(1248px, calc(100vw - 64px), calc((100vh - 152px) * 1.6)); aspect-ratio: 16 / 10; flex: none; border-radius: 10px; overflow: hidden; background: #0f1013; border: 1px solid var(--hair-2); }
+@media (max-width: 720px) { .screen-modal { padding: 0; } .screen-modal-box { border-radius: 0; width: 100%; height: 100%; justify-content: center; } .sc-big { width: 100%; } }
 @keyframes sc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
 /* ---------- 设置弹窗：外观 / 云电脑 / 用量 / 关于 ---------- */
@@ -1405,6 +1419,12 @@ textarea.ident-desc:focus { outline: 0; border-color: var(--accent-hair); backgr
 .sc-frame { position: relative; aspect-ratio: 16 / 10; border-radius: 12px; overflow: hidden; background: #0f1013; border: 1px solid var(--hair-2); }
 .sc-frame.on { background: #dcd9d3; }
 .sc-still { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.sc-still.hidden { display: none; }
+/* asleep: the frame it fell asleep on, dimmed — the computer is still there, just not lit */
+.sc-frame.off .sc-still, .sc-frame.starting .sc-still, .sc-frame.error .sc-still { filter: grayscale(1) brightness(0.5); }
+.sc-frame.starting .sc-still { animation: sc-pulse 1.6s ease-in-out infinite; }
+.sc-state { color: var(--muted); }
+.sc-state.err { color: #c0453f; }
 .sc-still-msg { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; }
 .sc-open { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: 999px; background: rgba(20, 20, 22, 0.78); color: #fff; font-size: 14px; font-weight: 600; backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); transition: transform 0.15s var(--ease), background 0.15s var(--ease); }
 .sc-open:hover { background: rgba(20, 20, 22, 0.9); transform: translate(-50%, -50%) scale(1.04); }

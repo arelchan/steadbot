@@ -22,7 +22,7 @@ export function computerExtension(c: BotCtx, desktops: () => DesktopManager | un
           '只读一个公开网页用 fetch_url 就够；要登录、要点来点去、要填表、要下载、要在网站里操作，才开电脑：computer(open)，然后用 computer__browser_* 工具。',
           '开机后先 browser_navigate 到目标网址，再 browser_snapshot 读页面（是文字版的页面结构，带可点的元素编号），按编号 click / type。每一步做完再 snapshot 确认，不要盲操作。',
           '需要用户登录的网站：navigate 到登录页后告诉用户「我的电脑屏幕在你那边能看到，点「接管」登录一下，登好告诉我」，然后停下等他。密码永远不经过你。',
-          '用户看得见你的屏幕，不用复述每一步点了什么；说结果。做完一件事不用关机，两小时没人用会自动关。',
+          '用户看得见你的屏幕，不用复述每一步点了什么；说结果。做完一件事不用关机，半小时没人用它会自己休眠，下次 open 十秒左右就醒。',
         ],
         parameters: Type.Object({
           action: StringEnum(['open', 'off', 'status'] as const),

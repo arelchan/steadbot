@@ -1,5 +1,6 @@
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import type { IncomingMessage } from 'node:http';
 import { createRequire } from 'node:module';
 import { connect as tcpConnect } from 'node:net';
@@ -28,7 +29,8 @@ import type { Desktop } from './types.ts';
 const W = 1280;
 const H = 800;
 /** A desktop nobody used or watched for this long powers itself off. */
-const IDLE_MS = 2 * 60 * 60 * 1000;
+/** Idle this long with nobody watching and no tool call → the computer sleeps (its browser is ~1.4 GB of RAM). Waking takes ~10 s. */
+const IDLE_MS = 30 * 60 * 1000;
 const FIRST_DISPLAY = 100;
 
 const which = (bin: string) =>
@@ -57,9 +59,9 @@ function playwrightMcp(): { command: string; args: string[] } {
   }
 }
 
-const execP = (cmd: string, args: string[], opts: { env?: NodeJS.ProcessEnv; maxBuffer?: number } = {}) =>
+const execP = (cmd: string, args: string[], opts: { env?: NodeJS.ProcessEnv; maxBuffer?: number; timeout?: number } = {}) =>
   new Promise<Buffer>((resolve, reject) => {
-    execFile(cmd, args, { encoding: 'buffer', maxBuffer: opts.maxBuffer ?? 8 * 1024 * 1024, env: opts.env, timeout: 15_000 }, (err, out) => (err ? reject(err) : resolve(out as Buffer)));
+    execFile(cmd, args, { encoding: 'buffer', maxBuffer: opts.maxBuffer ?? 8 * 1024 * 1024, env: opts.env, timeout: opts.timeout ?? 15_000 }, (err, out) => (err ? reject(err) : resolve(out as Buffer)));
   });
 
 /** Playwright's Chromium, so the dock's browser is the very one the bot drives (same profile, same logins). */
@@ -280,12 +282,16 @@ export class DesktopManager {
     }
   }
 
-  /** Power off: browser, desktop, display. The profile (logins) stays on disk. */
+  /**
+   * Sleep: browser, desktop, display all go; the profile (logins) stays on disk, and so does a last frame of the
+   * screen, which the card keeps showing (dimmed) so the computer is still visibly *there* while it sleeps.
+   */
   async off(botId: string, note?: string) {
     const l = this.live.get(botId);
+    if (l) await this.keepLastFrame(botId, l.display);
     this.live.delete(botId);
     await this.mcp.disconnect(this.integrationId(botId)).catch(() => undefined);
-    if (this.store.integration(this.integrationId(botId))) this.store.patchIntegration(this.integrationId(botId), { status: 'off', note: '关机了', tools: undefined });
+    if (this.store.integration(this.integrationId(botId))) this.store.patchIntegration(this.integrationId(botId), { status: 'off', note: '电脑在休眠', tools: undefined });
     if (l) for (const p of l.procs.slice().reverse()) p.kill();
     if (this.store.bot(botId)) {
       this.patch(botId, { state: 'off', note, since: undefined });
@@ -297,6 +303,19 @@ export class DesktopManager {
     return this.live.has(botId);
   }
 
+  private lastFramePath(botId: string) {
+    return join(config.botsDir, botId, 'computer', 'last.jpg');
+  }
+
+  private async keepLastFrame(botId: string, display: number) {
+    try {
+      const jpeg = await execP('import', ['-display', `:${display}`, '-window', 'root', '-resize', '640x', '-quality', '70', 'jpeg:-'], { env: { ...process.env, DISPLAY: `:${display}` }, timeout: 5000 });
+      if (jpeg.length > 0) writeFileSync(this.lastFramePath(botId), jpeg);
+    } catch {
+      /* no frame to keep; the card falls back to a dark screen */
+    }
+  }
+
   private shots = new Map<string, { at: number; jpeg: Promise<Buffer> }>();
 
   /**
@@ -305,7 +324,11 @@ export class DesktopManager {
    */
   snapshot(botId: string, width = 640): Promise<Buffer> | undefined {
     const l = this.live.get(botId);
-    if (!l) return undefined;
+    if (!l) {
+      // Asleep: the frame it went to sleep on, if there is one.
+      const last = this.lastFramePath(botId);
+      return existsSync(last) ? readFile(last) : undefined;
+    }
     const cached = this.shots.get(botId);
     if (cached && Date.now() - cached.at < 2000) return cached.jpeg;
     const jpeg = execP('import', ['-display', `:${l.display}`, '-window', 'root', '-resize', `${width}x`, '-quality', '70', 'jpeg:-'], { env: { ...process.env, DISPLAY: `:${l.display}` } });
@@ -345,7 +368,7 @@ export class DesktopManager {
     for (const [botId, l] of this.live) {
       if (l.viewers > 0) continue;
       const last = this.store.bot(botId)?.desktop?.lastUsed ?? 0;
-      if (now - last > IDLE_MS) void this.off(botId, '两小时没人用，自动关机了；需要时再开');
+      if (now - last > IDLE_MS) void this.off(botId);
     }
   }
 
