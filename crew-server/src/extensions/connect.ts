@@ -43,6 +43,7 @@ export function connectExtension(c: BotCtx, ops: () => CrewOps): InlineExtension
         promptSnippet: '发凭据卡让用户填授权码 / token（不经过对话，直接进连接的环境变量）',
         promptGuidelines: [
           '任何密码、授权码、App Secret、token 都不要让用户发在对话里；一律 request_credentials 发卡。用户已经贴出来了，就提醒他以后用卡片，并把值原样传给 build(aspect=mcp, action=add) 建连接后不再复述。',
+          '密钥不进对话、不进卡片：你自己在网页上看到的 App Secret、token，不要写进回复、不要写进卡片的任何字段、不要存进文件；接 IM 渠道用 build(aspect=channel, action=add) 或对 ch-xxx 连接发 request_credentials，系统会发它自己的标准卡。',
           '先搭桥（delegate_agent 写好、build(aspect=mcp, action=add) 建好连接），再发凭据卡：用户填完立刻能用，不用等。',
           'fields 的 key 必须和桥读取的环境变量名一致；label 用用户看得懂的话（「QQ 邮箱授权码」而不是 IMAP_PASSWORD）。',
           'help 必填：url 是用户点开就能到达的那一页（设置页、开放平台的应用页），steps 三步以内写清在那一页点什么。用户不该需要自己找路。',
@@ -67,12 +68,19 @@ export function connectExtension(c: BotCtx, ops: () => CrewOps): InlineExtension
           ),
         }),
         async execute(_id, p) {
-          const integ = c.store.data.integrations.find((i) => i.id === p.integration || i.name === p.integration);
+          const integ = c.store.data.integrations.find((i) => i.id === p.integration || i.name === p.integration || (i.kind === 'channel' && i.channel === p.integration));
           if (!integ) throw new Error(`找不到连接「${p.integration}」，先用 build(aspect=mcp, action=add) 建好`);
           const cur = c.current();
           const threadId = cur?.threadId ?? (`bot:${c.botId}` as const);
-          c.store.addMessage({ threadId, author: 'bot', botId: c.botId, text: `${p.title}。填在卡上就行，我看不到内容，填完自动接。`, ts: Date.now(), card: { type: 'secrets', integrationId: integ.id, title: p.title, fields: p.fields.map((f) => ({ ...f, secret: f.secret ?? /code|secret|token|pass|key|pwd/i.test(f.key) })), help: p.help } });
-          return { content: [{ type: 'text', text: `凭据卡已发到对话里（连接「${integ.name}」，字段：${p.fields.map((f) => f.key).join('、')}）。用户填完系统会重连并通知你；现在不要追问，继续别的或结束这一轮。` }], details: { integrationId: integ.id, fields: p.fields.map((f) => f.key) } };
+          // An IM channel has its own card: the fields are fixed (the bridge reads them by name), the steps are written.
+          // Whatever the model made up here is dropped, so the card and the bridge always agree.
+          if (integ.kind === 'channel' && integ.channel && integ.channel !== 'app') {
+            ops().connectChannel(c.botId, integ.channel, threadId);
+            return { content: [{ type: 'text', text: `${integ.name}的凭据卡已发到对话里（系统标准卡，字段和步骤是固定的，不用你定）。用户填完系统会自动接上并通知你；现在不要追问。` }], details: { integrationId: integ.id, fields: [] } };
+          }
+          const fields = p.fields.map((f) => ({ key: f.key, label: f.label, hint: f.hint, secret: f.secret ?? /code|secret|token|pass|key|pwd/i.test(f.key) }));
+          c.store.addMessage({ threadId, author: 'bot', botId: c.botId, text: `${p.title}。填在卡上就行，我看不到内容，填完自动接。`, ts: Date.now(), card: { type: 'secrets', integrationId: integ.id, title: p.title, fields, help: p.help } });
+          return { content: [{ type: 'text', text: `凭据卡已发到对话里（连接「${integ.name}」，字段：${fields.map((f) => f.key).join('、')}）。用户填完系统会重连并通知你；现在不要追问，继续别的或结束这一轮。` }], details: { integrationId: integ.id, fields: fields.map((f) => f.key) } };
         },
       });
     },

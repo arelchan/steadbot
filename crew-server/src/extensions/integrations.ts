@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { isAbsolute, join } from 'node:path';
 import type { ExtensionAPI, InlineExtension } from '@earendil-works/pi-coding-agent';
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type, type TSchema } from 'typebox';
@@ -5,6 +7,41 @@ import type { BotCtx } from './ctx.ts';
 import { decidePermission, isAcpStartFailure, pickOption, PERMISSION_LABEL, type AgentRunner, type McpManager } from '../integrations.ts';
 import type { ConnectorManager } from '../connectors.ts';
 import { AGENT_IDS, type Card, type Integration } from '../types.ts';
+import { config } from '../config.ts';
+
+const SNAPSHOT_LINK = /^- \[Snapshot\]\(([^)]+)\)$/m;
+const SNAPSHOT_CAP = 12_000;
+
+/**
+ * Playwright MCP writes the post-action page snapshot to a .yml file and only links it, which costs the model a
+ * second call (and a second round trip) after every click. Read it back and put it in the result, deepest nodes
+ * first to go when it is too big — the bot can browser_find what it needs.
+ */
+async function inlineSnapshot(text: string, dir: string): Promise<string> {
+  const m = SNAPSHOT_LINK.exec(text);
+  if (!m) return text;
+  const file = isAbsolute(m[1]) ? m[1] : join(dir, m[1]);
+  let yml: string;
+  try {
+    yml = await readFile(file, 'utf8');
+  } catch {
+    return text;
+  }
+  const lines = yml.split('\n');
+  const indent = (l: string) => l.length - l.trimStart().length;
+  let depth = 0;
+  for (const l of lines) depth = Math.max(depth, indent(l) / 2);
+  let kept = lines;
+  let trimmed = false;
+  while (kept.join('\n').length > SNAPSHOT_CAP && depth > 2) {
+    depth -= 1;
+    kept = lines.filter((l) => indent(l) <= depth * 2);
+    trimmed = true;
+  }
+  const body = kept.join('\n').slice(0, SNAPSHOT_CAP * 1.5);
+  const note = trimmed ? `\n（快照较大，${depth} 层以下的节点省略了；要找某个元素用 browser_find，要全文用 browser_snapshot）` : '';
+  return text.replace(m[0], `\`\`\`yaml\n${body}\n\`\`\`${note}`);
+}
 
 const safe = (s: string) => s.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'x';
 
@@ -97,8 +134,10 @@ export function mcpExtension(c: BotCtx, mcp: McpManager, connectors: ConnectorMa
             }
             const res = await mcp.callTool(integ.id, t.name, (params ?? {}) as Record<string, unknown>);
             const content = Array.isArray(res.content) ? res.content : [];
-            const text = content.map((b: { type: string; text?: string }) => (b.type === 'text' ? b.text ?? '' : `[${b.type}]`)).join('\n');
+            let text = content.map((b: { type: string; text?: string }) => (b.type === 'text' ? b.text ?? '' : `[${b.type}]`)).join('\n');
             if (res.isError) throw new Error(text || 'MCP 工具返回错误');
+            // The computer's browser: the page snapshot goes in the result instead of a link to a file.
+            if (integ.owner === c.botId && integ.name === 'computer') text = await inlineSnapshot(text, join(config.botsDir, c.botId, 'workspace', '_browser'));
             return { content: [{ type: 'text', text: text.slice(0, 40_000) || '（无输出）' }], details: { integration: integ.id, tool: t.name } };
           },
         });

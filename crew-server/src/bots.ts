@@ -88,7 +88,12 @@ interface BotRuntime {
   interrupt?: boolean;
   /** the run that is ending was cut short by the user (its empty output is not a model failure) */
   cutShort?: boolean;
+  /** already told the model once this turn that it wrote tool-call markup as prose */
+  markupNudged?: boolean;
 }
+
+/** DeepSeek-style tool-call markup that came out as text: the model meant to call a tool and called nothing. */
+const TOOL_MARKUP = /<[｜|]DSML[｜|]|<[｜|]tool[▁_ ]?calls?[▁_ ]?(begin|end)?[｜|]>|<tool_calls?>|<\/tool_calls?>|<[｜|]tool[▁_]sep[｜|]>/;
 
 /** A burst of messages within this window becomes one turn; the window never stretches past the cap. */
 const GATHER_MS = 1200;
@@ -333,6 +338,7 @@ export class BotManager extends EventEmitter {
         this.store.typing(threadId, botId, true);
         if (rt) {
           rt.running = true;
+          rt.markupNudged = false;
           for (const w of rt.startWaiters.splice(0)) w();
         }
         break;
@@ -369,6 +375,15 @@ export class BotManager extends EventEmitter {
           }
         }
         if (!text) break;
+        if (TOOL_MARKUP.test(text)) {
+          // Not a reply: a tool call that never happened. Keep it off the screen and have the model do it properly.
+          console.warn(`[crew] bot ${botId}: tool-call markup in prose (${text.length} chars), nudging`);
+          if (rt && !rt.markupNudged) {
+            rt.markupNudged = true;
+            void this.send(botId, { threadId, kind: 'system', text: '【系统】你上一条把工具调用写成了正文（<｜DSML｜… 这类标记），没有任何工具被真正调用，用户也没看到它。请用真正的工具调用重做刚才那一步；不需要工具就用正常文字回复。', depth: (cur?.depth ?? 0) + 1 });
+          }
+          break;
+        }
         if (rt) rt.textCount += 1;
         // Inside a group only members can be addressed; an @ to an outsider is text, not a handoff.
         const matter = cur?.matterId ? this.store.matter(cur.matterId) : undefined;

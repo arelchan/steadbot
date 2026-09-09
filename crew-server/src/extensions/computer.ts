@@ -22,7 +22,7 @@ export function computerExtension(c: BotCtx, desktops: () => DesktopManager | un
         promptGuidelines: [
           '只读一个公开网页用 fetch_url 就够；要登录、要点来点去、要填表、要下载、要在网站里操作，才接电脑：computer(open)，然后用 computer__browser_* 工具。',
           '浏览器是大家共用的，标签页是你自己的：接上时系统已经给你开了一个，只在自己开的标签里操作，不要 close / select 别人的标签；要多开就 browser_tabs(new)。自己的标签被关了就再开一个。',
-          '接上后先 browser_navigate 到目标网址，再 browser_snapshot 读页面（是文字版的页面结构，带可点的元素编号），按编号 click / type。每一步做完再 snapshot 确认，不要盲操作。',
+          '接上后先 browser_navigate 到目标网址。每个动作（navigate / click / type）的结果里已经带着动作后的页面快照（文字版的页面结构，带可点的元素 ref），直接按 ref 继续，不用再单独 browser_snapshot。只想找某个按钮 / 输入框时用 browser_find(text) 比整页快照省得多；页面很大被截断了才 browser_snapshot。',
           '需要用户登录或点一下时：先 browser_tabs(list) 看哪条标着 current，browser_tabs(select, 那个 index) 把自己的标签拉到前台，再告诉用户「屏幕在你那边能看到，直接在上面登录一下，登好告诉我」，然后停下等他。密码永远不经过你。用户随时可能在屏幕上直接操作（和你同时），动手前 snapshot 一下看清当前页面。',
           '你看不见截图本身：browser_take_screenshot 存的是文件，路径在工作区的 _browser/ 下。要看清页面长什么样（版式、配色、有没有错位），对那个路径用 see；只是想知道页面上有什么字、能点什么，用 browser_snapshot 更快。',
           '用户看得见屏幕，不用复述每一步点了什么；说结果。做完一件事不用 off，半小时没人用它会自己休眠，下次 open 十秒左右就醒。',
