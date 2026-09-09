@@ -21,6 +21,7 @@ import { AgentRunner, McpManager, seedIntegrations } from './integrations.ts';
 import { ChannelManager, IMS, type Im } from './channels.ts';
 import { DesktopManager } from './desktop.ts';
 import { Upgrader } from './upgrade.ts';
+import { versionLine } from './version.ts';
 import { usageReport } from './usage.ts';
 import { Runtime } from './runtime.ts';
 import { remoteInstall } from './remote-install.ts';
@@ -55,6 +56,7 @@ async function main() {
   const desktops = new DesktopManager(store, mcp, (id) => bots.refreshTools(id));
   bots.desktops = desktops;
   // Who runs the bots: this instance, unless the home was moved to another server or another live server holds the lease.
+  console.log(`[crew] version: ${versionLine()}`);
   const runtime = new Runtime();
   const mode = runtime.claim();
   const active = mode === 'active';
