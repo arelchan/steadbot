@@ -1,22 +1,34 @@
 import { EventEmitter } from 'node:events';
-import { loadMachine, machineLink, pairMachine, probeMachine, uploadCode, uploadLibrary } from './machine.ts';
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
+import { loadMachine, machineLink, pairMachine, probeMachine, type MachineLink } from './machine.ts';
 import type { Runtime } from './runtime.ts';
-import { buildOfDisk, RUNNING_BUILD, VERSION } from './version.ts';
+import { BRANCH, REPO, RUNNING_BUILD, currentCommit, hasGit, isDirty, latestCommit, VERSION } from './version.ts';
 import type { UpgradeStatus } from './types.ts';
 
+const execFileP = promisify(execFile);
+const repoDir = join(fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, ''), '..');
+const REMOTE = `git@github.com:${REPO}.git`;
+const CHECKOUT = '/opt/crew';
+const KEY = '/opt/crew/.deploy-key';
+
 /*
- * One button: 升级. The code on this computer is the version of record (version.ts), so upgrading means making
- * whatever runs the bots match it.
- *   bots here      → the process restarts on the code already on disk (run.sh brings it back up);
- *   bots on a VM   → this computer pushes its code over ssh and rebuilds there, then the VM comes back.
- * Either way the user presses one thing and ends up on the new version.
+ * 升级：the product is a git repository, so a version is a commit and upgrading is a fetch.
+ *   bots here    → pull, then restart on the new code;
+ *   bots on a VM → that machine pulls the same commit itself (it talks to GitHub directly, which is fast), then
+ *                  either restarts the container (code-only change: seconds) or rebuilds the image (deps changed).
+ * The machine reads the repository through a read-only deploy key it generates itself; nothing else is stored there.
  */
 export class Upgrader extends EventEmitter {
   private running = false;
+  /** newest commit on the branch, refreshed in the background */
+  latest: string | undefined;
 
   constructor(
     private runtime: Runtime,
-    /** ask the machine the bots moved to which build it is on (undefined when unreachable) */
+    /** the commit the machine the bots moved to is on (undefined when unreachable) */
     private machineBuild: () => string | undefined,
     /** stop this process so the supervisor starts it again on the new code */
     private restart: () => void,
@@ -28,37 +40,54 @@ export class Upgrader extends EventEmitter {
     return this.running;
   }
 
+  async refreshLatest(): Promise<string | undefined> {
+    const l = await latestCommit();
+    if (l) this.latest = l;
+    return this.latest;
+  }
+
   status(): UpgradeStatus {
-    const disk = buildOfDisk();
     const moved = this.runtime.mode === 'moved';
     const m = moved ? loadMachine() : undefined;
     const running = moved ? this.machineBuild() : RUNNING_BUILD;
-    const base: UpgradeStatus = {
+    const dirty = isDirty();
+    const st: UpgradeStatus = {
       target: moved ? 'machine' : 'local',
       running,
-      disk,
+      latest: this.latest,
       version: VERSION,
-      upToDate: !!running && running === disk,
+      repo: REPO,
+      branch: BRANCH,
+      dirty,
+      upToDate: !!running && !!this.latest && running === this.latest,
       machineName: m?.name,
       busy: this.running,
     };
-    if (moved && !m?.password && !m?.host) base.blocked = '这台电脑上没有那台机器的登录信息，没法替它升级；在「bot 们在哪台机器上干活」里重新连一次';
-    if (this.runtime.mode === 'standby') base.blocked = '另一台机器正在跑这些 bot';
-    return base;
+    if (!hasGit()) st.blocked = '这台电脑上的 EverBot 不是从 git 仓库装的；重新 clone 一份再用，升级才有来源';
+    else if (moved && !m?.host) st.blocked = '这台电脑上没有那台机器的登录信息，没法替它升级；在「云电脑」里重新连一次';
+    else if (this.runtime.mode === 'standby') st.blocked = '另一台机器正在跑这些 bot';
+    else if (dirty && !moved) st.blocked = '这台电脑上有没提交的改动，先提交或撤销再升级';
+    return st;
   }
 
-  /** Bring the runtime that runs the bots up to this computer's code. Progress arrives as 'log' events. */
+  /** Bring the runtime that runs the bots up to the newest commit. Progress arrives as 'log' events. */
   async run(): Promise<{ restarting: boolean }> {
     if (this.running) throw new Error('已经在升级了');
+    await this.refreshLatest();
     const st = this.status();
     if (st.blocked) throw new Error(st.blocked);
+    if (!st.latest) throw new Error('连不上 GitHub，看不到有没有新版本');
     if (st.upToDate) throw new Error('已经是最新的了');
     this.running = true;
     const log = (line: string) => this.emit('log', line);
     try {
       if (st.target === 'local') {
-        log('这台电脑上的代码就是新版本，重启一下就生效。');
-        // The supervisor (scripts/run.sh) starts us again; the App reconnects on its own.
+        log(`拉取 ${REPO} 的 ${BRANCH}…`);
+        const out = await execFileP('git', ['pull', '--ff-only', 'origin', BRANCH], { cwd: repoDir, timeout: 120_000 }).catch((e: Error) => {
+          throw new Error(`拉取失败：${e.message.split('\n').slice(-2).join(' ').slice(0, 160)}`);
+        });
+        log(out.stdout.trim().split('\n').slice(-3).join('\n') || '已经拉到最新');
+        log(`现在是 ${currentCommit() ?? '?'}，重启一下就生效。`);
         setTimeout(() => this.restart(), 400);
         return { restarting: true };
       }
@@ -67,29 +96,12 @@ export class Upgrader extends EventEmitter {
       log(`连上 ${m.name ?? m.host}…`);
       const l = machineLink();
       await l.connect();
-      await uploadCode(l, log);
-      await uploadLibrary(l, log);
-      // Re-run the installer exactly as it was configured, so an upgrade never silently reconfigures the machine.
-      const envRead = await l.exec('sudo sh -c \'echo "D=$(sed -n "s/^DOMAIN=//p" /opt/crew/crew-server/deploy/.env)"; echo "P=$(sed -n "s/^CREW_PORT=//p" /opt/crew/crew-server/deploy/.env)"\'', { timeoutMs: 20_000, pty: true });
-      const lines = envRead.out.replace(/\x1b?\[[0-9;]*m/g, '').split(/\r?\n/).map((x) => x.trim());
-      const domain = (lines.find((x) => x.startsWith('D=')) ?? 'D=').slice(2).trim();
-      const port = (lines.find((x) => x.startsWith('P=')) ?? '').slice(2).trim() || portOf(m.url);
-      log('在那台机器上重建并重启（第一次带浏览器要十几分钟）…');
-      const r = await l.exec(`sudo DOMAIN='${domain}' CREW_PORT='${port}' bash /opt/crew/crew-server/deploy/install.sh 2>&1`, {
-        timeoutMs: 45 * 60_000,
-        pty: true,
-        onLine: (line) => {
-          const t = line.replace(/\x1b?\[[0-9;]*m/g, '').trim();
-          // The build prints a spinner frame per 100 ms; keep the lines that say something.
-          if (t && !/^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/.test(t) && !/^\[\+\]/.test(t)) log(t.slice(0, 200));
-        },
-      });
-      if (r.timedOut) throw new Error('那台机器上的安装超时了；机器可能还在构建，过几分钟再看');
-      if (r.code !== 0) throw new Error(`那台机器上的安装失败（退出码 ${r.code}）`);
-      // The pairing survives an upgrade (uploadCode keeps deploy/.env), but re-read it in case it was rebuilt.
+      await ensureCheckout(l, log);
+      const changed = await pullOnMachine(l, st.latest, log);
+      await applyOnMachine(l, changed, log);
       try {
         const p = await pairMachine(l);
-        log(p.reachable ? '✔ 升级完成，那台机器已经回来了' : `升级完成，但从这里访问不到 ${p.url}：${p.note ?? ''}`);
+        log(p.reachable ? '✔ 升级完成' : `升级完成，但从这里访问不到 ${p.url}：${p.note ?? ''}`);
       } catch {
         const cur = loadMachine();
         const ok = cur?.url && cur.token ? (await probeMachine({ url: cur.url, token: cur.token })).reachable : false;
@@ -102,4 +114,87 @@ export class Upgrader extends EventEmitter {
   }
 }
 
-const portOf = (url?: string) => (url ? (/:(\d+)/.exec(url.replace(/^https?:\/\//, ''))?.[1] ?? '5200') : '5200');
+const sh = (v: string) => `'${v.split("'").join(`'\\''`)}'`;
+/** Run as root, falling back to an interactive sudo when the passwordless one is refused. */
+const root = (l: MachineLink, script: string, timeoutMs = 120_000) =>
+  l.exec(`sudo -n sh -c ${sh(script)} 2>&1 || sudo sh -c ${sh(script)} 2>&1`, { timeoutMs, pty: true });
+
+const clean = (s: string) => s.replace(/\x1b?\[[0-9;]*m/g, '');
+
+/**
+ * Make /opt/crew a checkout of the repository, converting the plain directory an older install left there.
+ * Reading uses a deploy key the machine generates: it never leaves the machine and cannot write.
+ */
+async function ensureCheckout(l: MachineLink, log: (s: string) => void) {
+  const probe = await root(l, `command -v git >/dev/null || (apt-get update -qq && apt-get install -y -qq git); test -d ${CHECKOUT}/.git && echo HASREPO || echo NOREPO`, 300_000);
+  if (clean(probe.out).includes('HASREPO')) return;
+  log('把那台机器接到仓库上（第一次要装一个只读部署密钥）…');
+  const key = await root(
+    l,
+    `mkdir -p /root/.ssh && chmod 700 /root/.ssh; test -f ${KEY} || ssh-keygen -q -t ed25519 -f ${KEY} -N '' -C everbot-deploy; chmod 600 ${KEY}; ` +
+      `ssh-keyscan -t ed25519 github.com >> /root/.ssh/known_hosts 2>/dev/null; sort -u -o /root/.ssh/known_hosts /root/.ssh/known_hosts 2>/dev/null; ` +
+      `echo KEY=$(cat ${KEY}.pub)`,
+  );
+  const pub = /KEY=(ssh-ed25519 \S+(?: [^\r\n]*)?)/.exec(clean(key.out))?.[1]?.trim();
+  if (!pub) throw new Error('那台机器上没能生成部署密钥');
+  await addDeployKey(pub, l.m.name ?? l.m.host);
+  const init = await root(
+    l,
+    `cd ${CHECKOUT} && (git init -q 2>/dev/null; true) && (git remote remove origin 2>/dev/null; true) && git remote add origin ${REMOTE} && ` +
+      `GIT_SSH_COMMAND='ssh -i ${KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new' git fetch -q --depth 50 origin ${BRANCH} && ` +
+      `git checkout -q -f -B ${BRANCH} origin/${BRANCH} && echo DONE`,
+    600_000,
+  );
+  if (!clean(init.out).includes('DONE')) throw new Error(`那台机器上没能拉到仓库：${clean(init.out).trim().slice(-240)}`);
+  log('✔ 那台机器现在跟着仓库走了');
+}
+
+/** Register a read-only deploy key on the repository, ignoring one that is already registered. */
+async function addDeployKey(pub: string, title: string) {
+  const body = JSON.stringify({ title: `everbot · ${title}`, key: pub, read_only: true });
+  try {
+    await execFileP('gh', ['api', `repos/${REPO}/keys`, '--method', 'POST', '--input', '-'], { input: body, timeout: 30_000 } as Parameters<typeof execFileP>[2]);
+  } catch (e) {
+    const err = ((e as { stderr?: string }).stderr ?? (e as Error).message) || '';
+    if (/key is already in use|already exists/i.test(err)) return;
+    throw new Error(`登记部署密钥失败：${err.split('\n')[0].slice(0, 160)}（仓库是私有的，需要这台电脑上的 gh 已登录）`);
+  }
+}
+
+/** Fetch and check out the newest commit; returns the paths that changed. */
+async function pullOnMachine(l: MachineLink, want: string, log: (s: string) => void): Promise<string[]> {
+  log(`那台机器直接从 GitHub 拉 ${want}…`);
+  const r = await root(
+    l,
+    `cd ${CHECKOUT} && GIT_SSH_COMMAND='ssh -i ${KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new' git fetch -q --depth 50 origin ${BRANCH} && ` +
+      `echo "WAS=$(git rev-parse --short=12 HEAD 2>/dev/null || echo none)" && git checkout -q -f -B ${BRANCH} origin/${BRANCH} && ` +
+      `echo "NOW=$(git rev-parse --short=12 HEAD)" && echo DONE`,
+    600_000,
+  );
+  const out = clean(r.out);
+  if (!out.includes('DONE')) throw new Error(`拉取失败：${out.trim().slice(-240)}`);
+  const was = /WAS=(\S+)/.exec(out)?.[1];
+  const now = /NOW=(\S+)/.exec(out)?.[1];
+  log(`${was && was !== 'none' ? `${was} → ` : ''}${now ?? want}`);
+  if (!was || was === 'none' || was === now) return ['*'];
+  const diff = await root(l, `cd ${CHECKOUT} && git diff --name-only ${was} ${now} | head -400`);
+  return clean(diff.out)
+    .split(/\r?\n/)
+    .map((x) => x.trim())
+    .filter((x) => x && !x.startsWith('sudo'));
+}
+
+/** Restart when only code changed; rebuild the image when its inputs did. */
+async function applyOnMachine(l: MachineLink, changed: string[], log: (s: string) => void) {
+  const heavy = changed.some((f) => f === '*' || /^crew-server\/(package(-lock)?\.json|Dockerfile)$/.test(f) || f.startsWith('crew-server/deploy/'));
+  if (heavy) {
+    log('依赖或镜像定义变了，要重建镜像（几分钟）…');
+    const r = await root(l, `cd ${CHECKOUT}/crew-server/deploy && CREW_COMMIT=$(git -C ${CHECKOUT} rev-parse HEAD) bash ./install.sh`, 45 * 60_000);
+    if (!/装好了/.test(clean(r.out))) throw new Error(`重建失败：${clean(r.out).trim().slice(-240)}`);
+    return;
+  }
+  log('只是代码变了，重启容器就行（几秒）…');
+  const compose = `cd ${CHECKOUT}/crew-server/deploy && docker compose`;
+  const r = await root(l, `${compose} up -d --no-build >/dev/null 2>&1 || ${compose} restart >/dev/null 2>&1; ${compose} ps --status running | tail -1; echo DONE`, 5 * 60_000);
+  if (!clean(r.out).includes('DONE')) throw new Error(`重启失败：${clean(r.out).trim().slice(-240)}`);
+}

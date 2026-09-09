@@ -201,9 +201,15 @@ export interface UsageReport {
 export interface UpgradeStatus {
   /** bot 在哪：这台电脑，还是搬去的那台机器 */
   target: 'local' | 'machine';
+  /** 跑 bot 的那一端所在的提交 */
   running?: string;
-  disk: string;
+  /** 仓库分支上最新的提交 */
+  latest?: string;
   version: string;
+  repo: string;
+  branch: string;
+  /** 这台电脑上有没提交的改动 */
+  dirty?: boolean;
   upToDate: boolean;
   /** 现在为什么不能升 */
   blocked?: string;

@@ -507,15 +507,19 @@ export interface UsageReport {
 
 /** 升级：这台电脑上的代码、正在跑的代码、bot 所在机器上的代码，三者对不对得上（见 upgrade.ts） */
 export interface UpgradeStatus {
-  /** where the bots run: this computer, or a machine they were moved to */
+  /** bot 在哪：这台电脑，还是搬去的那台机器 */
   target: 'local' | 'machine';
-  /** the build the runtime that runs the bots is on */
+  /** 跑 bot 的那一端所在的提交 */
   running?: string;
-  /** the build of the code sitting on this computer */
-  disk: string;
+  /** 仓库分支上最新的提交 */
+  latest?: string;
   version: string;
+  repo: string;
+  branch: string;
+  /** 这台电脑上有没提交的改动 */
+  dirty?: boolean;
   upToDate: boolean;
-  /** why an upgrade cannot run right now */
+  /** 现在为什么不能升 */
   blocked?: string;
   machineName?: string;
   busy?: boolean;

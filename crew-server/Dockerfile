@@ -23,6 +23,9 @@ RUN if [ -n "$(find library -name SKILL.md 2>/dev/null | head -1)" ]; then \
     else \
       npm run library:sync || echo "[crew] library sync failed; starting without the bundled skill library"; \
     fi
+# Which commit this image was built from: the image has no .git, so the installer passes it in (version.ts).
+ARG CREW_COMMIT=
+RUN printf '%s' "$CREW_COMMIT" > /app/.build-commit
 ENV CREW_HOME=/data CREW_PORT=5200 CREW_BIND=0.0.0.0 NODE_ENV=production
 VOLUME ["/data"]
 EXPOSE 5200

@@ -247,6 +247,7 @@ function About({ up }: { up: ReturnType<typeof useUpgrade> }) {
         <div>
           <div className="about-n">EverBot</div>
           <div className="about-v">{s ? `版本 ${s.version} · ${s.running?.slice(0, 8) ?? '未知'}` : rt?.version ? `版本 ${rt.version}` : ''}</div>
+          {s && <div className="about-v">{s.repo} · {s.branch}</div>}
         </div>
       </div>
       <p className="about-p">一支替你干活的 bot 团队。你交代一句，它们自己去做，做完或者卡住才回来找你。</p>
@@ -257,17 +258,19 @@ function About({ up }: { up: ReturnType<typeof useUpgrade> }) {
         <div className={cx('up-card', stale && 'stale')}>
           <div className="up-main">
             <div className="up-t">
-              {s.blocked ? '暂时不能升级' : stale ? '有新版本' : '已经是最新的'}
+              {s.blocked ? '暂时不能升级' : stale ? '有新版本' : !s.latest ? '看不到仓库' : '已经是最新的'}
               {stale && <span className="chip cn-chip">新</span>}
             </div>
             <div className="up-s">
               {s.blocked
                 ? s.blocked
-                : stale
-                  ? s.target === 'machine'
-                    ? `你电脑上的代码比${s.machineName ? `「${s.machineName}」` : '那台机器'}上跑的新。升级会把新代码推过去、在那边重建并重启，bot 会停几分钟。`
-                    : '你电脑上的代码比正在跑的新。升级会重启一下 EverBot，几秒钟。'
-                  : `跑的就是这台电脑上的代码（${s.disk.slice(0, 8)}）。`}
+                : !s.latest
+                  ? '连不上 GitHub，暂时不知道有没有新版本。'
+                  : stale
+                    ? s.target === 'machine'
+                      ? `仓库上有更新的版本。${s.machineName ? `「${s.machineName}」` : '那台机器'}会自己从 GitHub 拉下来；只是代码变了就重启几秒，依赖变了才重建镜像。`
+                      : '仓库上有更新的版本。升级会拉下来并重启一下，几秒钟。'
+                    : `跑的就是仓库上最新的（${s.running?.slice(0, 8) ?? '?'}）。`}
             </div>
           </div>
           {stale && !up.busy && (
@@ -293,6 +296,8 @@ function About({ up }: { up: ReturnType<typeof useUpgrade> }) {
         <li><span>状态</span><b>{rt?.mode === 'active' ? '在跑 bot' : rt?.mode === 'moved' ? '已搬走，只是路牌' : '待命'}</b></li>
         <li><span>bot 的电脑</span><b>{rt?.desktops ? '可用' : '不可用'}</b></li>
         <li><span>数据目录</span><b className="mono">{rt?.home ?? '—'}</b></li>
+        {s?.latest && <li><span>仓库最新</span><b className="mono">{s.latest.slice(0, 8)}</b></li>}
+        {s?.dirty && <li><span>本地改动</span><b>有没提交的改动</b></li>}
       </ul>
     </>
   );

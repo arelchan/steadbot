@@ -368,9 +368,8 @@ export async function uploadCode(l: MachineLink, log: (line: string) => void): P
 }
 
 /**
- * The skill library, shipped from the user's computer. It used to be pulled from GitHub during the Docker build,
- * which quietly leaves a machine with poor GitHub access (a mainland datacenter, say) holding a handful of skills
- * instead of the whole set. A few MB, and only sent when it actually differs.
+ * The skill library, shipped from the user's computer. Used by the very first install over ssh; once the machine
+ * is a git checkout (upgrade.ts) the library arrives with the repository instead, which is far quicker.
  */
 export async function uploadLibrary(l: MachineLink, log: (line: string) => void): Promise<{ skipped: boolean; skills: number }> {
   const libDir = join(serverDir, 'library');

@@ -68,6 +68,10 @@ else
   ip="$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo 127.0.0.1)"
   public_url="${CREW_PUBLIC_URL:-http://${ip}:${port}}"
 fi
+# Stamp the image with the commit it is built from, so the App can compare versions (version.ts).
+if [ -z "${CREW_COMMIT:-}" ]; then CREW_COMMIT="$(git -C "$here/../.." rev-parse HEAD 2>/dev/null || echo '')"; fi
+export CREW_COMMIT
+
 umask 077
 cat > .env <<ENV
 CREW_AUTH_TOKEN=${token}
@@ -75,6 +79,7 @@ CREW_PUBLIC_URL=${public_url}
 CREW_PORT=${port}
 DOMAIN=${DOMAIN:-}
 CREW_MTU=${CREW_MTU:-}
+CREW_COMMIT=${CREW_COMMIT:-}
 ENV
 
 echo "▸ 构建并启动（第一次要几分钟）…"

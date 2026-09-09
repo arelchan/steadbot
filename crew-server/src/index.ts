@@ -530,6 +530,8 @@ async function main() {
     }
   };
   const upgrader = new Upgrader(runtime, () => machineBuild, () => process.exit(75));
+  void upgrader.refreshLatest();
+  setInterval(() => void upgrader.refreshLatest().then(broadcastUpgrade), 10 * 60_000).unref();
   const broadcastUpgrade = () => server?.broadcast({ type: 'upgrade_status', status: upgrader.status() });
   upgrader.on('log', (line: string) => server?.broadcast({ type: 'upgrade_log', line }));
 
