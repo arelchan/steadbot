@@ -25,7 +25,7 @@ export class Notifier {
   }
 
   private consider(m: Message) {
-    if (!this.on || m.author !== 'bot' || !m.botId) return;
+    if (!this.on || m.author !== 'bot' || !m.botId || m.status === 'interrupted') return;
     const bot = this.store.bot(m.botId);
     if (!bot) return;
     const needsUser = m.card?.type === 'blocked' || m.card?.type === 'confirm' || m.card?.type === 'options';

@@ -188,7 +188,7 @@ function MessageRow({ m, bots, showName }: { m: Message; bots: Bot[]; showName: 
         {leftoverFiles(m).length ? <FileCards files={leftoverFiles(m)} /> : null}
         {m.card && <CardView card={m.card} messageId={m.id} />}
         <div className="foot">
-          <span>{msgTime(m.ts)}{m.status ? ` · ${m.status}` : ''}</span>
+          <span>{msgTime(m.ts)}{m.status === 'interrupted' ? ` · ${t('thread.interrupted')}` : m.status ? ` · ${m.status}` : ''}</span>
         </div>
       </div>
     </div>

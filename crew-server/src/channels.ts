@@ -391,6 +391,8 @@ export class ChannelManager implements Hub {
   async deliver(message: Message, pending?: Pending) {
     if (message.author !== 'bot' || !message.botId) return;
     if (message.via === 'app') return;
+    // A reply the user cut off mid-sentence goes out as far as it got, marked so.
+    const text = message.status === 'interrupted' ? `${message.text}…（被打断）` : message.text;
     const { kind, id } = parseThread(message.threadId);
     const warn = (e: unknown) => console.warn('[crew] IM delivery failed:', (e as Error).message);
     if (kind === 'matter') {
@@ -401,11 +403,11 @@ export class ChannelManager implements Hub {
         if (!chatId || (message.via && message.via !== ch)) continue;
         const own = this.bridges.get(key(message.botId, ch));
         if (own) {
-          await own.send(chatId, message.text, pending).catch(warn);
+          await own.send(chatId, text, pending).catch(warn);
           continue;
         }
         const relay = [matter.ownerBotId, ...matter.participantBotIds].map((b) => this.bridges.get(key(b, ch))).find(Boolean);
-        if (relay) await relay.send(chatId, `【${this.store.bot(message.botId)?.name ?? ''}】${message.text}`, pending).catch(warn);
+        if (relay) await relay.send(chatId, `【${this.store.bot(message.botId)?.name ?? ''}】${text}`, pending).catch(warn);
       }
       return;
     }
@@ -415,7 +417,7 @@ export class ChannelManager implements Hub {
       const br = this.bridges.get(key(bot.id, ch));
       const chatId = bot.bindings?.[ch];
       if (!br || !chatId || (message.via && message.via !== ch)) continue;
-      await br.send(chatId, message.text, pending).catch(warn);
+      await br.send(chatId, text, pending).catch(warn);
     }
   }
 

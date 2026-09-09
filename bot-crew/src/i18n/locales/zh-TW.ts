@@ -63,6 +63,7 @@ export const zhTW: Record<string, string> = {
 
   'thread.identity': 'Bot 身分',
   'thread.matterInfo': '這件事',
+  'thread.interrupted': '被打斷',
   'thread.gone': '這個對話不存在了',
   'thread.born': '正在依你這句話產生名字、職責和頭像…',
   'thread.evolved': '進化了',

@@ -67,6 +67,7 @@ export const zh: Record<string, string> = {
   /* ---- 会话 ---- */
   'thread.identity': 'Bot 身份',
   'thread.matterInfo': '这件事',
+  'thread.interrupted': '被打断',
   'thread.gone': '这个会话不存在了',
   'thread.born': '正在根据你这句话生成名字、职责和头像…',
   'thread.evolved': '进化了',

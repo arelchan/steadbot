@@ -71,6 +71,7 @@ export const ru: Record<string, string> = {
 
   'thread.identity': 'Профиль бота',
   'thread.matterInfo': 'Эта группа',
+  'thread.interrupted': 'прервано',
   'thread.gone': 'Этой переписки больше нет',
   'thread.born': 'Из вашей фразы создаются имя, роль и аватар…',
   'thread.evolved': 'изменился',

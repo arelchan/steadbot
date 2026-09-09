@@ -59,6 +59,8 @@ export interface Inbound {
   todoId?: string;
   /** files the user attached (already saved under the bot's workspace/_in) */
   files?: FileRef[];
+  /** this message cut the bot off mid-reply; `said` is what it had got out before the stop */
+  cutIn?: { said: string };
 }
 
 interface BotRuntime {
@@ -77,6 +79,10 @@ interface BotRuntime {
   textCount: number;
   /** user messages waiting for the coalescing window to close (one turn for a burst of messages) */
   gather?: { threadId: ThreadId; texts: string[]; ids: string[]; via?: Channel; timer: ReturnType<typeof setTimeout>; started: number; done: Promise<void>; go: () => void };
+  /** the user cut in on this turn: tool calls that have not started yet are blocked until the model's next response */
+  interrupt?: boolean;
+  /** the run that is ending was cut short by the user (its empty output is not a model failure) */
+  cutShort?: boolean;
 }
 
 /** A burst of messages within this window becomes one turn; the window never stretches past the cap. */
@@ -210,7 +216,14 @@ export class BotManager extends EventEmitter {
     let rt: BotRuntime | undefined;
     const ctx = this.ctxFor(botId, () => rt);
     let captured: ExtensionAPI | undefined;
-    const bridge: InlineExtension = { name: 'crew-bridge', factory: (pi) => void (captured = pi) };
+    const bridge: InlineExtension = {
+      name: 'crew-bridge',
+      factory: (pi) => {
+        captured = pi;
+        // A user cut in while tools were running: the one in flight finishes, the rest of the batch is dropped.
+        pi.on('tool_call', () => (rt?.interrupt ? { block: true, reason: '用户刚插话了，这个调用作废。先看用户的新消息，再决定要不要做。' } : undefined));
+      },
+    };
     const perform = async (p: { connection: string; action: string; amount?: number }) =>
       `（${p.connection} · ${p.action}${p.amount ? ` · ¥${p.amount}` : ''} 已通过连接执行。）`;
 
@@ -323,9 +336,22 @@ export class BotManager extends EventEmitter {
           for (const w of rt.settledWaiters.splice(0)) w();
         }
         break;
+      case 'message_start':
+        // The model is answering again (with the cut-in message in view): its new tool calls are wanted.
+        if (rt && (ev.message as { role: string }).role === 'assistant') rt.interrupt = false;
+        break;
       case 'message_end': {
-        const m = ev.message as { role: string; content: unknown };
+        const m = ev.message as { role: string; content: unknown; stopReason?: string };
         if (m.role !== 'assistant') break;
+        if (m.stopReason === 'aborted') {
+          // Cut short by the user. Whatever got out stays on screen, marked; no handoffs or task updates from a half-thought.
+          const said = textOf(m.content).trim();
+          if (said) {
+            if (rt) rt.textCount += 1;
+            this.store.addMessage({ threadId, author: 'bot', botId, text: said, ts: Date.now(), todoId: cur?.todoId, via: cur?.via, status: 'interrupted' });
+          }
+          break;
+        }
         let text = textOf(m.content).replace(/^（已同步）$/, '');
         if (!text && !hasToolCalls(m.content)) {
           // The answer went into the thinking channel: show what it concluded rather than nothing.
@@ -384,9 +410,20 @@ export class BotManager extends EventEmitter {
       const busyHere = rt.session.isStreaming && rt.current?.threadId === inbound.threadId && !rt.gather;
       if (busyHere) {
         if (rt.current && inbound.userMessageId) rt.current.userMessageId = inbound.userMessageId;
-        const steer = withAttachments(sourceMark(rt.current?.matterId ? this.store.matter(rt.current.matterId)?.title : undefined, inbound.via) + inbound.text, inbound.files, config.modelInfo?.vision === true);
-        await rt.session.prompt(steer.text, { expandPromptTemplates: false, streamingBehavior: 'steer', ...(steer.images.length ? { images: steer.images } : {}) });
-        return rt.queue;
+        rt.interrupt = true;
+        if (rt.session.agent.state.pendingToolCalls.size > 0) {
+          // Tool node: the running tool finishes (killing a half-done write corrupts files), the rest of the batch is
+          // blocked by the tool_call hook, and the model reads the cut-in before its next call.
+          const steer = withAttachments(sourceMark(rt.current?.matterId ? this.store.matter(rt.current.matterId)?.title : undefined, inbound.via) + inbound.text, inbound.files, config.modelInfo?.vision === true);
+          await rt.session.prompt(cutInPrompt('tool', undefined, steer.text), { expandPromptTemplates: false, streamingBehavior: 'steer', ...(steer.images.length ? { images: steer.images } : {}) });
+          return rt.queue;
+        }
+        // LLM node: stop generating now. What already got out stays on screen; pi drops the aborted message from the
+        // model's context, so the next turn quotes it back together with the new message and asks for a re-decision.
+        rt.cutShort = true;
+        this.store.typing(inbound.threadId, botId, true);
+        await rt.session.abort();
+        return this.enqueue(botId, { ...inbound, cutIn: { said: lastAbortedText(rt) } });
       }
       if (rt.gather && rt.gather.threadId === inbound.threadId) {
         const g = rt.gather;
@@ -416,6 +453,7 @@ export class BotManager extends EventEmitter {
       this.store.typing(inbound.threadId, botId, true);
       const rt = await this.ensure(botId);
       this.resolved.set(botId, rt);
+      rt.cutShort = false;
       const { kind: tk, id: tid } = parseThread(inbound.threadId);
       rt.current = {
         threadId: inbound.threadId,
@@ -430,8 +468,9 @@ export class BotManager extends EventEmitter {
           const groupTitle = tk === 'matter' ? this.store.matter(tid)?.title : undefined;
           const before = rt.textCount;
           const p = withAttachments(sourceMark(groupTitle, inbound.via) + inbound.text, inbound.files, config.modelInfo?.vision === true);
-          await rt.session.prompt(p.text, { expandPromptTemplates: false, ...(p.images.length ? { images: p.images } : {}) });
-          if (rt.textCount === before && !this.fake) {
+          const text = inbound.cutIn ? cutInPrompt('llm', inbound.cutIn.said, p.text) : p.text;
+          await rt.session.prompt(text, { expandPromptTemplates: false, ...(p.images.length ? { images: p.images } : {}) });
+          if (rt.textCount === before && !this.fake && !rt.cutShort) {
             // The model sometimes puts the whole answer in its thinking block and emits no text. Nudge once.
             console.warn(`[crew] bot ${botId}: empty reply, nudging`);
             rt.pi.sendMessage({ customType: 'system', content: '你上一轮没有输出正文，用户什么都没看到（思考内容用户看不见）。现在把要对用户说的话作为正文发出来，一两句即可。', display: false }, { deliverAs: 'followUp', triggerTurn: true });
@@ -547,6 +586,36 @@ function sourceMark(groupTitle: string | undefined, via: Channel | undefined): s
   const ch = via && via !== 'app' ? CHANNEL_NAME[via] : undefined;
   if (groupTitle) return `【群聊「${groupTitle}」· 用户${ch ? ` · ${ch}` : ''}】`;
   return ch ? `【${ch}】` : '';
+}
+
+/** What the model had said before the user cut in, from pi's transcript (the aborted message is still the last one). */
+function lastAbortedText(rt: BotRuntime): string {
+  const msgs = rt.session.agent.state.messages as { role: string; stopReason?: string; content: unknown }[];
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (m.role === 'assistant') return m.stopReason === 'aborted' ? textOf(m.content).trim() : '';
+  }
+  return '';
+}
+
+/** A long quote keeps its head and tail; the middle is what the user has already scrolled past. */
+function excerpt(s: string, max = 1200): string {
+  return s.length <= max ? s : `${s.slice(0, Math.floor(max * 0.7))}\n……\n${s.slice(-Math.floor(max * 0.3))}`;
+}
+
+/**
+ * The user spoke while the bot was mid-turn. The model's partial output is not in its context any more (pi drops
+ * aborted messages), so it is quoted back, marked as cut off, and the model is asked to re-decide rather than to
+ * finish the old plan.
+ */
+function cutInPrompt(at: 'llm' | 'tool', said: string | undefined, userPart: string): string {
+  const head =
+    at === 'tool'
+      ? '【插入】你正在执行工具时，用户发来了新消息。还没开始的工具调用已经作废；已经跑完的结果照常在上面。'
+      : said
+        ? `【插入】你上一条回复说到一半被用户的新消息打断了。你已经说出去、用户看到的部分是：\n「${excerpt(said)}」\n后面没说完的部分作废。`
+        : '【插入】你上一条回复刚开始就被用户的新消息打断了，用户没看到任何内容。';
+  return `${head}\n先看新消息，判断刚才在做的事哪些还成立：还成立的接着做，不成立的直接放弃，不要把旧方案补完，也不要重复已经说过的内容。\n\n用户说：\n${userPart}`;
 }
 
 const fmtSize = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);

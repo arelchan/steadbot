@@ -63,6 +63,7 @@ export const es: Record<string, string> = {
 
   'thread.identity': 'Perfil del bot',
   'thread.matterInfo': 'Este grupo',
+  'thread.interrupted': 'interrumpido',
   'thread.gone': 'Esta conversación ya no existe',
   'thread.born': 'Generando nombre, función y avatar a partir de lo que acabas de decir…',
   'thread.evolved': 'ha evolucionado',

@@ -63,6 +63,7 @@ export const en: Record<string, string> = {
 
   'thread.identity': 'Bot identity',
   'thread.matterInfo': 'This group',
+  'thread.interrupted': 'interrupted',
   'thread.gone': 'This conversation is gone',
   'thread.born': 'Generating a name, a role and an avatar from what you just said…',
   'thread.evolved': 'evolved',

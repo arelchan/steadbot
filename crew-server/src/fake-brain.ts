@@ -18,7 +18,9 @@ import { summarize, textOf } from './util.ts';
 export class FakeBrain {
   handle: FauxProviderHandle;
   constructor(private store: CrewStore) {
-    this.handle = fauxProvider({ tokensPerSecond: 400 });
+    // CREW_FAKE_TPS slows the stream down (tests that cut a reply short need time to do so).
+    const tps = process.env.CREW_FAKE_TPS;
+    this.handle = fauxProvider({ tokensPerSecond: Number(tps ?? 400), ...(tps ? { tokenSize: { min: 1, max: 1 } } : {}) });
     const step = (ctx: Context) => {
       this.handle.appendResponses([step]);
       return this.respond(ctx);

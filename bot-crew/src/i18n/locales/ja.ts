@@ -63,6 +63,7 @@ export const ja: Record<string, string> = {
 
   'thread.identity': 'Bot のプロフィール',
   'thread.matterInfo': 'このグループ',
+  'thread.interrupted': '中断',
   'thread.gone': 'この会話はもうありません',
   'thread.born': 'いまのひとことから名前・役割・アイコンを生成しています…',
   'thread.evolved': '進化しました',

@@ -63,6 +63,7 @@ export const ko: Record<string, string> = {
 
   'thread.identity': 'Bot 프로필',
   'thread.matterInfo': '이 그룹',
+  'thread.interrupted': '중단됨',
   'thread.gone': '이 대화는 사라졌습니다',
   'thread.born': '방금 하신 말에서 이름·역할·아바타를 만들고 있습니다…',
   'thread.evolved': '진화했습니다',
