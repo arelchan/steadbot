@@ -150,8 +150,11 @@ export function scanRequires(dir: string): Requires {
       }
       // Package names only, and only up to the first thing that is not one: prose after the command ("；终端运行 claude…") is not a package list.
       const NPM_NAME = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
-      for (const m of text.matchAll(/npm\s+(?:install|i)\s+(?:-g\s+)?([^\n`；，。）)]+)/g)) {
-        for (const t of m[1].split(/\s+/)) {
+      for (const m of text.matchAll(/npm\s+(?:install|i)\s+(-g\s+)?([^\n`；，。）)]+)/g)) {
+        // `npm install -g` puts a CLI on the machine for a person to use (Claude Code, Codex…); that is a step the manual
+        // tells the user about, not something the manual needs installed here to run.
+        if (m[1]) continue;
+        for (const t of m[2].split(/\s+/)) {
           if (!t) continue;
           if (t.startsWith('-')) continue;
           const name = t.replace(/@[^@/]+$/, '');
