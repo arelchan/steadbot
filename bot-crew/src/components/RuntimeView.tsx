@@ -87,8 +87,8 @@ function MachineReadiness() {
     setBusy(false);
   };
   return (
-    <div className="rt-card">
-      <div className="rt-row">
+    <div className="rt-card rt-ready-card">
+      <div className="rt-ready-hd">
         <div className="rt-title">{t('rt.machine')}</div>
         {missing.length > 0 && (
           <button className="btn sm" disabled={busy} onClick={() => void fill()}>
