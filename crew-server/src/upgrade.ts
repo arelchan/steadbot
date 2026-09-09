@@ -151,13 +151,13 @@ async function ensureCheckout(l: MachineLink, log: (s: string) => void) {
 
 /** Register a read-only deploy key on the repository, ignoring one that is already registered. */
 async function addDeployKey(pub: string, title: string) {
-  const body = JSON.stringify({ title: `everbot · ${title}`, key: pub, read_only: true });
   try {
-    await execFileP('gh', ['api', `repos/${REPO}/keys`, '--method', 'POST', '--input', '-'], { input: body, timeout: 30_000 } as Parameters<typeof execFileP>[2]);
+    await execFileP('gh', ['api', `repos/${REPO}/keys`, '--method', 'POST', '-f', `title=everbot · ${title}`, '-f', `key=${pub}`, '-F', 'read_only=true'], { timeout: 30_000 });
   } catch (e) {
     const err = ((e as { stderr?: string }).stderr ?? (e as Error).message) || '';
-    if (/key is already in use|already exists/i.test(err)) return;
-    throw new Error(`登记部署密钥失败：${err.split('\n')[0].slice(0, 160)}（仓库是私有的，需要这台电脑上的 gh 已登录）`);
+    // Re-running an upgrade re-offers the same key; GitHub rejects the duplicate, which is exactly what we want.
+    if (/already in use|already exists|key is already/i.test(err)) return;
+    throw new Error(`登记部署密钥失败：${err.split('\n').filter(Boolean).slice(-1)[0]?.slice(0, 160) ?? err.slice(0, 160)}（需要这台电脑上的 gh 已登录且有仓库权限）`);
   }
 }
 
