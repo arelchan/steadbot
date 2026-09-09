@@ -4,6 +4,7 @@
 !/everbot
 !/crew-server/
 !/bot-crew/
+!/DESIGN.md
 
 # never the build output, dependencies, or local data
 node_modules/
