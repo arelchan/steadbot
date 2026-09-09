@@ -1,0 +1,17 @@
+# Overlay: `docker compose -f docker-compose.yml -f docker-compose.https.yml up -d` when DOMAIN points at this machine.
+services:
+  crew:
+    ports: !reset []
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    ports:
+      - "80:80"
+      - "443:443"
+volumes:
+  caddy-data:

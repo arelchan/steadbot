@@ -1,0 +1,17 @@
+# EverBot lives in this folder alongside unrelated work: track only the product.
+/*
+!/.gitignore
+!/everbot
+!/crew-server/
+!/bot-crew/
+
+# never the build output, dependencies, or local data
+node_modules/
+dist/
+.DS_Store
+*.log
+.scratch/
+crew-server/deploy/.env
+crew-server/deploy/.mtu
+crew-server/.upload-sha
+crew-server/.library-sha

@@ -1,0 +1,17 @@
+# One user's bots on one machine. `install.sh` writes .env (token, public URL) next to this file.
+services:
+  crew:
+    build: ..
+    image: crew-server:local
+    restart: unless-stopped
+    environment:
+      CREW_AUTH_TOKEN: ${CREW_AUTH_TOKEN}
+      CREW_PUBLIC_URL: ${CREW_PUBLIC_URL}
+      CREW_PORT: "5200"
+      CREW_BIND: 0.0.0.0
+    volumes:
+      - crew-data:/data
+    ports:
+      - "${CREW_PORT:-5200}:5200"
+volumes:
+  crew-data:

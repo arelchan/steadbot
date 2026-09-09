@@ -1,0 +1,4 @@
+# Used when DOMAIN is set: automatic HTTPS in front of the server.
+{$DOMAIN} {
+  reverse_proxy crew:5200
+}

@@ -1,0 +1,650 @@
+{
+  "$comment": "Curated skill library. `npm run library:sync` pulls each skill's original directory (SKILL.md + supporting files) from GitHub, verbatim, into library/<category>/<slug>/. Titles are the upstream skill names; tags are only for search. Optional `extras`: extra upstream paths copied into the skill dir under _upstream/ (agents, READMEs the skill refers to).",
+  "categories": {
+    "dev": "开发",
+    "docs": "文档办公",
+    "writing": "写作沟通",
+    "research": "研究数据",
+    "productivity": "效率生活",
+    "business": "商业营销",
+    "design": "设计创意",
+    "meta": "方法与元技能"
+  },
+  "skills": [
+    {
+      "slug": "archify",
+      "category": "dev",
+      "repo": "tt-a1i/archify",
+      "path": "archify",
+      "tags": [
+        "架构图",
+        "流程图",
+        "时序图",
+        "数据流",
+        "生命周期",
+        "交互",
+        "HTML",
+        "导出",
+        "diagram",
+        "archify"
+      ]
+    },
+    {
+      "slug": "architecture-diagram",
+      "category": "dev",
+      "repo": "athola/claude-night-market",
+      "path": "plugins/cartograph/skills/architecture-diagram",
+      "tags": [
+        "架构图",
+        "流程图",
+        "mermaid",
+        "diagram",
+        "repo",
+        "代码"
+      ],
+      "extras": [
+        "plugins/cartograph/agents/codebase-explorer.md",
+        "plugins/cartograph/README.md"
+      ]
+    },
+    {
+      "slug": "data-flow",
+      "category": "dev",
+      "repo": "athola/claude-night-market",
+      "path": "plugins/cartograph/skills/data-flow",
+      "tags": [
+        "数据流",
+        "时序图",
+        "请求流程",
+        "mermaid",
+        "流程图"
+      ]
+    },
+    {
+      "slug": "dependency-graph",
+      "category": "dev",
+      "repo": "athola/claude-night-market",
+      "path": "plugins/cartograph/skills/dependency-graph",
+      "tags": [
+        "依赖图",
+        "import",
+        "耦合",
+        "循环依赖",
+        "重构",
+        "mermaid"
+      ]
+    },
+    {
+      "slug": "workflow-diagram",
+      "category": "dev",
+      "repo": "athola/claude-night-market",
+      "path": "plugins/cartograph/skills/workflow-diagram",
+      "tags": [
+        "流程图",
+        "状态机",
+        "CI",
+        "流程",
+        "mermaid"
+      ]
+    },
+    {
+      "slug": "class-diagram",
+      "category": "dev",
+      "repo": "athola/claude-night-market",
+      "path": "plugins/cartograph/skills/class-diagram",
+      "tags": [
+        "类图",
+        "继承",
+        "API",
+        "mermaid"
+      ]
+    },
+    {
+      "slug": "code-wiki",
+      "category": "dev",
+      "repo": "NousResearch/hermes-agent",
+      "path": "optional-skills/software-development/code-wiki",
+      "tags": [
+        "读代码",
+        "仓库",
+        "wiki",
+        "文档",
+        "架构",
+        "onboarding"
+      ]
+    },
+    {
+      "slug": "code-review",
+      "category": "dev",
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/code-review",
+      "tags": [
+        "代码评审",
+        "review",
+        "PR",
+        "diff"
+      ]
+    },
+    {
+      "slug": "requesting-code-review",
+      "category": "dev",
+      "repo": "obra/superpowers",
+      "path": "skills/requesting-code-review",
+      "tags": [
+        "评审",
+        "review",
+        "PR"
+      ]
+    },
+    {
+      "slug": "systematic-debugging",
+      "category": "dev",
+      "repo": "obra/superpowers",
+      "path": "skills/systematic-debugging",
+      "tags": [
+        "排错",
+        "debug",
+        "bug",
+        "报错",
+        "根因"
+      ]
+    },
+    {
+      "slug": "test-driven-development",
+      "category": "dev",
+      "repo": "obra/superpowers",
+      "path": "skills/test-driven-development",
+      "tags": [
+        "测试",
+        "TDD",
+        "单元测试",
+        "开发"
+      ]
+    },
+    {
+      "slug": "writing-plans",
+      "category": "dev",
+      "repo": "obra/superpowers",
+      "path": "skills/writing-plans",
+      "tags": [
+        "计划",
+        "拆解",
+        "任务",
+        "方案",
+        "plan"
+      ]
+    },
+    {
+      "slug": "verification-before-completion",
+      "category": "dev",
+      "repo": "obra/superpowers",
+      "path": "skills/verification-before-completion",
+      "tags": [
+        "验证",
+        "交付",
+        "完成",
+        "测试"
+      ]
+    },
+    {
+      "slug": "finishing-a-development-branch",
+      "category": "dev",
+      "repo": "obra/superpowers",
+      "path": "skills/finishing-a-development-branch",
+      "tags": [
+        "git",
+        "分支",
+        "合并",
+        "PR",
+        "提交"
+      ]
+    },
+    {
+      "slug": "changelog-generator",
+      "category": "dev",
+      "repo": "ComposioHQ/awesome-claude-skills",
+      "path": "changelog-generator",
+      "tags": [
+        "changelog",
+        "发布说明",
+        "release",
+        "git",
+        "版本"
+      ]
+    },
+    {
+      "slug": "mcp-builder",
+      "category": "dev",
+      "repo": "anthropics/skills",
+      "path": "skills/mcp-builder",
+      "tags": [
+        "MCP",
+        "集成",
+        "API",
+        "工具",
+        "接入"
+      ]
+    },
+    {
+      "slug": "frontend-design",
+      "category": "dev",
+      "repo": "anthropics/skills",
+      "path": "skills/frontend-design",
+      "tags": [
+        "前端",
+        "设计",
+        "UI",
+        "网页",
+        "CSS",
+        "组件"
+      ]
+    },
+    {
+      "slug": "webapp-testing",
+      "category": "dev",
+      "repo": "anthropics/skills",
+      "path": "skills/webapp-testing",
+      "tags": [
+        "测试",
+        "前端",
+        "Playwright",
+        "浏览器",
+        "E2E"
+      ]
+    },
+    {
+      "slug": "semgrep",
+      "category": "dev",
+      "repo": "trailofbits/skills",
+      "path": "plugins/static-analysis/skills/semgrep",
+      "tags": [
+        "安全",
+        "静态分析",
+        "漏洞",
+        "审计",
+        "semgrep"
+      ]
+    },
+    {
+      "slug": "differential-review",
+      "category": "dev",
+      "repo": "trailofbits/skills",
+      "path": "plugins/differential-review/skills/differential-review",
+      "tags": [
+        "安全",
+        "评审",
+        "diff",
+        "漏洞",
+        "PR"
+      ]
+    },
+    {
+      "slug": "docx",
+      "category": "docs",
+      "repo": "anthropics/skills",
+      "path": "skills/docx",
+      "tags": [
+        "Word",
+        "文档",
+        "docx",
+        "办公"
+      ]
+    },
+    {
+      "slug": "xlsx",
+      "category": "docs",
+      "repo": "anthropics/skills",
+      "path": "skills/xlsx",
+      "tags": [
+        "Excel",
+        "表格",
+        "xlsx",
+        "csv",
+        "数据",
+        "公式"
+      ]
+    },
+    {
+      "slug": "pptx",
+      "category": "docs",
+      "repo": "anthropics/skills",
+      "path": "skills/pptx",
+      "tags": [
+        "PPT",
+        "幻灯片",
+        "pptx",
+        "汇报",
+        "演示"
+      ]
+    },
+    {
+      "slug": "pdf",
+      "category": "docs",
+      "repo": "anthropics/skills",
+      "path": "skills/pdf",
+      "tags": [
+        "PDF",
+        "文档",
+        "抽取",
+        "表单",
+        "合并"
+      ]
+    },
+    {
+      "slug": "content-research-writer",
+      "category": "writing",
+      "repo": "ComposioHQ/awesome-claude-skills",
+      "path": "content-research-writer",
+      "tags": [
+        "写作",
+        "文章",
+        "调研",
+        "引用",
+        "长文",
+        "公众号"
+      ]
+    },
+    {
+      "slug": "internal-comms",
+      "category": "writing",
+      "repo": "anthropics/skills",
+      "path": "skills/internal-comms",
+      "tags": [
+        "周报",
+        "汇报",
+        "公告",
+        "通知",
+        "沟通",
+        "FAQ"
+      ]
+    },
+    {
+      "slug": "meeting-insights-analyzer",
+      "category": "writing",
+      "repo": "ComposioHQ/awesome-claude-skills",
+      "path": "meeting-insights-analyzer",
+      "tags": [
+        "会议",
+        "纪要",
+        "转写",
+        "记录"
+      ]
+    },
+    {
+      "slug": "twitter-algorithm-optimizer",
+      "category": "writing",
+      "repo": "ComposioHQ/awesome-claude-skills",
+      "path": "twitter-algorithm-optimizer",
+      "tags": [
+        "社媒",
+        "文案",
+        "推文",
+        "传播",
+        "twitter"
+      ]
+    },
+    {
+      "slug": "wait-what",
+      "category": "writing",
+      "repo": "mattpocock/skills",
+      "path": "skills/productivity/wait-what",
+      "tags": [
+        "解释",
+        "说人话",
+        "术语",
+        "理解"
+      ]
+    },
+    {
+      "slug": "writing-for-agents",
+      "category": "writing",
+      "repo": "mattpocock/skills",
+      "path": "skills/productivity/writing-for-agents",
+      "tags": [
+        "文档",
+        "规范",
+        "agent",
+        "写作"
+      ]
+    },
+    {
+      "slug": "deep-research",
+      "category": "research",
+      "repo": "sanjay3290/ai-skills",
+      "path": "skills/deep-research",
+      "tags": [
+        "调研",
+        "研究",
+        "搜索",
+        "报告"
+      ]
+    },
+    {
+      "slug": "research",
+      "category": "research",
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/research",
+      "tags": [
+        "调研",
+        "来源",
+        "引用",
+        "research"
+      ]
+    },
+    {
+      "slug": "postgres",
+      "category": "research",
+      "repo": "sanjay3290/ai-skills",
+      "path": "skills/postgres",
+      "tags": [
+        "数据库",
+        "SQL",
+        "查询",
+        "Postgres",
+        "数据"
+      ]
+    },
+    {
+      "slug": "competitive-ads-extractor",
+      "category": "research",
+      "repo": "ComposioHQ/awesome-claude-skills",
+      "path": "competitive-ads-extractor",
+      "tags": [
+        "竞品",
+        "广告",
+        "市场",
+        "分析",
+        "营销"
+      ]
+    },
+    {
+      "slug": "file-organizer",
+      "category": "productivity",
+      "repo": "ComposioHQ/awesome-claude-skills",
+      "path": "file-organizer",
+      "tags": [
+        "文件",
+        "整理",
+        "归档",
+        "桌面",
+        "下载"
+      ]
+    },
+    {
+      "slug": "invoice-organizer",
+      "category": "productivity",
+      "repo": "ComposioHQ/awesome-claude-skills",
+      "path": "invoice-organizer",
+      "tags": [
+        "发票",
+        "报销",
+        "账单",
+        "报税",
+        "财务"
+      ]
+    },
+    {
+      "slug": "tailored-resume-generator",
+      "category": "productivity",
+      "repo": "ComposioHQ/awesome-claude-skills",
+      "path": "tailored-resume-generator",
+      "tags": [
+        "简历",
+        "求职",
+        "岗位",
+        "面试"
+      ]
+    },
+    {
+      "slug": "teach",
+      "category": "productivity",
+      "repo": "mattpocock/skills",
+      "path": "skills/productivity/teach",
+      "tags": [
+        "学习",
+        "教学",
+        "课程",
+        "练习"
+      ]
+    },
+    {
+      "slug": "handoff",
+      "category": "productivity",
+      "repo": "mattpocock/skills",
+      "path": "skills/productivity/handoff",
+      "tags": [
+        "交接",
+        "总结",
+        "上下文",
+        "协作"
+      ]
+    },
+    {
+      "slug": "lead-research-assistant",
+      "category": "business",
+      "repo": "ComposioHQ/awesome-claude-skills",
+      "path": "lead-research-assistant",
+      "tags": [
+        "销售",
+        "线索",
+        "客户",
+        "拓客",
+        "BD"
+      ]
+    },
+    {
+      "slug": "domain-name-brainstormer",
+      "category": "business",
+      "repo": "ComposioHQ/awesome-claude-skills",
+      "path": "domain-name-brainstormer",
+      "tags": [
+        "起名",
+        "域名",
+        "品牌",
+        "命名"
+      ]
+    },
+    {
+      "slug": "brand-guidelines",
+      "category": "business",
+      "repo": "anthropics/skills",
+      "path": "skills/brand-guidelines",
+      "tags": [
+        "品牌",
+        "规范",
+        "配色",
+        "字体",
+        "视觉"
+      ]
+    },
+    {
+      "slug": "canvas-design",
+      "category": "design",
+      "repo": "anthropics/skills",
+      "path": "skills/canvas-design",
+      "tags": [
+        "海报",
+        "封面",
+        "配图",
+        "视觉",
+        "设计",
+        "信息图"
+      ]
+    },
+    {
+      "slug": "theme-factory",
+      "category": "design",
+      "repo": "anthropics/skills",
+      "path": "skills/theme-factory",
+      "tags": [
+        "主题",
+        "配色",
+        "字体",
+        "设计"
+      ]
+    },
+    {
+      "slug": "web-asset-generator",
+      "category": "design",
+      "repo": "alonw0/web-asset-generator",
+      "path": "skills/web-asset-generator",
+      "tags": [
+        "图标",
+        "favicon",
+        "OG",
+        "分享图",
+        "网站"
+      ]
+    },
+    {
+      "slug": "skill-creator",
+      "category": "meta",
+      "repo": "anthropics/skills",
+      "path": "skills/skill-creator",
+      "tags": [
+        "技能",
+        "手册",
+        "SKILL",
+        "沉淀"
+      ]
+    },
+    {
+      "slug": "writing-skills",
+      "category": "meta",
+      "repo": "obra/superpowers",
+      "path": "skills/writing-skills",
+      "tags": [
+        "技能",
+        "手册",
+        "沉淀",
+        "写技能"
+      ]
+    },
+    {
+      "slug": "brainstorming",
+      "category": "meta",
+      "repo": "obra/superpowers",
+      "path": "skills/brainstorming",
+      "tags": [
+        "方案",
+        "设计",
+        "想法",
+        "头脑风暴",
+        "需求"
+      ]
+    },
+    {
+      "slug": "grill-me",
+      "category": "meta",
+      "repo": "mattpocock/skills",
+      "path": "skills/productivity/grill-me",
+      "tags": [
+        "计划",
+        "评审",
+        "追问",
+        "风险",
+        "决策"
+      ]
+    }
+  ]
+}

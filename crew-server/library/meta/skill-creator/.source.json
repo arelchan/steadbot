@@ -1,0 +1,9 @@
+{
+  "repo": "anthropics/skills",
+  "path": "skills/skill-creator",
+  "commit": "41bbe19",
+  "url": "https://github.com/anthropics/skills/tree/HEAD/skills/skill-creator",
+  "license": "Apache-2.0",
+  "licenseFile": "LICENSE.txt",
+  "fetchedAt": "2026-09-06T15:48:38.897Z"
+}
