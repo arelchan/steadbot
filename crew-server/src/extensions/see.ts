@@ -15,6 +15,8 @@ import { imageContent, look, type Eyes } from '../vision.ts';
  * pages is rendered and looked at instead. The bot never has to know which of those applies.
  */
 const IMAGE = /^\.(png|jpe?g|gif|webp|bmp|tiff?|heic)$/i;
+/** Derived from the extension, not guessed: `image/jpg` and `image/tif` are not real types and get rejected. */
+const IMAGE_MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.tif': 'image/tiff', '.tiff': 'image/tiff', '.heic': 'image/heic' };
 const CONVERTIBLE = /^\.(pptx?|docx?|odp|odt|rtf)$/i;
 const MAX_PAGES = 12;
 
@@ -55,7 +57,7 @@ export function seeExtension(c: BotCtx, eyes: () => Eyes | undefined): InlineExt
           if (IMAGE.test(ext)) {
             const e = eyes();
             if (!e) throw new Error('这套 bot 没有配能看图的模型（设置 visionModel），暂时看不了图片。');
-            return text(await look(e, [imageContent(file, `image/${ext.slice(1)}`)], p.question), 'vision');
+            return text(await look(e, [imageContent(file, IMAGE_MIME[ext] ?? 'image/png')], p.question), 'vision');
           }
 
           // Decks and documents become a PDF first, so that "render the pages" works for them too.
