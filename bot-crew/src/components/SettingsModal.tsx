@@ -83,7 +83,7 @@ function General() {
   const lang = useStore((s) => s.settings?.language) ?? 'zh';
   return (
     <>
-      <Head title="通用" sub="语言跟着这套 bot 走；外观只影响这个浏览器" />
+      <Head title="通用" />
 
       <h4>语言</h4>
       <div className="seg">
@@ -93,7 +93,6 @@ function General() {
           </button>
         ))}
       </div>
-      <div className="cfg-note">{LANGS.find((l) => l.id === lang)?.hint}。界面本身目前只有中文。</div>
 
       <h4>时区</h4>
       <TimezoneRow />
@@ -174,7 +173,7 @@ function TimezoneRow() {
           ))}
         </select>
         <div className="tz-s">
-          这里现在是 {now}。例行任务的「每天 20:00」按它算，bot 说「今天」也按它算。
+          {now}
           {current !== here && (
             <>
               {' '}
@@ -193,20 +192,11 @@ function TimezoneRow() {
 
 /** 云电脑：where the bots live, in full — the same cards as the standalone page, no jumping out of 设置. */
 function Cloud() {
-  const rt = useStore((s) => s.runtime);
   return (
     <>
-      <Head title="云电脑" sub="bot 在哪台机器上干活，以及它们有没有自己的电脑" />
+      <Head title="云电脑" />
       <div className="cloud-body">
         <RuntimeBody />
-      </div>
-      <div className="cfg-note">
-        bot 的电脑：
-        {rt?.desktops
-          ? '这台机器能给。每个 bot 在自己的会话右边有一块屏幕，它上网、登录、填表你都看得见。'
-          : rt?.local
-            ? '你的电脑只有一块屏幕，是你的。搬到云机器后，每个 bot 会有自己的一台。'
-            : (rt?.desktopsNote ?? '这台机器给不了。')}
       </div>
     </>
   );
@@ -246,7 +236,7 @@ function Usage() {
         <div className="ut-cell"><span className="ut-n">{fmtNum(t.input + t.output)}</span><span className="ut-l">token</span></div>
         <div className="ut-cell"><span className="ut-n">{fmtNum(t.calls)}</span><span className="ut-l">次调用</span></div>
       </div>
-      {t.calls === 0 && <div className="quiet">这段时间还没有调用记录。</div>}
+      {t.calls === 0 && <div className="quiet">没有调用记录</div>}
       {report.daily.length > 1 && (
         <>
           <h4>每天</h4>
@@ -288,7 +278,6 @@ function Usage() {
           </ul>
         </>
       )}
-      <div className="cfg-note">花费按模型的单价估算，和账单可能有出入。缓存命中的 token 不计费，也没算进来。</div>
     </>
   );
 }
@@ -346,7 +335,7 @@ function About({ up }: { up: ReturnType<typeof useUpgrade> }) {
       <p className="about-p">一支替你干活的 bot 团队。你交代一句，它们自己去做，做完或者卡住才回来找你。</p>
 
       <h4>版本</h4>
-      {!s && <div className="quiet">连不上这台电脑上的 EverBot，看不了版本。升级要从你自己的电脑上做。</div>}
+      {!s && <div className="quiet">连不上本机的 EverBot</div>}
       {s && (
         <div className={cx('up-card', stale && 'stale')}>
           <div className="up-main">

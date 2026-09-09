@@ -225,6 +225,22 @@ export class DesktopManager {
       procs.push(p);
       return p;
     };
+    // The window manager and the dock are what make the screen read as a computer; tint2 in particular dies when
+    // the desktop is resized (the viewer sets the resolution). Bring them back while the desktop is live.
+    const keep = (cmd: string, args: string[]) => {
+      const start = () => {
+        const p = run(cmd, args);
+        p.on('exit', (code) => {
+          const l = this.live.get(botId);
+          if (!l || !l.procs.includes(p)) return;
+          l.procs = l.procs.filter((x) => x !== p);
+          console.warn(`[crew] ${bot.name}'s computer: ${cmd} exited (${code ?? 'signal'}), restarting it`);
+          setTimeout(() => this.live.has(botId) && l.procs.push(start()), 800);
+        });
+        return p;
+      };
+      return start();
+    };
     try {
       run('Xvnc', [`:${display}`, '-geometry', `${W}x${H}`, '-depth', '24', '-rfbport', String(port), '-SecurityTypes', 'None', '-localhost', '-AlwaysShared', '-desktop', `${bot.name} 的电脑`]);
       const deadline = Date.now() + 10_000;
@@ -239,9 +255,9 @@ export class DesktopManager {
       if (!existsSync(wall)) await execP('convert', ['-size', `${W}x${H}`, 'radial-gradient:#f2f0eb-#b9b5ad', wall]).catch(() => undefined);
       run('xsetroot', ['-solid', '#c9c5bd']);
       if (existsSync(wall)) run('feh', ['--bg-fill', wall]);
-      run('openbox', []);
+      keep('openbox', []);
       writeDock(home, botId, botDir);
-      run('tint2', ['-c', join(home, 'tint2rc')]);
+      keep('tint2', ['-c', join(home, 'tint2rc')]);
       // One browser per computer, started here and shared: the bot drives it over CDP (Playwright MCP attaches),
       // and the dock's browser icon opens a window in this same instance, so what the user signs into the bot has.
       // A profile lock left by a previous container (different hostname) would make Chrome refuse to start.

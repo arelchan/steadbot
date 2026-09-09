@@ -65,7 +65,7 @@ export function Thread({ threadId }: { threadId: ThreadId }) {
   if (!bot && !matter) return <div className="col thread"><div className="empty">这个会话不存在了</div></div>;
 
   return (
-    <section className={cx('col thread', s.panels.tasks && 'with-side')}>
+    <section className={cx('col thread', (s.panels.tasks || s.panels.identity) && 'with-side')}>
       <div className="thread-main">
       <header className="hd">
         {bot ? <Avatar bot={bot} /> : <GroupAvatar bots={participants} />}
@@ -76,11 +76,6 @@ export function Thread({ threadId }: { threadId: ThreadId }) {
       </header>
 
       <div className="msgs" ref={scroller}>
-        {messages.length === 0 && (
-          <div className="empty">
-            还没有对话。交代一件事，它会记下来去做，只在需要你拍板时回来。
-          </div>
-        )}
         {messages.map((m, i) => {
           const prev = messages[i - 1];
           const showDay = !prev || dayKey(prev.ts) !== dayKey(m.ts);
@@ -130,9 +125,8 @@ function MessageRow({ m, bots, showName }: { m: Message; bots: Bot[]; showName: 
                 </>
               ) : (
                 <>
-                  <b className="fade-in">{bot.name}</b> <span className="quiet">由你的第一句话生成</span>
+                  <b className="fade-in">{bot.name}</b>
                   <div className="nb-role fade-in">{m.text}</div>
-                  <div className="quiet">职责、权限和记忆都在右边「Bot 身份」里，随时改。</div>
                 </>
               )}
             </div>

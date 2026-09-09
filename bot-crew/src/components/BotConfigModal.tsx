@@ -117,7 +117,7 @@ function Growth({ bot }: { bot: Bot }) {
   return (
     <>
       <Head title="成长" sub={events.length ? `${spanDays} 天 · ${events.length} 次变化` : undefined} />
-      {!events.length && <div className="cfg-empty">还没有记录。</div>}
+      {!events.length && <div className="cfg-empty">没有记录</div>}
       <ol className="growth">
         {days.map((d) => (
           <li key={d.key} className="gw-day">
@@ -158,7 +158,6 @@ function Instructions({ bot }: { bot: Bot }) {
       ) : (
         <textarea key="soul" className="cfg-role sys" rows={14} placeholder="性格、说话方式" value={bot.soul} onChange={(e) => patchBot(bot.id, { soul: e.target.value })} spellCheck={false} />
       )}
-      <div className="cfg-note">改完立即生效，它下一轮就照新的来。</div>
     </>
   );
 }
@@ -170,7 +169,7 @@ function Memory({ bot, onClose }: { bot: Bot; onClose: () => void }) {
   const [draft, setDraft] = useState('');
   return (
     <>
-      <Head title="记忆" sub="它记住的关于你的事" />
+      <Head title="记忆" />
       <ul className="mem">
         {bot.viewOfYou.map((v, i) => (
           <li key={i}>
@@ -178,7 +177,7 @@ function Memory({ bot, onClose }: { bot: Bot; onClose: () => void }) {
             <button className="del" title="删掉" onClick={() => patchBot(bot.id, { viewOfYou: bot.viewOfYou.filter((_, j) => j !== i) })}>✕</button>
           </li>
         ))}
-        {bot.viewOfYou.length === 0 && <li className="quiet">还没有。</li>}
+        {bot.viewOfYou.length === 0 && <li className="quiet">没有</li>}
       </ul>
       <input
         className="mem-add"
@@ -195,7 +194,7 @@ function Memory({ bot, onClose }: { bot: Bot; onClose: () => void }) {
       <h4>所有 bot 共享 <button className="link" onClick={() => { select('profile'); onClose(); }}>编辑</button></h4>
       <ul className="mem readonly">
         {shared.map((v, i) => <li key={i}><span>{v}</span></li>)}
-        {shared.length === 0 && <li className="quiet">还没有。</li>}
+        {shared.length === 0 && <li className="quiet">没有</li>}
       </ul>
     </>
   );
@@ -239,7 +238,7 @@ function Skills({ bot }: { bot: Bot }) {
             </li>
           );
         })}
-        {bot.skills.length === 0 && <li className="quiet">还没有。</li>}
+        {bot.skills.length === 0 && <li className="quiet">没有</li>}
       </ul>
       <input
         className="mem-add"
@@ -301,7 +300,7 @@ function LibraryPicker({ bot, onBack }: { bot: Bot; onBack: () => void }) {
           </ul>
         </div>
       ))}
-      {!groups.length && <div className="quiet">没有匹配的。</div>}
+      {!groups.length && <div className="quiet">没有匹配的</div>}
     </div>
   );
 }
@@ -380,7 +379,7 @@ function Routines({ bot }: { bot: Bot }) {
   const last = (ts: number) => (shortDay(ts) === fmtTime(ts) ? fmtTime(ts) : `${shortDay(ts)} ${fmtTime(ts)}`);
   return (
     <>
-      <Head title="例行" sub="到点自己做，不用你说" />
+      <Head title="例行" />
       <ul className="routine-list">
         {bot.routines.map((r) => (
           <li key={r.id} className={cx(!r.enabled && 'off')}>
@@ -392,7 +391,7 @@ function Routines({ bot }: { bot: Bot }) {
             <button className="del" onClick={() => remove(r.id)} title="删除">✕</button>
           </li>
         ))}
-        {bot.routines.length === 0 && <li className="quiet">还没有。</li>}
+        {bot.routines.length === 0 && <li className="quiet">没有</li>}
       </ul>
       <div className="rt-add">
         <input className="mem-add" placeholder="做什么" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -418,18 +417,17 @@ function Integrations({ bot }: { bot: Bot }) {
   const agents = integrations.filter((i) => i.kind === 'agent');
   return (
     <>
-      <Head title="连接" sub="开关决定这个 bot 能不能用" />
+      <Head title="连接" />
       <h4>外部服务</h4>
       <ul className="integ-list">
         {mcps.map((i) => (
           <IntegRow key={i.id} i={i} on={granted.has(i.id)} onToggle={(v) => grant(i, v)} removable />
         ))}
-        {mcps.length === 0 && <li className="quiet integ-empty">还没有。</li>}
+        {mcps.length === 0 && <li className="quiet integ-empty">没有</li>}
       </ul>
       <AddMcp />
 
       <h4>IM</h4>
-      <div className="integ-lead">在每个 IM 里，「{bot.name}」都是一个独立的机器人，有自己的名字和头像。私聊它就是和它说话；把几个 bot 拉进同一个群，它们就在群里一起干活。</div>
       <ul className="integ-list">
         {channels.map((i) => (i.channel && i.channel !== 'app' ? <ImRow key={i.id} i={i} bot={bot} channel={i.channel} /> : null))}
       </ul>
@@ -452,9 +450,7 @@ function AgentsNote() {
   const h = rt.agentHost;
   return (
     <div className={cx('integ-lead', h ? 'ok' : 'off')}>
-      {h
-        ? `这些 agent 装在你的电脑「${h.name}」上，bot 经它调用；电脑开着、EverBot 开着才能用。`
-        : '这些 agent 装在你的电脑上。电脑上开着 EverBot，bot 才能借用它们；现在电脑不在线。'}
+      {h ? `经你的电脑「${h.name}」调用` : '你的电脑不在线，暂时用不了'}
     </div>
   );
 }
@@ -479,7 +475,6 @@ function ImRow({ i, bot, channel }: { i: Integration; bot: Bot; channel: Channel
       <div className="integ-main">
         <div className="integ-name">{i.name}</div>
         <div className="integ-note">{note}</div>
-        {st === 'off' && <div className="integ-hint">点「接入」，它的会话里会出现一张卡，写着怎么在{i.name}里给它建机器人、填什么。</div>}
       </div>
       <span className="integ-actions im-actions">
         {st === 'off' && <button className="btn sm" onClick={connect}>接入</button>}

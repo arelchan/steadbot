@@ -111,10 +111,20 @@ const forward = () => (applyingRemote ? null : remote);
 
 export const select = (selection: Selection) => setState((s) => ({ selection, panel: s.selection === selection ? s.panel : { mode: 'board' } }));
 export const setPanel = (panel: Panel) => setState({ panel });
+/**
+ * The column beside the conversation shows one thing at a time: the bot's 身份 (who it is, its settings) or its
+ * 工作区 (screen, tasks, routines). Opening one closes the other; closing 身份 brings the workspace back, because
+ * that is what people look at day to day. Only 工作区 can be closed to nothing (full-width conversation).
+ */
 export const togglePanel = (k: keyof Panels) => {
-  setState((s) => ({ panels: { ...s.panels, [k]: !s.panels[k] } }));
+  setState((s) => {
+    if (k === 'identity') return { panels: s.panels.identity ? { identity: false, tasks: true } : { identity: true, tasks: false } };
+    return { panels: { identity: false, tasks: !s.panels.tasks } };
+  });
   clampLayout();
 };
+/** A brand-new bot: its 身份 first (name, role, avatar being generated), the workspace after it is closed. */
+export const showIdentity = () => setState({ panels: { identity: true, tasks: false } });
 /** Re-apply the width limits (window resized, a panel opened): the side columns give way first. */
 export const clampLayout = () => {
   for (const k of ['side', 'right', 'sidebar'] as const) setColumnWidth(k, getState().layout[k]);

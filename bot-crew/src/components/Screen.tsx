@@ -55,19 +55,12 @@ export function ScreenCard({ bot }: { bot: Bot }) {
           {st === 'starting' && <span className="sc-state">· 正在醒来</span>}
           {st === 'error' && <span className="sc-state err">· 没响应</span>}
         </div>
-        {(st === 'none' || st === 'error') && <div className="sc-note">{note(st, old, idle, rt?.local, rt?.desktopsNote)}</div>}
+        {st === 'error' && <div className="sc-note">电脑没响应，点「打开」重试</div>}
+        {st === 'none' && !old && !idle && !rt?.local && rt?.desktopsNote && <div className="sc-note">{rt.desktopsNote}</div>}
       </div>
       {big && st !== 'none' && <ScreenModal bot={bot} onClose={() => setBig(false)} />}
     </>
   );
-}
-
-function note(st: ScreenState, old: boolean, idle: boolean, local?: boolean, serverNote?: string) {
-  if (st === 'error') return '电脑没响应。点「打开」它会再试一次。';
-  if (idle) return 'bot 不在这台机器上跑，这里看不到它的电脑。';
-  if (old) return `${local ? '这台电脑' : '云机器'}上的 EverBot 还是旧版本，没有 bot 的电脑这个功能；重装后就有。`;
-  if (local) return '你的电脑只有一块屏幕，是你的。把 bot 搬到一台云机器上，它就有自己的电脑：带浏览器，能登录网站、填表、下载，你随时看得见它在干什么。';
-  return serverNote ?? '这台机器给不了它电脑。';
 }
 
 /** The still the server keeps: live, refreshed every couple of seconds; asleep, the frame it fell asleep on. */
@@ -154,11 +147,6 @@ function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
             </div>
           )}
         </div>
-        <div className="sc-note">
-          {!on
-            ? '它的电脑闲着时会休眠，省下云机器的内存；打开就醒，登录过的网站都还在。'
-            : '实时画面，直接点、直接打字就是在它的电脑上操作，比如替它登录一个网站；它自己的操作会同时进行。底部一排是浏览器、它的文件和终端。'}
-        </div>
       </div>
     </div>,
     document.body,
@@ -176,9 +164,14 @@ function Vnc({ botId, placeholder, onHands }: { botId: string; placeholder: stri
   const rfb = useRef<RFB | null>(null);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'lost'>('connecting');
   const [painted, setPainted] = useState(false);
+  // A dropped link (the machine restarted, the network blinked) reconnects by itself while the screen is open.
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const el = box.current;
     if (!el) return;
+    setPainted(false);
+    setStatus('connecting');
+    let retry: ReturnType<typeof setTimeout> | undefined;
     const url = withToken(`${(httpBase || window.location.origin).replace(/^http/, 'ws')}/vnc/${botId}`);
     const r = new RFB(el, url, { shared: true });
     r.viewOnly = false;
@@ -204,19 +197,22 @@ function Vnc({ botId, placeholder, onHands }: { botId: string; placeholder: stri
       }, 100);
     });
     r.addEventListener('disconnect', () => {
-      if (rfb.current === r) setStatus('lost');
+      if (rfb.current !== r) return;
+      setStatus('lost');
+      retry = setTimeout(() => setAttempt((a) => a + 1), 2500);
     });
     rfb.current = r;
     return () => {
       rfb.current = null;
       if (poll) clearInterval(poll);
+      if (retry) clearTimeout(retry);
       try {
         r.disconnect();
       } catch {
         /* already gone */
       }
     };
-  }, [botId]);
+  }, [botId, attempt]);
   // "你在操作" while the user's hands are on it: any pointer or key activity, fading out shortly after.
   const idle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const touch = () => {
@@ -235,7 +231,7 @@ function Vnc({ botId, placeholder, onHands }: { botId: string; placeholder: stri
       <img className="sc-ghost" src={placeholder} alt="" draggable={false} onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} />
       <div className="vnc-screen" ref={box} />
       {!painted && status !== 'lost' && <span className="sc-wait-msg pulse">连接屏幕…</span>}
-      {status === 'lost' && <span className="sc-wait-msg">屏幕断开了</span>}
+      {status === 'lost' && <span className="sc-wait-msg pulse">断开了，重连中…</span>}
     </div>
   );
 }

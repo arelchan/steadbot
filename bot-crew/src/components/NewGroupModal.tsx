@@ -38,7 +38,6 @@ export function NewGroupModal({ onClose }: { onClose: () => void }) {
     <div className="overlay" onClick={onClose}>
       <div className="modal grp" onClick={(e) => e.stopPropagation()}>
         <h2>新建群聊</h2>
-        <p className="lead">选几个 bot 一起做一件事。第一个选的默认牵头，建好后可以改。</p>
         <ul className="pick-list">
           {bots.map((b) => {
             const on = picked.includes(b.id);

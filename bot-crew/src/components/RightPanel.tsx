@@ -18,22 +18,11 @@ import { cx, fmtTime, shortDay } from '../utils';
 const when = (ts: number) => (shortDay(ts) === fmtTime(ts) ? fmtTime(ts) : `${shortDay(ts)} ${fmtTime(ts)}`);
 
 /* =========================================================
-   Right column = two independent panels, each collapsible:
-   ① 身份（bot 名片 / 事项档案）   ② 事项（看板 / 事项详情）
+   The column beside the conversation shows one thing at a time (store.togglePanel):
+   ① 身份 — the bot's card and settings (a new bot opens on this)
+   ② 工作区 — its screen, its tasks, its routines
+   Both are the same stack of cards in the same slot, so switching never moves anything else.
    ========================================================= */
-
-export function RightColumn({ bot, matter }: { bot?: Bot; matter?: Matter }) {
-  const panels = useStore((s) => s.panels);
-  if (!panels.identity) return null;
-  return (
-    <aside className="col right">
-      <Resizer col="right" edge="left" />
-      <Panel grow>
-        {bot ? <BotIdentity bot={bot} /> : matter ? <GroupInfo matter={matter} /> : null}
-      </Panel>
-    </aside>
-  );
-}
 
 /**
  * 工作区：对话右侧的一条竖带，从上到下是这个 bot 的电脑屏幕、它手上的事项、它的例行任务。群聊没有电脑，
@@ -41,6 +30,14 @@ export function RightColumn({ bot, matter }: { bot?: Bot; matter?: Matter }) {
  */
 export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
   const s = useStore((x) => x);
+  if (s.panels.identity && (bot || matter)) {
+    return (
+      <aside className="thread-side">
+        <Resizer col="side" edge="left" />
+        <div className="workspace">{bot ? <BotIdentity bot={bot} /> : <GroupInfo matter={matter!} />}</div>
+      </aside>
+    );
+  }
   if (!s.panels.tasks) return null;
   const todos = s.todos.filter((t) => (bot ? t.botId === bot.id : matter ? t.matterId === matter.id : false));
   const open = todos.filter((t) => t.status !== 'done').length;
@@ -97,7 +94,7 @@ function Section({ title, hint, children, startOpen = true, grow, lead }: { titl
 /** The bot's routines, live: toggle one off, or drop it. Adding one is still 「Bot 配置 › 例行」. */
 function RoutineList({ bot }: { bot: Bot }) {
   const toggle = (id: string) => patchBot(bot.id, { routines: bot.routines.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)) });
-  if (!bot.routines.length) return <div className="quiet ws-empty">还没有例行任务。到点自己做的事写在「Bot 配置 › 例行」里。</div>;
+  if (!bot.routines.length) return <div className="quiet ws-empty">没有例行任务</div>;
   return (
     <ul className="routine-list compact">
       {bot.routines.map((r) => (
@@ -115,14 +112,6 @@ function RoutineList({ bot }: { bot: Bot }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-function Panel({ grow, children }: { grow?: boolean; children: ReactNode }) {
-  return (
-    <section className={cx('panel', grow && 'grow')}>
-      <div className="panel-body">{children}</div>
-    </section>
   );
 }
 
@@ -199,6 +188,7 @@ function BotIdentity({ bot }: { bot: Bot }) {
   const gen = !!bot.generating?.identity;
   return (
     <div className="ident">
+      <section className="ws-sec ident-card">
       <div className="ident-top">
         {gen ? <Avatar bot={bot} size="lg" /> : <AvatarEditor bot={bot} />}
         <div className="id-name" style={{ flex: 1 }}>
@@ -232,7 +222,8 @@ function BotIdentity({ bot }: { bot: Bot }) {
           title="职责与工作方式，直接改；人设在 Bot 配置 › 指令里"
         />
       )}
-      <div className="settings">
+      </section>
+      <div className="settings ws-sec">
         <Toggle label="消息通知" on={bot.notify} onChange={(v) => patchBot(bot.id, { notify: v })} />
         <Toggle label="置顶聊天" on={bot.pinned} onChange={(v) => patchBot(bot.id, { pinned: v })} />
         <button className="set-row nav" onClick={() => setConfig(true)}>
@@ -240,7 +231,7 @@ function BotIdentity({ bot }: { bot: Bot }) {
           <span className="set-right">{bad ? <span className="cfg-warn">{bad} 个连接要修</span> : null}<span className="chev">›</span></span>
         </button>
       </div>
-      <div className="settings">
+      <div className="settings ws-sec">
         <button className="set-row" onClick={() => setAsk('clear')}>清空聊天记录</button>
         <button className="set-row danger" onClick={() => setAsk('delete')}>删除 bot</button>
       </div>
@@ -298,6 +289,7 @@ function GroupInfo({ matter }: { matter: Matter }) {
 
   return (
     <div className="ident">
+      <section className="ws-sec ident-card">
       <div className="ident-top">
         <GroupAvatar bots={members} size="lg" />
         <div className="id-name" style={{ flex: 1 }}>
@@ -312,12 +304,13 @@ function GroupInfo({ matter }: { matter: Matter }) {
         </div>
       </div>
       <textarea className="role ident-desc" rows={2} placeholder="群聊描述…" value={matter.summary} onChange={(e) => patchMatter(matter.id, { summary: e.target.value })} />
+      </section>
 
-      <div className="settings">
+      <div className="settings ws-sec">
         <Toggle label="消息通知" on={matter.notify} onChange={(v) => patchMatter(matter.id, { notify: v })} />
         <Toggle label="置顶聊天" on={matter.pinned} onChange={(v) => patchMatter(matter.id, { pinned: v })} />
       </div>
-      <div className="settings">
+      <div className="settings ws-sec">
         <button className="set-row" onClick={() => setAskClear(true)}>清空聊天记录</button>
         <button className="set-row danger" onClick={() => setAskDissolve(true)}>解散群聊</button>
       </div>
@@ -342,7 +335,7 @@ function GroupInfo({ matter }: { matter: Matter }) {
         />
       )}
 
-      <ul className="members">
+      <ul className="members ws-sec">
         <li className="m-action menu-wrap" ref={ref}>
           <button className="m-row" onClick={() => { setAdding(!adding); setRemoving(false); }}>
             <span className="m-ic">
@@ -430,7 +423,7 @@ export function TaskBoard({ filter, showBot }: { filter: (t: Todo) => boolean; s
       .sort((a, b) => Math.min(...a.items.map(rank)) - Math.min(...b.items.map(rank)));
     return (
       <div className="board">
-        {todos.length === 0 && <div className="quiet" style={{ padding: '12px 0' }}>还没有事项。在群里交代一句，或让牵头的 bot 分工，会记到这里。</div>}
+        {todos.length === 0 && <div className="quiet" style={{ padding: '12px 0' }}>没有事项</div>}
         {blocks.map(({ bot, items }) => {
           const open = items.filter((t) => t.status !== 'done');
           const shown = showDone ? items : items.filter((t) => t.status !== 'done').concat(items.filter((t) => t.status === 'done').slice(0, 1));
@@ -452,7 +445,7 @@ export function TaskBoard({ filter, showBot }: { filter: (t: Todo) => boolean; s
 
   return (
     <div className="board">
-      {todos.length === 0 && <div className="quiet" style={{ padding: '12px 0' }}>还没有事项。在左边交代一句，它会记到这里。</div>}
+      {todos.length === 0 && <div className="quiet" style={{ padding: '12px 0' }}>没有事项</div>}
       {groups.map(({ st, items }) => (
         <div className="bgroup" key={st}>
           <div className={cx('bgroup-hd', st)}>
@@ -545,12 +538,12 @@ function TaskDetail({ todoId, onBack }: { todoId: string; onBack: () => void }) 
       ) : (
         <div className="d-now">
           <div className="d-now-t">{t.status === 'doing' ? '它在推进' : '排队中'}</div>
-          <div>{t.summary ?? '还没有进展。'}</div>
+          <div>{t.summary ?? '没有进展'}</div>
         </div>
       )}
 
       <h3>经过 <span className="quiet">{timeline.length} 步</span></h3>
-      {timeline.length === 0 && <p className="quiet">还没有记录。</p>}
+      {timeline.length === 0 && <p className="quiet">没有记录</p>}
       <ul className="tl">
         {timeline.map((e, i) => {
           if (e.kind === 'action') {
@@ -592,9 +585,6 @@ function TaskDetail({ todoId, onBack }: { todoId: string; onBack: () => void }) 
           </ul>
         </>
       )}
-      <div className="explain" style={{ marginTop: 14 }}>
-        这条事项由你在对话里的一句话产生，之后每次你补一句，它会更新而不是新开一条。
-      </div>
     </div>
   );
 }

@@ -38,9 +38,6 @@ export function ProfileView() {
               }
             }}
           />
-          <p className="explain" style={{ color: 'var(--muted)', fontSize: 11, marginTop: 6 }}>
-            两个 bot 对你的认识冲突时（比如行程助理知道你喜欢一等座，账单管家知道公司只报二等），以这里为准。
-          </p>
         </div>
 
         {s.bots.map((b) => (
@@ -49,7 +46,7 @@ export function ProfileView() {
               <Avatar bot={b} size="xs" /> {b.name} 自己记的
               <button className="link" onClick={() => select(botThread(b.id))}>去看它</button>
             </h4>
-            {b.viewOfYou.length === 0 ? <p className="quiet" style={{ color: 'var(--muted)' }}>还没记什么。</p> : (
+            {b.viewOfYou.length === 0 ? <p className="quiet" style={{ color: 'var(--muted)' }}>没有</p> : (
               <ul className="mem">
                 {b.viewOfYou.map((v, i) => (
                   <li key={i}>
