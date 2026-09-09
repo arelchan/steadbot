@@ -23,7 +23,7 @@ export const LIBRARY_CATEGORIES: Record<string, string> = {
 
 interface Manifest {
   categories?: Record<string, string>;
-  skills: { slug: string; category: string; repo: string; path: string; tags?: string[] }[];
+  skills: { slug: string; category: string; repo?: string; path?: string; tags?: string[] }[];
   /** Everything in the pool that is not a manual: MCP servers, one-click connectors, asset packs. Pure data —
    *  nothing to clone, nothing on disk, so they live in the manifest and nowhere else. */
   tools?: LibraryEntry[];

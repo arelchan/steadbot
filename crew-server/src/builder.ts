@@ -15,6 +15,8 @@ interface Deps {
   model?: Model<Api>;
   /** called after a skill manual was written so the bot's session can pick it up */
   onSkillWritten?: (botId: string) => Promise<void>;
+  /** what this bot has just equipped from the pool — the header of a manual it writes now */
+  needs?: (botId: string) => { slugs: string[]; line: string } | undefined;
 }
 
 /**
@@ -135,7 +137,12 @@ export async function runBuild(d: Deps, botId: string, job: BuildJob, spec: Buil
       8000,
     );
     if (!r.body?.trim()) throw new Error('没有生成手册');
-    d.skills.write(name, r.description ?? '', r.body);
+    // What the manual stands on is the runtime's line to write, not the model's: the bot writes the steps, we write
+    // what has to be in place before step 1, from what it actually equipped. Anything it invented up top is dropped.
+    let body = r.body.trim();
+    while (/^(?:>\s*)?需要：/.test(body)) body = body.replace(/^[^\n]*\n?/, '').trimStart();
+    const needs = d.needs?.(botId);
+    d.skills.write(name, r.description ?? '', needs ? `> 需要：${needs.line}\n\n${body}` : body, needs ? { needs: needs.slugs } : undefined);
     // A manual the bot wrote for itself gets the same treatment as one from the library: whatever it says to run,
     // install it now rather than at the worst possible moment.
     const req = d.skills.requiresOf(name);

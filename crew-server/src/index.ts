@@ -166,6 +166,36 @@ async function main() {
     if (added.length) bots.recycle(botId);
     return added;
   };
+  /**
+   * What each bot has equipped from the pool lately. A manual it writes right after making something work for the
+   * first time stands on those things, so the runtime — not the model — states them at the top of the manual, and a
+   * bot that inherits the manual later gets the same things before it reaches step 1.
+   */
+  const equipLog: { botId: string; slug: string; at: number }[] = [];
+  const needsFor = (botId: string) => {
+    const cutoff = Date.now() - 2 * 3600_000;
+    const slugs = [...new Set(equipLog.filter((e) => e.botId === botId && e.at > cutoff).map((e) => e.slug))].slice(-6);
+    if (!slugs.length) return undefined;
+    const line = slugs
+      .map((slug) => {
+        const e = library.get(slug);
+        return `${slug}（${KIND_LABEL[e?.kind ?? 'skill']}${e && e.title !== slug ? `·${e.title}` : ''}）`;
+      })
+      .join('、');
+    return { slugs, line: `${line}——缺哪个就 build(action=add, value=slug) 装上再动手` };
+  };
+  /** A bot that gains a manual gains what the manual stands on. */
+  const followNeeds = async (botId: string, names: string[], threadId: ThreadId) => {
+    for (const name of names) {
+      for (const slug of skills.get(name)?.needs ?? []) {
+        try {
+          await bots.ops!.equip(botId, slug, threadId);
+        } catch (e) {
+          console.warn(`[crew] 手册「${name}」要的「${slug}」没装上：`, (e as Error).message);
+        }
+      }
+    }
+  };
   for (const b of store.data.bots) {
     // A build interrupted by a restart is gone; don't leave the UI saying building… forever.
     if (b.building?.length) store.patchBot(b.id, { building: [] });
@@ -245,6 +275,8 @@ async function main() {
           }
         }
         await ensureSkills(store.bot(bot.id) ?? refined);
+        // Inheriting a manual written by another bot means inheriting what it was written on top of.
+        await followNeeds(bot.id, (store.bot(bot.id) ?? refined).skills, threadId);
       } catch (e) {
         console.warn('[crew] identity refinement failed:', (e as Error).message);
         setGenerating(bot.id, 'identity', false);
@@ -348,6 +380,8 @@ async function main() {
       const bot = store.bot(botId);
       if (!bot) throw new Error('找不到这个 bot');
       const kind = e.kind ?? 'skill';
+      equipLog.push({ botId, slug: e.slug, at: Date.now() });
+      if (equipLog.length > 400) equipLog.splice(0, 200);
 
       if (kind === 'skill') {
         const before = bot.skills ?? [];
@@ -368,6 +402,8 @@ async function main() {
       if (kind === 'assets') {
         if (!e.assets?.url) throw new Error(`「${e.slug}」没写素材包地址`);
         const dir = join(config.botsDir, botId, 'workspace', '_assets', e.slug);
+        const here = existsSync(dir) ? readdirSync(dir).length : 0;
+        if (here) return { kind, text: `素材包「${e.title}」已经在 ${relative(join(config.botsDir, botId), dir)}（${here} 项），直接用。${e.assets.howto ?? ''}` };
         const got = await fetchAssets(e.assets.url, dir);
         return { kind, text: `素材包「${e.title}」已经放到 ${relative(join(config.botsDir, botId), got.dir)}（${got.files} 个文件）。${e.assets.howto ?? ''}${e.license ? ` 许可：${e.license}。` : ''}` };
       }
@@ -433,7 +469,7 @@ async function main() {
       if (!bot) throw new Error('找不到这个 bot');
       const job = { id: `bld_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, aspect: spec.aspect, label: buildLabel(spec), since: Date.now(), skill: spec.skill };
       store.patchBot(botId, { building: [...(bot.building ?? []), job] });
-      void runBuild({ store, skills, runtime: bots.modelRuntime, model: bots.lightModel, onSkillWritten: (id) => bots.recycle(id) }, botId, job, spec);
+      void runBuild({ store, skills, runtime: bots.modelRuntime, model: bots.lightModel, onSkillWritten: (id) => bots.recycle(id), needs: needsFor }, botId, job, spec);
       return job;
     },
     async connect(botId, threadId, service, why) {

@@ -95,6 +95,16 @@ export class SkillStore extends EventEmitter {
       library: meta('library'),
       category: meta('category'),
       source: meta('source'),
+      needs: (() => {
+        const v = meta('needs');
+        if (!v) return undefined;
+        try {
+          const a = JSON.parse(v) as unknown;
+          return Array.isArray(a) && a.length && a.every((x) => typeof x === 'string') ? (a as string[]) : undefined;
+        } catch {
+          return undefined;
+        }
+      })(),
     };
   }
 
@@ -112,16 +122,14 @@ export class SkillStore extends EventEmitter {
     return docs;
   }
 
-  write(name: string, description: string, body: string, meta?: { library?: string; category?: string; source?: string }) {
+  write(name: string, description: string, body: string, meta?: { library?: string; category?: string; source?: string; needs?: string[] }) {
     const n = name.trim();
     const slug = this.slugFor(n);
     mkdirSync(join(this.dir, slug), { recursive: true });
     const now = Date.now();
-    // Provenance survives edits: a patch() without meta keeps what the document already carries.
-    const prev = meta ?? (() => {
-      const cur = this.read(n);
-      return cur ? { library: cur.library, category: cur.category, source: cur.source } : {};
-    })();
+    // Provenance survives edits: whatever meta doesn't mention, the document keeps.
+    const cur0 = this.read(n);
+    const prev = { ...(cur0 ? { library: cur0.library, category: cur0.category, source: cur0.source, needs: cur0.needs } : {}), ...(meta ?? {}) };
     const fm = [
       '---',
       `name: ${slug}`,
@@ -132,6 +140,7 @@ export class SkillStore extends EventEmitter {
       ...(prev.library ? [`  library: ${JSON.stringify(prev.library)}`] : []),
       ...(prev.category ? [`  category: ${JSON.stringify(prev.category)}`] : []),
       ...(prev.source ? [`  source: ${JSON.stringify(prev.source)}`] : []),
+      ...(prev.needs?.length ? [`  needs: ${JSON.stringify(prev.needs)}`] : []),
       `updatedAt: ${now}`,
       '---',
       '',

@@ -391,6 +391,8 @@ export interface SkillDoc {
   library?: string;
   category?: string;
   source?: string;
+  /** Pool slugs this manual was written on top of, filled in by the runtime, not by the bot. */
+  needs?: string[];
 }
 
 /** One entry of the curated skill library. */

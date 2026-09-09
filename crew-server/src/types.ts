@@ -373,6 +373,8 @@ export interface SkillDoc {
   library?: string;
   category?: string;
   source?: string;
+  /** Pool slugs this manual was written on top of, filled in by the runtime, not by the bot. */
+  needs?: string[];
 }
 
 /** What a bot can equip itself with, from the pool (crew-server/library + manifest, mirrored to ~/.crew/library). */
