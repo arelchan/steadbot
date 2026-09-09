@@ -200,6 +200,9 @@ async function applyOnMachine(l: MachineLink, changed: string[], log: (s: string
     `cd ${dep} && C=$(git -C ${CHECKOUT} rev-parse HEAD) && ` +
     `if grep -q '^CREW_COMMIT=' .env 2>/dev/null; then sed -i "s/^CREW_COMMIT=.*/CREW_COMMIT=$C/" .env; else echo "CREW_COMMIT=$C" >> .env; fi`;
   const compose = `cd ${dep} && docker compose`;
-  const r = await root(l, `${stamp} && (${compose} up -d --no-build >/dev/null 2>&1 || ${compose} restart >/dev/null 2>&1); echo DONE`, 5 * 60_000);
+  // Recreate rather than restart: the container has to pick up the new CREW_COMMIT. Then wait for it to answer,
+  // so the App is not told "cannot reach the machine" while it is still booting.
+  const wait = `P=$(sed -n 's/^CREW_PORT=//p' .env); P=${'${P:-5200}'}; for i in $(seq 1 90); do curl -fsS -m 2 "http://127.0.0.1:$P/health" >/dev/null 2>&1 && break; sleep 1; done`;
+  const r = await root(l, `${stamp} && (${compose} up -d --no-build >/dev/null 2>&1 || ${compose} restart >/dev/null 2>&1); cd ${dep} && ${wait}; echo DONE`, 8 * 60_000);
   if (!clean(r.out).includes('DONE')) throw new Error(`重启失败：${clean(r.out).trim().slice(-240)}`);
 }
