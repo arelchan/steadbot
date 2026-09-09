@@ -1,5 +1,5 @@
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import type { IncomingMessage } from 'node:http';
 import { createRequire } from 'node:module';
 import { connect as tcpConnect } from 'node:net';
@@ -84,9 +84,9 @@ function writeDock(home: string, botId: string, botDir: string) {
   mkdirSync(apps, { recursive: true });
   const workspace = join(botDir, 'workspace');
   const chrome = chromiumBinary();
-  // The container runs as root, which Chrome refuses without --no-sandbox; the profile is the bot's, so the user
-  // signing in here signs the bot in too.
-  const browserCmd = `${chrome ?? 'x-www-browser'} --no-sandbox --user-data-dir=${join(home, 'chrome')} --no-first-run --disable-features=TranslateUI`;
+  // Same binary and profile as the browser the bot drives (started in boot()): Chrome hands this off to the running
+  // instance as a new window, so the user and the bot share one browser and its logins.
+  const browserCmd = `${chrome ?? 'x-www-browser'} --no-sandbox --user-data-dir=${join(home, 'chrome')} --no-first-run`;
   const entries: [string, string, string, string][] = [
     ['browser', '浏览器', browserCmd, 'web-browser'],
     ['files', '文件', `pcmanfm ${workspace}`, 'system-file-manager'],
@@ -240,10 +240,24 @@ export class DesktopManager {
       run('openbox', []);
       writeDock(home, botId, botDir);
       run('tint2', ['-c', join(home, 'tint2rc')]);
-      // The bot's browser tools, headed on this display, with a profile that keeps its logins.
+      // One browser per computer, started here and shared: the bot drives it over CDP (Playwright MCP attaches),
+      // and the dock's browser icon opens a window in this same instance, so what the user signs into the bot has.
+      // A profile lock left by a previous container (different hostname) would make Chrome refuse to start.
+      const profile = join(home, 'chrome');
+      for (const f of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) rmSync(join(profile, f), { force: true });
+      const chrome = chromiumBinary();
+      if (!chrome) throw new Error('这台机器上没有浏览器（Playwright 的 Chromium 没装上）');
+      const cdp = 9222 + (display - FIRST_DISPLAY);
+      run(chrome, ['--no-sandbox', `--user-data-dir=${profile}`, `--remote-debugging-port=${cdp}`, '--no-first-run', '--no-default-browser-check', '--disable-features=TranslateUI', `--window-size=${W - 80},${H - 120}`, '--window-position=40,20', 'about:blank']);
+      const cdpDeadline = Date.now() + 20_000;
+      while (!(await portOpen(cdp))) {
+        if (Date.now() > cdpDeadline) throw new Error('浏览器 20 秒内没起来');
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      // The bot's browser tools, attached to that browser.
       const id = this.integrationId(botId);
       const pw = playwrightMcp();
-      const args = [...pw.args, '--user-data-dir', join(home, 'chrome'), '--viewport-size', `${W}x${H - 80}`, '--no-sandbox', '--output-dir', join(botDir, 'workspace', '_browser'), '--image-responses', config.modelInfo?.vision ? 'allow' : 'omit', '--timeout-navigation', '30000'];
+      const args = [...pw.args, '--cdp-endpoint', `http://127.0.0.1:${cdp}`, '--output-dir', join(botDir, 'workspace', '_browser'), '--image-responses', config.modelInfo?.vision ? 'allow' : 'omit', '--timeout-navigation', '30000'];
       // ASCII name: MCP tools are exposed to the model as `<name>__<tool>`, so this yields computer__browser_navigate etc.
       const row = { kind: 'mcp' as const, name: 'computer', transport: 'stdio' as const, command: pw.command, args, env: { DISPLAY: `:${display}`, HOME: home }, owner: botId, status: 'connecting' as const, note: '开机中…' };
       if (this.store.integration(id)) this.store.patchIntegration(id, row);
