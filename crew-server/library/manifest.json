@@ -75,6 +75,28 @@
       ]
     },
     {
+      "slug": "visual-delivery-check",
+      "category": "design",
+      "$comment": "写在这里的，不从任何仓库拉。sync 跳过没有 repo 的条目。",
+      "tags": [
+        "验收",
+        "检查",
+        "交付",
+        "看一眼",
+        "截图",
+        "出图",
+        "海报",
+        "PPT",
+        "排版",
+        "对齐",
+        "溢出",
+        "占位符",
+        "视觉",
+        "review",
+        "screenshot"
+      ]
+    },
+    {
       "slug": "workflow-diagram",
       "category": "dev",
       "repo": "athola/claude-night-market",

@@ -17,6 +17,8 @@ mkdirSync(work, { recursive: true });
 const byRepo = new Map();
 for (const s of manifest.skills) {
   if (only.size && !only.has(s.slug)) continue;
+  if (!s.repo) continue; // written here, not pulled from anywhere
+
   byRepo.set(s.repo, [...(byRepo.get(s.repo) ?? []), s]);
 }
 
