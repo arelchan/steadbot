@@ -95,6 +95,9 @@ function General() {
       </div>
       <div className="cfg-note">{LANGS.find((l) => l.id === lang)?.hint}。界面本身目前只有中文。</div>
 
+      <h4>时区</h4>
+      <TimezoneRow />
+
       <h4>主题</h4>
       <div className="seg">
         {THEMES.map((t) => (
@@ -132,6 +135,57 @@ function General() {
         <span className={cx('tgl', notify && 'on')}><i /></span>
       </button>
     </>
+  );
+}
+
+/** Every IANA zone the browser knows, so someone travelling or working across zones can just pick theirs. */
+const ALL_ZONES: string[] = (() => {
+  const sv = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf;
+  const list = sv ? sv('timeZone') : [];
+  return list.length ? list : ['Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Los_Angeles', 'UTC'];
+})();
+
+/** 例行任务按这个时区算时间；跑 bot 的机器多半在 UTC 上，所以这条必须跟着用户走。 */
+function TimezoneRow() {
+  const tz = useStore((s) => s.settings?.timezone);
+  const here = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const current = tz ?? here;
+  const zones = useMemo(() => (ALL_ZONES.includes(current) ? ALL_ZONES : [current, ...ALL_ZONES]), [current]);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick((n) => n + 1), 20_000);
+    return () => clearInterval(t);
+  }, []);
+  const now = (() => {
+    try {
+      return new Date().toLocaleString('zh-CN', { timeZone: current, hour: '2-digit', minute: '2-digit', weekday: 'short' });
+    } catch {
+      return '';
+    }
+  })();
+  return (
+    <div className="tz-row">
+      <div className="tz-main">
+        <select className="tz-pick" value={current} onChange={(e) => setSettings({ timezone: e.target.value })}>
+          {zones.map((z) => (
+            <option key={z} value={z}>
+              {z}
+            </option>
+          ))}
+        </select>
+        <div className="tz-s">
+          这里现在是 {now}。例行任务的「每天 20:00」按它算，bot 说「今天」也按它算。
+          {current !== here && (
+            <>
+              {' '}
+              <button className="link" onClick={() => setSettings({ timezone: here })}>
+                改成这台设备的 {here}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

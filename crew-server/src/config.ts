@@ -62,6 +62,20 @@ if (existsSync(cfgPath)) {
 }
 for (const [k, v] of Object.entries(file.keys ?? {})) if (!process.env[k]) process.env[k] = v;
 
+/**
+ * Run on the user's clock. A cloud machine is on UTC, so without this a bot would think it is the middle of the
+ * night and 每天 20:00 would fire eight hours off. The zone is what the App reported (crew.json settings).
+ */
+if (!process.env.TZ) {
+  try {
+    const dataFile = join(home, 'crew.json');
+    const tz = existsSync(dataFile) ? (JSON.parse(readFileSync(dataFile, 'utf8')) as { settings?: { timezone?: string } }).settings?.timezone : undefined;
+    if (tz) process.env.TZ = tz;
+  } catch {
+    /* no data yet, or unreadable: keep the machine's own zone */
+  }
+}
+
 export const config = {
   home,
   piAgentDir: join(home, 'pi-agent'), // isolated pi agentDir: our skills/extensions only

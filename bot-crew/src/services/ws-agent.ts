@@ -211,6 +211,12 @@ export class WsAgentService implements AgentService {
             return k === 'bot' ? m.state.bots.some((b) => b.id === id) : m.state.matters.some((x) => x.id === id);
           };
           const first = m.state.bots.slice().sort((a, b) => Number(b.pinned) - Number(a.pinned))[0];
+          // Times are the user's: tell the machine which zone this browser is in (it may run on UTC).
+          {
+            // Only seed it: once the user has a zone (theirs, or one they picked), never overwrite it from a browser.
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (tz && !m.state.settings?.timezone) this.send({ type: 'set_settings', patch: { timezone: tz } });
+          }
           setState({ ...m.state, skills: m.state.skills ?? [], library: m.state.library ?? [], integrations: m.state.integrations ?? [], typing: m.state.typing ?? {}, runtime: m.state.runtime, settings: m.state.settings, selection: valid(s.selection) ? s.selection : first ? botThread(first.id) : 'draft-bot' });
           break;
         }

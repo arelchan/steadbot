@@ -221,6 +221,8 @@ export interface UpgradeStatus {
 export interface CrewSettings {
   /** bot 用什么语言说话和写东西；auto = 跟着用户当时说的语言 */
   language?: 'zh' | 'en' | 'auto';
+  /** 你所在的时区（IANA 名）。例行任务按它算时间：云机器本身跑在 UTC 上。 */
+  timezone?: string;
 }
 
 /** bot 自己的电脑：bot 所在机器上的一个虚拟显示器 + 桌面 + 浏览器 */

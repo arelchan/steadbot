@@ -370,6 +370,8 @@ export interface LibraryEntry {
 export interface CrewSettings {
   /** bot 用什么语言说话和写东西；auto = 跟着用户当时说的语言 */
   language?: 'zh' | 'en' | 'auto';
+  /** 用户所在时区（IANA 名，App 上报）。例行任务的时间按它算：云机器本身跑在 UTC 上。 */
+  timezone?: string;
 }
 
 export interface Snapshot {
