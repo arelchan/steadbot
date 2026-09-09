@@ -12,6 +12,7 @@ interface FileConfig {
   lightModel?: string; // cheap model for bot inference and summaries
   searchModel?: string; // OpenRouter model used with the web plugin for web_search; defaults to lightModel
   imageModel?: string; // "provider/model-id" for avatars, e.g. "openrouter/google/gemini-2.5-flash-image"
+  visionModel?: string; // "provider/model-id" that can read pictures, for the `see` tool when the main model has no eyes
   /** Metadata for a model pi's catalog does not know yet (registered on top of the provider). */
   modelInfo?: { contextWindow?: number; maxTokens?: number; reasoning?: boolean; vision?: boolean; costIn?: number; costOut?: number };
   keys?: Record<string, string>; // e.g. { ANTHROPIC_API_KEY: "...", OPENROUTER_API_KEY: "..." }
@@ -88,6 +89,7 @@ export const config = {
   bind: process.env.CREW_BIND ?? file.bind ?? ((process.env.CREW_AUTH_TOKEN ?? file.authToken) ? '0.0.0.0' : '127.0.0.1'),
   publicUrl: (process.env.CREW_PUBLIC_URL ?? file.publicUrl ?? `http://localhost:${Number(process.env.CREW_PORT ?? file.port ?? 5200)}`).replace(/\/$/, ''),
   model: process.env.CREW_MODEL ?? file.model,
+  visionModel: process.env.CREW_VISION_MODEL ?? file.visionModel,
   lightModel: process.env.CREW_LIGHT_MODEL ?? file.lightModel,
   searchModel: process.env.CREW_SEARCH_MODEL ?? file.searchModel,
   imageModel: process.env.CREW_IMAGE_MODEL ?? file.imageModel ?? 'openrouter/google/gemini-2.5-flash-image',

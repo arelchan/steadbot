@@ -595,6 +595,9 @@ export const zh: Record<string, string> = {
   'pv.tooBig': '文件太大，浏览器里不预览了',
   'pv.unreadable': '读不到文件',
   'pv.noPreview': '{kind} 文件浏览器里预览不了，用系统应用打开',
+  'pv.converting': '正在转成可预览的版本…',
+  'pv.convertFailed': '转不出来，用系统应用打开',
+  'pv.noOffice': '跑 bot 的那台机器上没装 LibreOffice，预览不了；用系统应用打开',
   'pv.emptyFile': '空文件',
   'pv.first2000': '只显示前 2000 行',
 

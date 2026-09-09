@@ -577,6 +577,9 @@ export const ja: Record<string, string> = {
   'pv.tooBig': 'ファイルが大きすぎるため、ブラウザではプレビューしません',
   'pv.unreadable': 'ファイルを読めません',
   'pv.noPreview': '{kind} はブラウザでプレビューできません。システムのアプリで開いてください',
+  'pv.converting': 'プレビュー用に変換しています…',
+  'pv.convertFailed': '変換できませんでした。システムのアプリで開いてください',
+  'pv.noOffice': 'bot を動かしているマシンに LibreOffice が入っていないためプレビューできません。システムのアプリで開いてください',
   'pv.emptyFile': '空のファイル',
   'pv.first2000': '先頭 2000 行のみ表示',
 

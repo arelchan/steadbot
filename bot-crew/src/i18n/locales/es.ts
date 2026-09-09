@@ -577,6 +577,9 @@ export const es: Record<string, string> = {
   'pv.tooBig': 'Demasiado grande para verlo en el navegador',
   'pv.unreadable': 'No se pudo leer el archivo',
   'pv.noPreview': 'Los archivos {kind} no se pueden ver en el navegador: ábrelo con una app del sistema',
+  'pv.converting': 'Convirtiéndolo para la vista previa…',
+  'pv.convertFailed': 'No se pudo convertir: ábrelo con una app del sistema',
+  'pv.noOffice': 'La máquina que ejecuta los bots no tiene LibreOffice, así que no se puede ver aquí: ábrelo con una app del sistema',
   'pv.emptyFile': 'Archivo vacío',
   'pv.first2000': 'Mostrando las primeras 2000 filas',
 

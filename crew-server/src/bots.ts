@@ -24,6 +24,8 @@ import { agentExtension, mcpExtension } from './extensions/integrations.ts';
 import { crewToolsExtension, type CrewOps } from './extensions/crew-tools.ts';
 import { shellExtension } from './extensions/shell.ts';
 import { computerExtension } from './extensions/computer.ts';
+import { seeExtension } from './extensions/see.ts';
+import { DEFAULT_VISION_MODEL, resolveEyes, type Eyes } from './vision.ts';
 import type { DesktopManager } from './desktop.ts';
 import { BUILTIN_SKILL_NAMES } from './builtin-skills.ts';
 import { buildExtension } from './extensions/build.ts';
@@ -90,6 +92,8 @@ export class BotManager extends EventEmitter {
   modelRuntime!: ModelRuntime;
   model: Model<Api> | undefined;
   lightModel: Model<Api> | undefined;
+  /** The model that reads pictures for bots whose own model has no eyes (vision.ts). */
+  eyes: Eyes | undefined;
   fake: FakeBrain | undefined;
   /** Product-level operations for create_bot / create_group / configure; set by index.ts before use. */
   ops: CrewOps | undefined;
@@ -128,6 +132,13 @@ export class BotManager extends EventEmitter {
     } else {
       console.log(`[crew] model: ${this.model ? `${this.model.provider}/${this.model.id}` : 'pi default'}`);
     }
+    // Eyes for the `see` tool: the model set for it (registered on the fly when pi's catalog does not know it),
+    // otherwise whichever of the bots' own models can already take images.
+    const visionSpec = config.visionModel ?? DEFAULT_VISION_MODEL;
+    const vision = pick(visionSpec) ?? this.registerConfiguredModel(visionSpec, { vision: true });
+    this.eyes = resolveEyes(this.modelRuntime, vision, this.model, this.lightModel);
+    if (this.eyes) console.log(`[crew] vision: ${this.eyes.model.provider}/${this.eyes.model.id}`);
+    else console.warn('[crew] no vision model: bots can read documents but not pictures (set visionModel in config.json)');
   }
 
   /**
@@ -135,14 +146,14 @@ export class BotManager extends EventEmitter {
    * OpenRouter). Register it on top of the built-in provider so auth, base URL and API come from
    * the provider and only the model entry is ours.
    */
-  private registerConfiguredModel(spec?: string): Model<Api> | undefined {
+  private registerConfiguredModel(spec?: string, as?: { vision?: boolean }): Model<Api> | undefined {
     if (!spec) return undefined;
     const i = spec.indexOf('/');
     if (i <= 0) return undefined;
     const provider = spec.slice(0, i);
     const id = spec.slice(i + 1);
     if (!this.modelRuntime.getProvider(provider)) return undefined;
-    const info = config.modelInfo;
+    const info = as ? { ...config.modelInfo, ...as } : config.modelInfo;
     this.modelRuntime.registerProvider(provider, {
       models: [
         {
@@ -248,6 +259,7 @@ export class BotManager extends EventEmitter {
         mcpExt,
         agentExtension(ctx, this.runner),
         computerExtension(ctx, () => this.desktops),
+        seeExtension(ctx, () => this.eyes),
         shellExt,
         crewToolsExtension(ctx, () => {
           if (!this.ops) throw new Error('crew ops not ready');
@@ -556,6 +568,11 @@ function withAttachments(text: string, files: FileRef[] | undefined, vision: boo
     }
     return `- ${f.name}（${f.mime.split(';')[0]}，${fmtSize(f.size)}）：${abs}`;
   });
-  const note = images.length ? '图片已附在这条消息里，你能直接看。' : files.some((f) => f.mime.startsWith('image/')) ? '你看不到图片内容；需要时用 bash 处理（python 取尺寸、OCR），或直接问用户图里是什么。' : '';
+  const seeable = files.some((f) => /^(image\/|application\/pdf)/.test(f.mime) || /\.(pptx?|docx?|xlsx?|pdf)$/i.test(f.name));
+  const note = images.length
+    ? '图片已附在这条消息里，你能直接看。'
+    : seeable
+      ? '要看图片、PDF、PPT、Word、Excel 的内容，用 see(路径)，它会读成文字给你；不要问用户「能描述一下吗」。'
+      : '';
   return { text: `${text}\n\n【附件】\n${lines.join('\n')}\n文件已在你的工作区，用 bash 直接读。${note}`.trim(), images };
 }

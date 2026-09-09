@@ -577,6 +577,9 @@ export const en: Record<string, string> = {
   'pv.tooBig': 'Too large to preview in the browser',
   'pv.unreadable': 'Could not read the file',
   'pv.noPreview': '{kind} files cannot be previewed in the browser — open it in a system app',
+  'pv.converting': 'Converting it for preview…',
+  'pv.convertFailed': 'Could not convert it — open it in a system app',
+  'pv.noOffice': 'LibreOffice is not installed on the machine running the bots, so this cannot be previewed — open it in a system app',
   'pv.emptyFile': 'Empty file',
   'pv.first2000': 'Showing the first 2000 rows',
 

@@ -577,6 +577,9 @@ export const de: Record<string, string> = {
   'pv.tooBig': 'Zu groß für eine Vorschau im Browser',
   'pv.unreadable': 'Datei konnte nicht gelesen werden',
   'pv.noPreview': '{kind}-Dateien lassen sich im Browser nicht anzeigen – öffne sie mit einer System-App',
+  'pv.converting': 'Wird für die Vorschau umgewandelt…',
+  'pv.convertFailed': 'Umwandlung fehlgeschlagen – öffne es mit einer System-App',
+  'pv.noOffice': 'Auf der Maschine mit den Bots ist LibreOffice nicht installiert, daher keine Vorschau – öffne es mit einer System-App',
   'pv.emptyFile': 'Leere Datei',
   'pv.first2000': 'Zeigt die ersten 2000 Zeilen',
 

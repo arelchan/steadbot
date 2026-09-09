@@ -577,6 +577,9 @@ export const fr: Record<string, string> = {
   'pv.tooBig': 'Trop volumineux pour un aperçu dans le navigateur',
   'pv.unreadable': 'Impossible de lire le fichier',
   'pv.noPreview': 'Les fichiers {kind} ne s’affichent pas dans le navigateur — ouvrez-le avec une app système',
+  'pv.converting': 'Conversion pour l’aperçu…',
+  'pv.convertFailed': 'Conversion impossible — ouvrez-le avec une app système',
+  'pv.noOffice': 'LibreOffice n’est pas installé sur la machine qui fait tourner les bots, donc pas d’aperçu ici — ouvrez-le avec une app système',
   'pv.emptyFile': 'Fichier vide',
   'pv.first2000': 'Affichage des 2000 premières lignes',
 

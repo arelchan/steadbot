@@ -577,6 +577,9 @@ export const ko: Record<string, string> = {
   'pv.tooBig': '파일이 너무 커서 브라우저에서 미리 보지 않습니다',
   'pv.unreadable': '파일을 읽을 수 없습니다',
   'pv.noPreview': '{kind} 파일은 브라우저에서 미리 볼 수 없습니다 — 시스템 앱으로 여세요',
+  'pv.converting': '미리보기용으로 변환하는 중…',
+  'pv.convertFailed': '변환하지 못했습니다 — 시스템 앱으로 여세요',
+  'pv.noOffice': 'bot을 돌리는 머신에 LibreOffice가 없어 미리 볼 수 없습니다 — 시스템 앱으로 여세요',
   'pv.emptyFile': '빈 파일',
   'pv.first2000': '처음 2000줄만 표시',
 

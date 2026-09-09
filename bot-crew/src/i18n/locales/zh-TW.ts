@@ -577,6 +577,9 @@ export const zhTW: Record<string, string> = {
   'pv.tooBig': '檔案太大，瀏覽器裡不預覽了',
   'pv.unreadable': '讀不到檔案',
   'pv.noPreview': '{kind} 檔案瀏覽器裡預覽不了，用系統應用程式開啟',
+  'pv.converting': '正在轉成可預覽的版本…',
+  'pv.convertFailed': '轉不出來，用系統應用程式開啟',
+  'pv.noOffice': '跑 bot 的那台機器上沒裝 LibreOffice，預覽不了；用系統應用程式開啟',
   'pv.emptyFile': '空檔案',
   'pv.first2000': '只顯示前 2000 行',
 

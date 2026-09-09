@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { Duplex } from 'node:stream';
 import { config } from './config.ts';
 import { mimeOf } from './util.ts';
+import { isOffice, officeBinary, officeToPdf } from './office.ts';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { basename, extname, join, normalize } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -170,6 +171,32 @@ function serveHttp(req: IncomingMessage, res: ServerResponse, avatarsDir: string
       res.writeHead(err ? 500 : 200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(err ? { ok: false, error: err.message } : { ok: true, mode: reveal ? 'reveal' : 'open' }));
     });
+    return;
+  }
+  if (url.pathname.startsWith('/preview/')) {
+    // /preview/<botId>/<path>: an Office file as a PDF, so the app can show a deck or a document in place.
+    const file = botFile(url.pathname.slice('/preview/'.length));
+    if (!file || !isOffice(file)) {
+      res.writeHead(404);
+      return res.end();
+    }
+    const fail = (code: number, error: string) => {
+      res.writeHead(code, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error }));
+    };
+    if (!officeBinary()) return fail(501, 'no-libreoffice');
+    officeToPdf(file).then(
+      (pdf) => {
+        res.writeHead(200, {
+          'content-type': 'application/pdf',
+          'content-length': statSync(pdf).size,
+          'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(basename(file, extname(file)))}.pdf`,
+          'cache-control': 'private, max-age=3600',
+        });
+        createReadStream(pdf).pipe(res);
+      },
+      (e: Error) => fail(500, e.message),
+    );
     return;
   }
   if (url.pathname.startsWith('/files/')) {

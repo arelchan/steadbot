@@ -3,7 +3,7 @@ import type { FileRef } from '../types';
 import { CodeBlock, MermaidView, renderText } from './Markdown';
 import { fmtSize, kindOf } from './FileCard';
 import { cx } from '../utils';
-import { fileHref, openHref, authHeaders } from '../services/runtime';
+import { fileHref, openHref, authHeaders, httpBase, withToken } from '../services/runtime';
 import { useStore } from '../store';
 import { t } from '../i18n';
 
@@ -36,13 +36,16 @@ const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 const revealLabel = () => t(isMac ? 'pv.reveal.mac' : 'pv.reveal.other');
 const TEXT_MAX = 2 * 1024 * 1024;
 
-type Viewer = 'image' | 'html' | 'pdf' | 'video' | 'audio' | 'md' | 'csv' | 'mermaid' | 'code' | 'none';
+type Viewer = 'image' | 'html' | 'pdf' | 'office' | 'video' | 'audio' | 'md' | 'csv' | 'mermaid' | 'code' | 'none';
+/** PowerPoint / Word / Excel: the server turns them into a PDF (office.ts) and the browser shows that. */
+const OFFICE = /^(pptx?|docx?|xlsx?|odp|odt|ods|rtf)$/;
 function viewerFor(f: FileRef): Viewer {
   const m = f.mime;
   const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
   if (m.startsWith('image/')) return 'image';
   if (m.startsWith('text/html')) return 'html';
   if (m === 'application/pdf') return 'pdf';
+  if (OFFICE.test(ext)) return 'office';
   if (m.startsWith('video/')) return 'video';
   if (m.startsWith('audio/')) return 'audio';
   if (ext === 'md' || ext === 'markdown') return 'md';
@@ -427,6 +430,8 @@ function FileViewer({ file, viewer, zoom, setZoom, onFit, onOpen, onDownload }: 
       return <iframe className="pv-frame" src={fileHref(file)} title={file.name} sandbox="allow-scripts allow-same-origin allow-popups allow-modals" />;
     case 'pdf':
       return <iframe className="pv-frame" src={fileHref(file)} title={file.name} />;
+    case 'office':
+      return <OfficeView file={file} onOpen={onOpen} onDownload={onDownload} />;
     case 'video':
       return <video className="pv-media" src={fileHref(file)} controls autoPlay />;
     case 'audio':
@@ -448,6 +453,43 @@ function FileViewer({ file, viewer, zoom, setZoom, onFit, onOpen, onDownload }: 
     }
   }
   return <div className="pv-doc code"><CodeBlock lang={ext} code={code} /></div>;
+}
+
+/**
+ * A deck or a document, shown in place: the server converts it to a PDF once (cached per file version) and this is
+ * the browser's own PDF viewer on the result. Where LibreOffice is not installed — a plain laptop, say — it falls
+ * back to the same card as any other unviewable file, which offers the system app.
+ */
+function OfficeView({ file, onOpen, onDownload }: { file: FileRef; onOpen: () => void; onDownload: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    let alive = true;
+    let made = '';
+    setUrl(null);
+    setErr('');
+    fetch(withToken(`${httpBase || window.location.origin}${file.url.replace('/files/', '/preview/')}`), { headers: authHeaders() })
+      .then(async (r) => {
+        if (!r.ok) {
+          const why = (await r.json().catch(() => ({}))) as { error?: string };
+          throw new Error(why.error === 'no-libreoffice' ? t('pv.noOffice') : t('pv.convertFailed'));
+        }
+        return r.blob();
+      })
+      .then((b) => {
+        if (!alive) return;
+        made = URL.createObjectURL(b);
+        setUrl(made);
+      })
+      .catch((e: Error) => alive && setErr(e.message));
+    return () => {
+      alive = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [file.url]);
+  if (err) return <NoPreview file={file} note={err} onOpen={onOpen} onDownload={onDownload} />;
+  if (!url) return <div className="pv-loading">{t('pv.converting')}</div>;
+  return <iframe className="pv-frame" src={url} title={file.name} />;
 }
 
 function NoPreview({ file, note, onOpen, onDownload }: { file: FileRef; note?: string; onOpen: () => void; onDownload: () => void }) {
