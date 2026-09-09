@@ -77,3 +77,6 @@ export const VERSION: string = (() => {
 
 /** The commit this process started on; later commits show up as "there is a newer version". */
 export const RUNNING_BUILD = currentCommit() ?? 'unknown';
+
+/** Version as one line for logs and 关于. */
+export const versionLine = () => `${VERSION} · ${RUNNING_BUILD} · ${REPO}@${BRANCH}`;
