@@ -164,10 +164,10 @@
 
 ## 16. 一台电脑、一条池、密钥不经模型
 
-**我们**：所有 bot 共用云机器上的一台电脑（一个桌面、一个 Chrome、一个登录态），每个 bot 一个 Playwright MCP 进程挂同一 CDP、各在自己的标签页里干活，不加锁；屏幕在每个工作区显示同一块。池只有一条：手册、外部工具（MCP 服务和走一键登录的平台是同一类，差别只在授权方式）、素材包；搜到不等于要装——read 手册用一次，用户纠正过或同类活反复来才 build(add) 长在身上。bot 接 IM 首选自己去平台后台建机器人，凭据用 `harvest` 由服务端从页面读进配置，模型只见遮罩后的回显；任何出站正文里出现已知密钥一律替换为 ••••。
+**我们**：所有 bot 共用云机器上的一台电脑（一个桌面、一个 Chrome、一个登录态），每个 bot 一个 Playwright MCP 进程挂同一 CDP、各在自己的标签页里干活，不加锁；屏幕在每个工作区显示同一块。池只有一条：手册、外部工具（MCP 服务和走一键登录的平台是同一类，差别只在授权方式）、素材包；搜到不等于要装——read 手册用一次，用户纠正过或同类活反复来才 build(add) 长在身上。bot 接 IM 首选自己去平台后台建机器人，凭据用 `harvest` 由服务端从页面读进配置，模型只见遮罩后的回显；任何出站正文里出现已知密钥一律替换为 ••••。GUI 有两种手段：普通网页走 Playwright 文字快照（便宜、准、bot 自己一步步点），画板、设计器、剪辑、拖拽、桌面软件和长流程交给 `operate`——一个能看屏幕的模型（`guiModel`，留给 GPT-6 一类 computer-use 模型）看截图、出一个动作、执行、再看，云机器走共用电脑的 X 显示（xdotool），Mac 本地走 screencapture + cliclick，一套循环两边通用；整块屏幕一次只给一个 bot。
 
 **为什么**：电脑是团队的工作站，登录一次全员可用；每 bot 一台既浪费内存也让登录态碎在各处。装上的东西每轮都占提示词，装配应当是有证据的进化而不是召回的副作用。端到端操作浏览器的 bot 没有理由再让用户抄一遍密钥，但模型不可信，所以读取和落盘都在它看不见的地方完成。
 
 **不做**：不给 bot 通用桌面（截图点击）栈；不给每个 bot 单独的浏览器；不让密钥进对话、卡片字段或文件；不在出生时编手册。
 
-**在哪**：`crew-server/src/desktop.ts`（共用电脑、`readPage`）；`extensions/computer.ts`、`extensions/harvest.ts`、`secrets.ts`；`library.ts` / `extensions/library.ts`（看·用·进化）；`builtin-skills.ts` 的「IM 渠道接入」两条路线；`upgrade.ts` `waitIdle`（部署等 bot 空闲）。
+**在哪**：`crew-server/src/desktop.ts`（共用电脑、`readPage`）；`gui.ts` + `extensions/operate.ts`（手）；`extensions/computer.ts`、`extensions/harvest.ts`、`secrets.ts`；`library.ts` / `extensions/library.ts`（看·用·进化）；`builtin-skills.ts` 的「IM 渠道接入」两条路线；`upgrade.ts` `waitIdle`（部署等 bot 空闲）。
