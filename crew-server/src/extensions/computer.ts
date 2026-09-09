@@ -22,6 +22,7 @@ export function computerExtension(c: BotCtx, desktops: () => DesktopManager | un
           '只读一个公开网页用 fetch_url 就够；要登录、要点来点去、要填表、要下载、要在网站里操作，才开电脑：computer(open)，然后用 computer__browser_* 工具。',
           '开机后先 browser_navigate 到目标网址，再 browser_snapshot 读页面（是文字版的页面结构，带可点的元素编号），按编号 click / type。每一步做完再 snapshot 确认，不要盲操作。',
           '需要用户登录的网站：navigate 到登录页后告诉用户「我的电脑屏幕在你那边能看到，打开它直接在上面登录一下，登好告诉我」，然后停下等他。密码永远不经过你。用户随时可能在你的屏幕上直接操作（和你同时），动手前 snapshot 一下看清当前页面。',
+          '你看不见截图本身：browser_take_screenshot 存的是文件，路径在工作区的 _browser/ 下。要看清页面长什么样（版式、配色、有没有错位），对那个路径用 see；只是想知道页面上有什么字、能点什么，用 browser_snapshot 更快。',
           '用户看得见你的屏幕，不用复述每一步点了什么；说结果。做完一件事不用关机，半小时没人用它会自己休眠，下次 open 十秒左右就醒。',
         ],
         parameters: Type.Object({
