@@ -25,6 +25,8 @@ import { crewToolsExtension, type CrewOps } from './extensions/crew-tools.ts';
 import { shellExtension } from './extensions/shell.ts';
 import { computerExtension } from './extensions/computer.ts';
 import { seeExtension } from './extensions/see.ts';
+import { drawExtension } from './extensions/draw.ts';
+import { canDraw } from './draw.ts';
 import { DEFAULT_VISION_MODEL, resolveEyes, type Eyes } from './vision.ts';
 import type { DesktopManager } from './desktop.ts';
 import { BUILTIN_SKILL_NAMES } from './builtin-skills.ts';
@@ -273,6 +275,7 @@ export class BotManager extends EventEmitter {
         agentExtension(ctx, this.runner),
         computerExtension(ctx, () => this.desktops),
         seeExtension(ctx, () => this.eyes),
+        ...(canDraw() ? [drawExtension(ctx)] : []),
         shellExt,
         crewToolsExtension(ctx, () => {
           if (!this.ops) throw new Error('crew ops not ready');

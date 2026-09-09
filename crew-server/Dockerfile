@@ -11,7 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       # rendering PDF pages to look at them when a file has no text layer (see.ts)
       poppler-utils \
     && rm -rf /var/lib/apt/lists/* \
-    && pip3 install --no-cache-dir --break-system-packages openpyxl python-docx python-pptx pypdf pandas matplotlib
+    && pip3 install --no-cache-dir --break-system-packages openpyxl python-docx python-pptx pypdf pandas matplotlib \
+      # cutting the background out of a generated picture (game sprites, stickers, cut-outs): CPU-only, no GPU here
+      rembg onnxruntime
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev || npm install --omit=dev
@@ -32,6 +34,8 @@ RUN if [ -n "$(find library -name SKILL.md 2>/dev/null | head -1)" ]; then \
 # Which commit this image was built from: the image has no .git, so the installer passes it in (version.ts).
 ARG CREW_COMMIT=
 RUN printf '%s' "$CREW_COMMIT" > /app/.build-commit
+# rembg downloads its segmentation model on first use; keep it on the volume so it survives a rebuild.
+ENV U2NET_HOME=/data/models/u2net
 ENV CREW_HOME=/data CREW_PORT=5200 CREW_BIND=0.0.0.0 NODE_ENV=production
 VOLUME ["/data"]
 EXPOSE 5200

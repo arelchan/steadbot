@@ -17,7 +17,8 @@ import { imageContent, look, type Eyes } from '../vision.ts';
 const IMAGE = /^\.(png|jpe?g|gif|webp|bmp|tiff?|heic)$/i;
 /** Derived from the extension, not guessed: `image/jpg` and `image/tif` are not real types and get rejected. */
 const IMAGE_MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.tif': 'image/tiff', '.tiff': 'image/tiff', '.heic': 'image/heic' };
-const CONVERTIBLE = /^\.(pptx?|docx?|odp|odt|rtf)$/i;
+// svg is here rather than with the pictures: a vision model needs a raster, and LibreOffice draws one.
+const CONVERTIBLE = /^\.(pptx?|docx?|odp|odt|rtf|svg)$/i;
 const MAX_PAGES = 12;
 
 const run = (cmd: string, args: string[], timeout = 120_000) =>
@@ -64,8 +65,10 @@ export function seeExtension(c: BotCtx, eyes: () => Eyes | undefined): InlineExt
           let pdfPath = file;
           let cleanup: string | undefined;
           if (CONVERTIBLE.test(ext)) {
-            const extracted = await extract(file);
-            if (extracted.kind !== 'error' && extracted.text.trim().length > 80) return text(await answer(extracted.text, p.question, eyes()), extracted.kind);
+            if (ext !== '.svg') {
+              const extracted = await extract(file);
+              if (extracted.kind !== 'error' && extracted.text.trim().length > 80) return text(await answer(extracted.text, p.question, eyes()), extracted.kind);
+            }
             const { officeBinary, officeToPdf } = await import('../office.ts');
             if (!officeBinary()) throw new Error('这台机器上没装 LibreOffice，这类文件读不出来；用 bash + python 试试。');
             pdfPath = await officeToPdf(file);
