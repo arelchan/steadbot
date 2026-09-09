@@ -1,6 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 /**
  * Product configuration. Model keys are bundled with the product, not entered by end users:
@@ -113,6 +113,13 @@ for (const d of [config.piAgentDir, config.avatarsDir, config.botsDir, config.sh
 }
 
 export const configPath = cfgPath;
+
+/**
+ * The product's own credential files under $CREW_HOME: model keys, IM credentials, the machine's ssh password, the
+ * pairing token. Bots read anything else on the machine; these they never do, whatever tool they reach for.
+ */
+const CREDENTIAL_FILES = new Set(['config.json', 'moved.json', 'machine.json', 'lease.json', 'instance.json', join('pi-agent', 'auth.json')].map((n) => resolve(home, n)));
+export const isCredentialFile = (p: string) => CREDENTIAL_FILES.has(resolve(p)) || /(^|\/)\.env(\.|$)/.test(p);
 
 /** The config file as it is right now (not the startup snapshot): used for values that may change while running, e.g. IM credentials. */
 export function readFileConfig(): FileConfig {

@@ -43,6 +43,7 @@ import { actExtension } from './extensions/act.ts';
 import { rememberExtension } from './extensions/remember.ts';
 import { machineExtension } from './extensions/machine.ts';
 import { vigilExtension } from './extensions/vigil.ts';
+import { readExtension } from './extensions/read.ts';
 import { CHANNEL_LABEL, botThread, parseThread, type Channel, type FileRef, type ThreadId } from './types.ts';
 import { readFileSync } from 'node:fs';
 import type { ImageContent } from '@earendil-works/pi-ai';
@@ -252,7 +253,7 @@ export class BotManager extends EventEmitter {
           if (!this.ops) throw new Error('crew ops not ready');
           return this.ops;
         }),
-        buildExtension(ctx, () => {
+        buildExtension(ctx, () => this.skills, () => {
           if (!this.ops) throw new Error('crew ops not ready');
           return this.ops;
         }),
@@ -278,6 +279,7 @@ export class BotManager extends EventEmitter {
         computerExtension(ctx, () => this.desktops),
         seeExtension(ctx, () => this.eyes),
         ...(canDraw() ? [drawExtension(ctx)] : []),
+        readExtension(ctx),
         shellExt,
         crewToolsExtension(ctx, () => {
           if (!this.ops) throw new Error('crew ops not ready');

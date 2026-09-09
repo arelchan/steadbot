@@ -5,6 +5,9 @@ import type { BotCtx } from './ctx.ts';
 import type { CrewOps } from './crew-tools.ts';
 import { CHANNEL_LABEL, type Bot, type Channel } from '../types.ts';
 import { IMS } from '../channels.ts';
+import { join } from 'node:path';
+import { config } from '../config.ts';
+import type { SkillStore } from '../skills.ts';
 
 const CHANNEL_ALIAS: Record<string, Channel> = { 应用: 'app', 应用内: 'app', App: 'app', app: 'app', 飞书: 'feishu', 企业微信: 'wechat', 微信: 'wechat', Slack: 'slack', slack: 'slack', Telegram: 'telegram', telegram: 'telegram', 电报: 'telegram' };
 
@@ -25,7 +28,7 @@ const EQUIPPABLE = ['skill', 'mcp', 'service', 'agent', 'channel', 'assets'];
  * The only thing that is not build's: what it knows about the user (remember), and product settings like notify,
  * autonomy, pinning and groups (configure).
  */
-export function buildExtension(c: BotCtx, ops: () => CrewOps): InlineExtension {
+export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => CrewOps): InlineExtension {
   return {
     name: 'crew-build',
     factory: (pi) => {
@@ -131,6 +134,12 @@ export function buildExtension(c: BotCtx, ops: () => CrewOps): InlineExtension {
               await ops().grant(c.botId, r.id);
               if (r.status === 'ok') return done(`「${o.name}」接好了，${r.tools ?? 0} 个工具已经在你的列表里。`, { label: o.name });
               return done(`「${o.name}」连接建好了（id ${r.id}），状态 ${r.status}：${r.note ?? ''}。缺凭据就用 request_credentials 发卡；不是凭据问题就检查命令和路径。`, { label: o.name });
+            }
+            if (p.aspect === 'skill') {
+              // The model sees its own manuals listed by pi slug (s-xxxx) and reaches for build to "load" one. Nothing to
+              // install: point it at the file.
+              const owned = b.skills.find((n) => n === ref || skills().slugFor(n) === ref);
+              if (owned) return done(`「${owned}」已经在你身上，不用装。手册在 ${join(config.piAgentDir, 'skills', skills().slugFor(owned), 'SKILL.md')}，read 它照着做。`, { label: owned });
             }
             const r = await ops().equip(c.botId, ref, threadId);
             return done(r.text, { label: ref });

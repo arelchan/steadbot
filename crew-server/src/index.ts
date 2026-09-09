@@ -212,7 +212,11 @@ async function main() {
         if (soul && !store.bot(b.id)?.soul) store.patchBot(b.id, { soul });
       }
     }
-    for (const b of store.data.bots) await ensureSkills(b);
+    // A skill name with no manual behind it is dropped, not written for: bots carry only manuals somebody wrote.
+    for (const b of store.data.bots) {
+      const have = b.skills.filter((n) => skills.has(n));
+      if (have.length !== b.skills.length) store.patchBot(b.id, { skills: have }, { growth: false });
+    }
   })();
 
   // IM accounts: each bot is its own bot on Feishu / Telegram / Slack / 企业微信 (credentials in config.json, entered on a card).
@@ -250,20 +254,17 @@ async function main() {
     void (async () => {
       try {
         const meta = await inferBot(brief, names, bots.modelRuntime, bots.lightModel);
-        const refined = store.patchBot(bot.id, { ...(opts.name ? {} : { name: meta.name }), glyph: meta.glyph, tagline: meta.tagline, role: meta.role, soul: meta.soul, skills: meta.skills }) ?? bot;
+        // The skill phrases the model proposes are search hints, not skills: matching library manuals get mounted,
+        // the rest is dropped. A bot is never handed a manual that nobody wrote — one it invents for itself at birth
+        // reads like a manual and competes with the real one beside it.
+        const refined = store.patchBot(bot.id, { ...(opts.name ? {} : { name: meta.name }), glyph: meta.glyph, tagline: meta.tagline, role: meta.role, soul: meta.soul, skills: [] }) ?? bot;
         setGenerating(bot.id, 'identity', false);
         store.grow(bot.id, 'identity', `生成了名字、职责和人设，叫【${refined.name}】`);
-        for (const k of refined.skills) store.grow(bot.id, 'skill', `沉淀技能【${k}】`);
         store.patchMessage(intro.id, { text: refined.role });
         void ensureAvatar(store.bot(bot.id) ?? refined);
-        // Library first: matching curated manuals are mounted as-is, then the bot's own skill phrases get docs.
-        const picks = await library.pickForBot(refined, brief, bots.modelRuntime, bots.lightModel);
-        if (picks.covered.length) {
-          const cur = store.bot(bot.id);
-          if (cur) store.patchBot(bot.id, { skills: cur.skills.filter((n) => !picks.covered.includes(n)) }, { growth: false });
-        }
+        const picks = await library.pickForBot({ ...refined, skills: meta.skills }, brief, bots.modelRuntime, bots.lightModel);
         const mounted = mountLibrary(bot.id, picks.mount);
-        if (mounted.length) console.log(`[crew] ${refined.name} mounted from library: ${mounted.join('、')}${picks.covered.length ? `（替代 ${picks.covered.join('、')}）` : ''}`);
+        console.log(`[crew] ${refined.name} mounted from library: ${mounted.join('、') || '（没有对上的）'}${picks.covered.length ? `（对应 ${picks.covered.join('、')}）` : ''}`);
         // Connections the role needs are part of the build too: reuse an existing authorization, else hand the user a card now.
         for (const service of picks.connections) {
           try {
@@ -274,7 +275,6 @@ async function main() {
             console.warn('[crew] birth connect failed:', (e as Error).message);
           }
         }
-        await ensureSkills(store.bot(bot.id) ?? refined);
         // Inheriting a manual written by another bot means inheriting what it was written on top of.
         await followNeeds(bot.id, (store.bot(bot.id) ?? refined).skills, threadId);
       } catch (e) {
