@@ -9,7 +9,7 @@ import { cx } from '../utils';
 
 type Tab = 'general' | 'cloud' | 'usage' | 'about';
 const TABS: { id: Tab; title: string }[] = [
-  { id: 'general', title: '外观' },
+  { id: 'general', title: '通用' },
   { id: 'cloud', title: '云电脑' },
   { id: 'usage', title: '用量' },
   { id: 'about', title: '关于' },
