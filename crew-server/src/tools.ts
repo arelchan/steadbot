@@ -84,12 +84,25 @@ export const sanitize = (req: Requires): Requires => ({
   bin: (req.bin ?? []).filter((x) => BIN_NAME.test(x)).slice(0, 20),
 });
 
+// The system prompt asks "is this skill runnable here?" every turn; without a cache that is a Python start-up and a
+// handful of `command -v` per turn, for an answer that changes only when something is installed.
+let pipCache: { at: number; set: Set<string> } | undefined;
+const binCache = new Map<string, { at: number; ok: boolean }>();
+const CACHE_MS = 60_000;
+const dropCaches = () => {
+  pipCache = undefined;
+  binCache.clear();
+};
+
 /** Installed pip distributions, by name, lower-cased (`Pillow` and `pillow` are the same thing to pip). */
 async function pipInstalled(): Promise<Set<string>> {
+  if (pipCache && Date.now() - pipCache.at < CACHE_MS) return pipCache.set;
   if (!existsSync(python)) return new Set();
   try {
     const out = await run(python, ['-c', 'import json,importlib.metadata as m;print(json.dumps(sorted({d.metadata["Name"].lower() for d in m.distributions() if d.metadata["Name"]})))'], 30_000);
-    return new Set(JSON.parse(out) as string[]);
+    const set = new Set(JSON.parse(out) as string[]);
+    pipCache = { at: Date.now(), set };
+    return set;
   } catch {
     return new Set();
   }
@@ -98,12 +111,16 @@ async function pipInstalled(): Promise<Set<string>> {
 const npmInstalled = (name: string) => existsSync(join(nodeDir, 'node_modules', ...bare(name).split('/')));
 
 async function hasBin(name: string): Promise<boolean> {
+  const hit = binCache.get(name);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.ok;
+  let ok = true;
   try {
     await run('/bin/sh', ['-lc', `command -v ${name}`], 10_000);
-    return true;
   } catch {
-    return false;
+    ok = false;
   }
+  binCache.set(name, { at: Date.now(), ok });
+  return ok;
 }
 
 /** What of this is not on this machine right now. Cheap: no installs, no network. */
@@ -222,6 +239,7 @@ export async function ensure(req: Requires, forEntry: string): Promise<Ready> {
     }
     save(manifestFile, m);
   }
+  if (installed.pip.length || installed.npm.length) dropCaches();
   if (need.bin?.length) recordSystem(need.bin, forEntry);
 
   const left = await missing(req);

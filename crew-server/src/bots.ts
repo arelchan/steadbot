@@ -237,7 +237,7 @@ export class BotManager extends EventEmitter {
       noExtensions: true,
       extensionFactories: [
         bridge,
-        identityExtension(ctx),
+        identityExtension(ctx, () => this.skills, () => this.ops),
         todoExtension(ctx),
         askExtension(ctx),
         actExtension(ctx, perform),
