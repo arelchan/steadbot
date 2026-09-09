@@ -1391,3 +1391,6 @@ textarea.ident-desc:focus { outline: 0; border-color: var(--accent-hair); backgr
 .cloud-body { display: flex; flex-direction: column; gap: 10px; }
 .cloud-body .rt-card { margin: 0; }
 .cloud-body .rt-fine { margin-top: 2px; }
+
+.sc-link { color: var(--muted); font-size: 11.5px; }
+.sc-link:hover { color: var(--text-2); }

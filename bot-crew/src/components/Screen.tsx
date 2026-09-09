@@ -41,11 +41,14 @@ export function ScreenCard({ bot }: { bot: Bot }) {
             <div className="sc-off">
               {st === 'starting' && <span className="sc-msg pulse">开机中…</span>}
               {st === 'error' && <span className="sc-msg err">{d?.note ?? '没开起来'}</span>}
-              {st === 'off' && <span className="sc-msg">{d?.note ? d.note : d ? '关着' : '还没开过机'}</span>}
-              {st === 'none' && <span className="sc-msg">{idle ? 'bot 不在这台机器' : old ? '这个版本还没有' : '还没有电脑'}</span>}
-              {(st === 'off' || st === 'error') && (
-                <button className="btn sm" onClick={() => agent.computerPower(bot.id, true)}>{st === 'error' ? '再试一次' : '开机'}</button>
+              {st === 'off' && (
+                <>
+                  <span className="sc-msg">{d?.note ? d.note : '关着 · 它要上网时会自己开'}</span>
+                  <button className="link sc-link" onClick={() => agent.computerPower(bot.id, true)}>我想自己开一下</button>
+                </>
               )}
+              {st === 'none' && <span className="sc-msg">{idle ? 'bot 不在这台机器' : old ? '这个版本还没有' : '还没有电脑'}</span>}
+              {st === 'error' && <button className="btn sm" onClick={() => agent.computerPower(bot.id, true)}>再试一次</button>}
               {st === 'none' && !old && !idle && rt?.local && <button className="btn sm" onClick={() => select('runtime')}>装配云电脑</button>}
             </div>
           )}
@@ -59,7 +62,8 @@ export function ScreenCard({ bot }: { bot: Bot }) {
 
 function note(st: string, old: boolean, idle: boolean, local?: boolean, serverNote?: string) {
   if (st === 'on') return '它在这台电脑上上网、登录、填表；你能实时看到。点「放大」可以接管。';
-  if (st !== 'none') return '一台它自己的 Linux 电脑，带浏览器，登录过的网站会记住。它需要时会自己开。';
+  if (st === 'starting') return '正在开机，几秒钟。';
+  if (st !== 'none') return '一台它自己的 Linux 电脑。它要上网、登录网站、填表时会自己开机，用完两小时没人碰就自己关；登录过的网站下次还在。你自己开机，是想先替它登录某个网站的时候。';
   if (idle) return 'bot 不在这台机器上跑，这里看不到它的电脑。';
   if (old) return `${local ? '这台电脑' : '云机器'}上的 EverBot 还是旧版本，没有 bot 的电脑这个功能；重装后就有。`;
   if (local) return '你的电脑只有一块屏幕，是你的。把 bot 搬到一台云机器上，它就有自己的电脑：带浏览器，能登录网站、填表、下载，你随时看得见它在干什么。';
