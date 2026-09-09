@@ -1,25 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, patchBot, patchSkill, mountLibrarySkill, select, uid, addIntegration, removeIntegration, testIntegration } from '../store';
-import { LIBRARY_CATEGORIES, botThread, type Bot, type Channel, type GrowthEvent, type GrowthKind, type Integration, type SkillDoc } from '../types';
+import { LIBRARY_CATEGORY_IDS, botThread, type Bot, type Channel, type GrowthEvent, type GrowthKind, type Integration, type SkillDoc } from '../types';
 import { agent } from '../services/agent';
 import { Avatar } from './Avatar';
 import { Sk } from './Skeleton';
 import { Markdown } from './Markdown';
 import { cx, fullDate, fmtTime, shortDay } from '../utils';
+import { useT, tn, t as tr } from '../i18n';
+
+/** Library category names live in the catalogs, keyed by the category id the backend uses. */
+const libCat = (c: string) => tr(`lib.${c}`);
 
 type Tab = 'growth' | 'instructions' | 'memory' | 'skills' | 'routines' | 'integrations';
 
-const TABS: { id: Tab; title: string }[] = [
-  { id: 'growth', title: '成长' },
-  { id: 'instructions', title: '指令' },
-  { id: 'memory', title: '记忆' },
-  { id: 'skills', title: '技能' },
-  { id: 'routines', title: '例行' },
-  { id: 'integrations', title: '连接' },
+const TABS: { id: Tab; key: string }[] = [
+  { id: 'growth', key: 'cfg.growth' },
+  { id: 'instructions', key: 'cfg.instructions' },
+  { id: 'memory', key: 'cfg.memory' },
+  { id: 'skills', key: 'cfg.skills' },
+  { id: 'routines', key: 'cfg.routines' },
+  { id: 'integrations', key: 'cfg.integrations' },
 ];
 
 /** Bot detail: identity on the left, one section at a time on the right. Opens on 成长. */
 export function BotConfigModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
+  const t = useT();
   const [tab, setTab] = useState<Tab>('growth');
   const integrations = useStore((s) => s.integrations);
   useEffect(() => {
@@ -44,19 +49,19 @@ export function BotConfigModal({ bot, onClose }: { bot: Bot; onClose: () => void
             <Avatar bot={bot} size="lg" />
             <div className="cfg-name">{bot.name}</div>
             {bot.tagline ? <div className="cfg-tag">{bot.tagline}</div> : null}
-            <div className="cfg-since">{fullDate(bot.createdAt, false)} 创建</div>
+            <div className="cfg-since">{t('cfg.created', { date: fullDate(bot.createdAt, false) })}</div>
           </div>
           <nav className="cfg-nav">
-            {TABS.map((t) => (
-              <button key={t.id} className={cx('cfg-tab', tab === t.id && 'on')} onClick={() => setTab(t.id)}>
-                <span>{t.title}</span>
-                {counts[t.id] ? <span className="cfg-n">{counts[t.id]}</span> : null}
+            {TABS.map((x) => (
+              <button key={x.id} className={cx('cfg-tab', tab === x.id && 'on')} onClick={() => setTab(x.id)}>
+                <span>{t(x.key)}</span>
+                {counts[x.id] ? <span className="cfg-n">{counts[x.id]}</span> : null}
               </button>
             ))}
           </nav>
         </aside>
         <section className="cfg-main">
-          <button className="cfg-close" onClick={onClose} title="关闭（Esc）">×</button>
+          <button className="cfg-close" onClick={onClose} title={t('common.closeEsc')}>×</button>
           <div className="cfg-content">
             {tab === 'growth' && <Growth bot={bot} />}
             {tab === 'instructions' && <Instructions bot={bot} />}
@@ -100,6 +105,7 @@ function growthText(text: string) {
 }
 
 function Growth({ bot }: { bot: Bot }) {
+  const t = useT();
   const events = useMemo(() => [...(bot.growth ?? [])].sort((a, b) => a.ts - b.ts), [bot.growth]);
   const days = useMemo(() => {
     const out: { key: string; label: string; items: GrowthEvent[] }[] = [];
@@ -116,8 +122,8 @@ function Growth({ bot }: { bot: Bot }) {
   const spanDays = first ? Math.max(1, Math.round((Date.now() - first.ts) / 86400000)) : 0;
   return (
     <>
-      <Head title="成长" sub={events.length ? `${spanDays} 天 · ${events.length} 次变化` : undefined} />
-      {!events.length && <div className="cfg-empty">没有记录</div>}
+      <Head title={t('cfg.growth')} sub={events.length ? `${tn('cfg.growthDays', spanDays)} · ${tn('cfg.growthChanges', events.length)}` : undefined} />
+      {!events.length && <div className="cfg-empty">{t('cfg.noRecord')}</div>}
       <ol className="growth">
         {days.map((d) => (
           <li key={d.key} className="gw-day">
@@ -141,22 +147,23 @@ function Growth({ bot }: { bot: Bot }) {
 /* ---------------- 指令 ---------------- */
 
 function Instructions({ bot }: { bot: Bot }) {
+  const t = useT();
   const [part, setPart] = useState<'role' | 'soul'>('role');
   return (
     <>
       <Head
-        title="指令"
+        title={t('cfg.instructions')}
         right={
           <div className="seg inst-seg">
-            <button className={cx(part === 'role' && 'on')} onClick={() => setPart('role')}>工作方式</button>
-            <button className={cx(part === 'soul' && 'on')} onClick={() => setPart('soul')}>人设</button>
+            <button className={cx(part === 'role' && 'on')} onClick={() => setPart('role')}>{t('cfg.role')}</button>
+            <button className={cx(part === 'soul' && 'on')} onClick={() => setPart('soul')}>{t('cfg.soul')}</button>
           </div>
         }
       />
       {part === 'role' ? (
-        <textarea key="role" className="cfg-role sys" rows={14} placeholder="负责什么、按什么流程做、哪一步要先问你" value={bot.role} onChange={(e) => patchBot(bot.id, { role: e.target.value })} spellCheck={false} />
+        <textarea key="role" className="cfg-role sys" rows={14} placeholder={t('cfg.rolePlaceholder')} value={bot.role} onChange={(e) => patchBot(bot.id, { role: e.target.value })} spellCheck={false} />
       ) : (
-        <textarea key="soul" className="cfg-role sys" rows={14} placeholder="性格、说话方式" value={bot.soul} onChange={(e) => patchBot(bot.id, { soul: e.target.value })} spellCheck={false} />
+        <textarea key="soul" className="cfg-role sys" rows={14} placeholder={t('cfg.soulPlaceholder')} value={bot.soul} onChange={(e) => patchBot(bot.id, { soul: e.target.value })} spellCheck={false} />
       )}
     </>
   );
@@ -165,23 +172,24 @@ function Instructions({ bot }: { bot: Bot }) {
 /* ---------------- 记忆 ---------------- */
 
 function Memory({ bot, onClose }: { bot: Bot; onClose: () => void }) {
+  const t = useT();
   const shared = useStore((s) => s.sharedProfile);
   const [draft, setDraft] = useState('');
   return (
     <>
-      <Head title="记忆" />
+      <Head title={t('cfg.memory')} />
       <ul className="mem">
         {bot.viewOfYou.map((v, i) => (
           <li key={i}>
             <span>{v}</span>
-            <button className="del" title="删掉" onClick={() => patchBot(bot.id, { viewOfYou: bot.viewOfYou.filter((_, j) => j !== i) })}>✕</button>
+            <button className="del" title={t('cfg.memDelete')} onClick={() => patchBot(bot.id, { viewOfYou: bot.viewOfYou.filter((_, j) => j !== i) })}>✕</button>
           </li>
         ))}
-        {bot.viewOfYou.length === 0 && <li className="quiet">没有</li>}
+        {bot.viewOfYou.length === 0 && <li className="quiet">{t('common.none')}</li>}
       </ul>
       <input
         className="mem-add"
-        placeholder="加一条，回车"
+        placeholder={t('cfg.memAdd')}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
@@ -191,10 +199,10 @@ function Memory({ bot, onClose }: { bot: Bot; onClose: () => void }) {
           }
         }}
       />
-      <h4>所有 bot 共享 <button className="link" onClick={() => { select('profile'); onClose(); }}>编辑</button></h4>
+      <h4>{t('cfg.sharedMem')} <button className="link" onClick={() => { select('profile'); onClose(); }}>{t('common.edit')}</button></h4>
       <ul className="mem readonly">
         {shared.map((v, i) => <li key={i}><span>{v}</span></li>)}
-        {shared.length === 0 && <li className="quiet">没有</li>}
+        {shared.length === 0 && <li className="quiet">{t('common.none')}</li>}
       </ul>
     </>
   );
@@ -203,6 +211,7 @@ function Memory({ bot, onClose }: { bot: Bot; onClose: () => void }) {
 /* ---------------- 技能 ---------------- */
 
 function Skills({ bot }: { bot: Bot }) {
+  const t = useT();
   const docs = useStore((s) => s.skills);
   const library = useStore((s) => s.library);
   const [draft, setDraft] = useState('');
@@ -213,9 +222,9 @@ function Skills({ bot }: { bot: Bot }) {
   return (
     <>
       <Head
-        title="技能"
-        sub="每个技能是一份它照着做的手册"
-        right={library.length > 0 ? <button className="btn sm" onClick={() => setPicking(true)}>技能库</button> : undefined}
+        title={t('cfg.skills')}
+        sub={t('cfg.skillsSub')}
+        right={library.length > 0 ? <button className="btn sm" onClick={() => setPicking(true)}>{t('cfg.library')}</button> : undefined}
       />
       <ul className="skill-list">
         {bot.skills.map((k, i) => {
@@ -228,21 +237,21 @@ function Skills({ bot }: { bot: Bot }) {
                 <span className="sk-main">
                   <span className="sk-t">
                     {k}
-                    {doc?.category && <span className="sk-cat">{LIBRARY_CATEGORIES[doc.category] ?? doc.category}</span>}
+                    {doc?.category && <span className="sk-cat">{libCat(doc.category)}</span>}
                   </span>
                   {pending ? <Sk w="55%" h={10} className="sk-line" style={{ margin: '4px 0 0' }} /> : doc.description ? <span className="sk-d">{doc.description}</span> : null}
                 </span>
                 <span className="chev">›</span>
               </button>
-              <button className="del" title="移除" onClick={() => patchBot(bot.id, { skills: bot.skills.filter((_, j) => j !== i) })}>✕</button>
+              <button className="del" title={t('cfg.skillRemove')} onClick={() => patchBot(bot.id, { skills: bot.skills.filter((_, j) => j !== i) })}>✕</button>
             </li>
           );
         })}
-        {bot.skills.length === 0 && <li className="quiet">没有</li>}
+        {bot.skills.length === 0 && <li className="quiet">{t('common.none')}</li>}
       </ul>
       <input
         className="mem-add"
-        placeholder="写一个技能名，回车，它自己写手册"
+        placeholder={t('cfg.skillAdd')}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
@@ -258,30 +267,31 @@ function Skills({ bot }: { bot: Bot }) {
 
 /** Browse the curated library grouped by category; mounting copies the manual onto this bot. */
 function LibraryPicker({ bot, onBack }: { bot: Bot; onBack: () => void }) {
+  const t = useT();
   const library = useStore((s) => s.library);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<string | null>(null);
   const has = new Set(bot.skills);
   const needle = q.trim().toLowerCase();
   const hits = library.filter((e) => (!cat || e.category === cat) && (!needle || [e.title, e.description, ...e.tags].some((t) => t.toLowerCase().includes(needle))));
-  const cats = Object.keys(LIBRARY_CATEGORIES).filter((c) => library.some((e) => e.category === c));
+  const cats = LIBRARY_CATEGORY_IDS.filter((c) => library.some((e) => e.category === c));
   const groups = cats.map((c) => ({ c, items: hits.filter((e) => e.category === c) })).filter((g) => g.items.length);
   return (
     <div className="lib-picker">
       <div className="sd-top">
-        <button className="back" onClick={onBack}>← 技能</button>
-        <span className="quiet">{library.length} 份手册</span>
+        <button className="back" onClick={onBack}>{t('cfg.backSkills')}</button>
+        <span className="quiet">{tn('cfg.manuals', library.length)}</span>
       </div>
-      <input className="sd-desc-edit" autoFocus placeholder="搜：架构图、评审、Excel、竞品…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input className="sd-desc-edit" autoFocus placeholder={t('cfg.libSearch')} value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="lib-cats">
-        <button className={`chip${cat === null ? ' accent' : ''}`} onClick={() => setCat(null)}>全部</button>
+        <button className={`chip${cat === null ? ' accent' : ''}`} onClick={() => setCat(null)}>{t('common.all')}</button>
         {cats.map((c) => (
-          <button key={c} className={`chip${cat === c ? ' accent' : ''}`} onClick={() => setCat(cat === c ? null : c)}>{LIBRARY_CATEGORIES[c]}</button>
+          <button key={c} className={`chip${cat === c ? ' accent' : ''}`} onClick={() => setCat(cat === c ? null : c)}>{libCat(c)}</button>
         ))}
       </div>
       {groups.map((g) => (
         <div key={g.c} className="lib-group">
-          <h4>{LIBRARY_CATEGORIES[g.c]}</h4>
+          <h4>{libCat(g.c)}</h4>
           <ul className="skill-list">
             {g.items.map((e) => {
               const mounted = has.has(e.title);
@@ -292,7 +302,7 @@ function LibraryPicker({ bot, onBack }: { bot: Bot; onBack: () => void }) {
                     <span className="sk-d wrap">{e.description}</span>
                   </span>
                   <button className={`btn sm${mounted ? '' : ' primary'}`} disabled={mounted} onClick={() => mountLibrarySkill(bot.id, e.slug)}>
-                    {mounted ? '已挂载' : '挂载'}
+                    {mounted ? t('cfg.mounted') : t('cfg.mount')}
                   </button>
                 </li>
               );
@@ -300,13 +310,14 @@ function LibraryPicker({ bot, onBack }: { bot: Bot; onBack: () => void }) {
           </ul>
         </div>
       ))}
-      {!groups.length && <div className="quiet">没有匹配的</div>}
+      {!groups.length && <div className="quiet">{t('cfg.noMatch')}</div>}
     </div>
   );
 }
 
 /** One skill's SKILL.md: rendered by default, editable in place. */
 function SkillDetail({ name, doc, onBack }: { name: string; doc?: SkillDoc; onBack: () => void }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(doc?.body ?? '');
   const [desc, setDesc] = useState(doc?.description ?? '');
@@ -320,11 +331,11 @@ function SkillDetail({ name, doc, onBack }: { name: string; doc?: SkillDoc; onBa
   return (
     <div className="skill-detail">
       <div className="sd-top">
-        <button className="back" onClick={onBack}>← 技能</button>
-        {!pending && !editing && <button className="link quiet-link" onClick={() => setEditing(true)}>编辑</button>}
+        <button className="back" onClick={onBack}>{t('cfg.backSkills')}</button>
+        {!pending && !editing && <button className="link quiet-link" onClick={() => setEditing(true)}>{t('common.edit')}</button>}
         {editing && (
           <span className="sd-actions">
-            <button className="link quiet-link" onClick={() => setEditing(false)}>取消</button>
+            <button className="link quiet-link" onClick={() => setEditing(false)}>{t('common.cancel')}</button>
             <button
               className="btn sm primary"
               onClick={() => {
@@ -332,7 +343,7 @@ function SkillDetail({ name, doc, onBack }: { name: string; doc?: SkillDoc; onBa
                 setEditing(false);
               }}
             >
-              保存
+              {t('common.save')}
             </button>
           </span>
         )}
@@ -344,11 +355,11 @@ function SkillDetail({ name, doc, onBack }: { name: string; doc?: SkillDoc; onBa
           <Sk w="95%" h={11} className="sk-line" />
           <Sk w="90%" h={11} className="sk-line" />
           <Sk w="60%" h={11} className="sk-line" />
-          <span className="gen-note">正在写手册…</span>
+          <span className="gen-note">{t('cfg.writingManual')}</span>
         </div>
       ) : editing ? (
         <>
-          <input className="sd-desc-edit" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="一句话：做什么、什么时候用" />
+          <input className="sd-desc-edit" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={t('cfg.skillDesc')} />
           <textarea className="cfg-role sys" value={body} onChange={(e) => setBody(e.target.value)} spellCheck={false} />
         </>
       ) : (
@@ -366,6 +377,7 @@ function SkillDetail({ name, doc, onBack }: { name: string; doc?: SkillDoc; onBa
 /* ---------------- 例行 ---------------- */
 
 function Routines({ bot }: { bot: Bot }) {
+  const t = useT();
   const [title, setTitle] = useState('');
   const [schedule, setSchedule] = useState('');
   const toggle = (id: string) => patchBot(bot.id, { routines: bot.routines.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)) });
@@ -379,24 +391,24 @@ function Routines({ bot }: { bot: Bot }) {
   const last = (ts: number) => (shortDay(ts) === fmtTime(ts) ? fmtTime(ts) : `${shortDay(ts)} ${fmtTime(ts)}`);
   return (
     <>
-      <Head title="例行" />
+      <Head title={t('cfg.routines')} />
       <ul className="routine-list">
         {bot.routines.map((r) => (
           <li key={r.id} className={cx(!r.enabled && 'off')}>
             <div className="rt-main">
               <div className="rt-t">{r.title}</div>
-              <div className="rt-s">{r.schedule}{r.lastRun ? ` · 上次 ${last(r.lastRun)}` : ''}</div>
+              <div className="rt-s">{r.schedule}{r.lastRun ? t('ws.lastRun', { when: last(r.lastRun) }) : ''}</div>
             </div>
             <button className={cx('tgl', r.enabled && 'on')} onClick={() => toggle(r.id)} role="switch" aria-checked={r.enabled}><i /></button>
-            <button className="del" onClick={() => remove(r.id)} title="删除">✕</button>
+            <button className="del" onClick={() => remove(r.id)} title={t('common.delete')}>✕</button>
           </li>
         ))}
-        {bot.routines.length === 0 && <li className="quiet">没有</li>}
+        {bot.routines.length === 0 && <li className="quiet">{t('common.none')}</li>}
       </ul>
       <div className="rt-add">
-        <input className="mem-add" placeholder="做什么" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input className="mem-add" placeholder="什么时候，如：每天 20:00 / 每周一 09:00 / 每 30 分钟" value={schedule} onChange={(e) => setSchedule(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
-        <button className="btn sm" onClick={add} disabled={!title.trim() || !schedule.trim()}>加上</button>
+        <input className="mem-add" placeholder={t('cfg.rtDo')} value={title} onChange={(e) => setTitle(e.target.value)} />
+        <input className="mem-add" placeholder={t('cfg.rtWhen')} value={schedule} onChange={(e) => setSchedule(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+        <button className="btn sm" onClick={add} disabled={!title.trim() || !schedule.trim()}>{t('cfg.rtAdd')}</button>
       </div>
     </>
   );
@@ -405,6 +417,7 @@ function Routines({ bot }: { bot: Bot }) {
 /* ---------------- 连接 ---------------- */
 
 function Integrations({ bot }: { bot: Bot }) {
+  const t = useT();
   const integrations = useStore((s) => s.integrations);
   const granted = new Set(bot.integrationIds ?? []);
   const grant = (i: Integration, on: boolean) => {
@@ -417,22 +430,22 @@ function Integrations({ bot }: { bot: Bot }) {
   const agents = integrations.filter((i) => i.kind === 'agent');
   return (
     <>
-      <Head title="连接" />
-      <h4>外部服务</h4>
+      <Head title={t('cfg.integrations')} />
+      <h4>{t('cfg.external')}</h4>
       <ul className="integ-list">
         {mcps.map((i) => (
           <IntegRow key={i.id} i={i} on={granted.has(i.id)} onToggle={(v) => grant(i, v)} removable />
         ))}
-        {mcps.length === 0 && <li className="quiet integ-empty">没有</li>}
+        {mcps.length === 0 && <li className="quiet integ-empty">{t('common.none')}</li>}
       </ul>
       <AddMcp />
 
-      <h4>IM</h4>
+      <h4>{t('cfg.im')}</h4>
       <ul className="integ-list">
         {channels.map((i) => (i.channel && i.channel !== 'app' ? <ImRow key={i.id} i={i} bot={bot} channel={i.channel} /> : null))}
       </ul>
 
-      <h4>外部 agent</h4>
+      <h4>{t('cfg.agents')}</h4>
       <AgentsNote />
       <ul className="integ-list">
         {agents.map((i) => (
@@ -445,29 +458,37 @@ function Integrations({ bot }: { bot: Bot }) {
 
 /** Where the agents run when the bots live on a remote machine: on the user's computer, lent over the host link. */
 function AgentsNote() {
+  const t = useT();
   const rt = useStore((s) => s.runtime);
   if (!rt || rt.local) return null;
   const h = rt.agentHost;
   return (
     <div className={cx('integ-lead', h ? 'ok' : 'off')}>
-      {h ? `经你的电脑「${h.name}」调用` : '你的电脑不在线，暂时用不了'}
+      {h ? t('cfg.viaComputer', { name: h.name }) : t('cfg.computerOffline')}
     </div>
   );
 }
 
 /** One IM for this bot: its own account over there, connected from a credentials card in its thread. */
 function ImRow({ i, bot, channel }: { i: Integration; bot: Bot; channel: Channel }) {
+  const t = useT();
   const link = bot.im?.[channel];
   const st = link?.status ?? 'off';
   const dot = st === 'ok' ? 'ok' : st === 'error' ? 'error' : st === 'connecting' ? 'connecting' : 'off';
   const note =
-    st === 'connecting' ? '连接中…' : st === 'ok' ? `${link?.account ? `那边叫「${link.account}」 · ` : ''}${link?.note ?? ''}` : st === 'error' ? `没接上：${link?.note ?? ''}` : i.note;
+    st === 'connecting'
+      ? t('cfg.connecting')
+      : st === 'ok'
+        ? `${link?.account ? t('cfg.namedThere', { account: link.account }) : ''}${link?.note ?? ''}`
+        : st === 'error'
+          ? t('cfg.imFailed', { note: link?.note ?? '' })
+          : i.note;
   const connect = () => {
     agent.connectChannel(bot.id, channel);
     select(botThread(bot.id));
   };
   const disconnect = () => {
-    if (window.confirm(`把「${bot.name}」从${i.name}断开？那边的机器人会停，凭据会删掉。`)) agent.disconnectChannel(bot.id, channel);
+    if (window.confirm(t('cfg.imDisconnectAsk', { bot: bot.name, im: i.name }))) agent.disconnectChannel(bot.id, channel);
   };
   return (
     <li className="integ-row">
@@ -477,15 +498,16 @@ function ImRow({ i, bot, channel }: { i: Integration; bot: Bot; channel: Channel
         <div className="integ-note">{note}</div>
       </div>
       <span className="integ-actions im-actions">
-        {st === 'off' && <button className="btn sm" onClick={connect}>接入</button>}
-        {st === 'error' && <button className="btn sm" onClick={connect}>重填</button>}
-        {(st === 'ok' || st === 'error') && <button className="link quiet-link danger" onClick={disconnect}>断开</button>}
+        {st === 'off' && <button className="btn sm" onClick={connect}>{t('cfg.imConnect')}</button>}
+        {st === 'error' && <button className="btn sm" onClick={connect}>{t('cfg.imRefill')}</button>}
+        {(st === 'ok' || st === 'error') && <button className="link quiet-link danger" onClick={disconnect}>{t('cfg.imDisconnect')}</button>}
       </span>
     </li>
   );
 }
 
 function IntegRow({ i, on, onToggle, hint, removable, disabled }: { i: Integration; on: boolean; onToggle: (v: boolean) => void; hint?: string; removable?: boolean; disabled?: boolean }) {
+  const t = useT();
   const dot = i.status === 'ok' ? 'ok' : i.status === 'error' ? 'error' : i.status === 'connecting' ? 'connecting' : 'off';
   return (
     <li className={cx('integ-row', disabled && 'disabled')}>
@@ -493,19 +515,19 @@ function IntegRow({ i, on, onToggle, hint, removable, disabled }: { i: Integrati
       <div className="integ-main">
         <div className="integ-name">
           {i.name}
-          {i.kind === 'mcp' && i.tools && i.status === 'ok' ? <span className="quiet"> · {i.tools.length} 个工具</span> : null}
-          {i.connector ? <span className="chip cn-chip">一键</span> : null}
-          {i.viaHost ? <span className="chip cn-chip">在电脑上</span> : null}
+          {i.kind === 'mcp' && i.tools && i.status === 'ok' ? <span className="quiet">{tn('cfg.tools', i.tools.length)}</span> : null}
+          {i.connector ? <span className="chip cn-chip">{t('cfg.oneClick')}</span> : null}
+          {i.viaHost ? <span className="chip cn-chip">{t('cfg.onComputer')}</span> : null}
         </div>
-        <div className="integ-note">{i.status === 'connecting' ? '连接中…' : i.note || (i.kind === 'mcp' ? [i.command, ...(i.args ?? [])].filter(Boolean).join(' ') || i.url : '')}</div>
+        <div className="integ-note">{i.status === 'connecting' ? t('cfg.connecting') : i.note || (i.kind === 'mcp' ? [i.command, ...(i.args ?? [])].filter(Boolean).join(' ') || i.url : '')}</div>
         {hint && on && <div className="integ-hint">{hint}</div>}
       </div>
       <span className="integ-actions">
-        {i.kind === 'mcp' && <button className="link quiet-link" onClick={() => testIntegration(i.id)}>{i.connector ? '检查' : '重连'}</button>}
-        {i.kind === 'agent' && !i.available && <button className="link quiet-link" onClick={() => testIntegration(i.id)}>重新检测</button>}
-        {removable && <button className="link quiet-link danger" onClick={() => { if (window.confirm(`移除连接「${i.name}」？`)) removeIntegration(i.id); }}>移除</button>}
+        {i.kind === 'mcp' && <button className="link quiet-link" onClick={() => testIntegration(i.id)}>{i.connector ? t('cfg.check') : t('cfg.reconnect')}</button>}
+        {i.kind === 'agent' && !i.available && <button className="link quiet-link" onClick={() => testIntegration(i.id)}>{t('cfg.recheck')}</button>}
+        {removable && <button className="link quiet-link danger" onClick={() => { if (window.confirm(t('cfg.removeConnAsk', { name: i.name }))) removeIntegration(i.id); }}>{t('common.remove')}</button>}
       </span>
-      <button className={cx('tgl', on && 'on')} role="switch" aria-checked={on} disabled={disabled} onClick={() => !disabled && onToggle(!on)} title={disabled ? i.note : on ? '已开' : '关着'}>
+      <button className={cx('tgl', on && 'on')} role="switch" aria-checked={on} disabled={disabled} onClick={() => !disabled && onToggle(!on)} title={disabled ? i.note : on ? t('cfg.connOn') : t('cfg.connOff')}>
         <i />
       </button>
     </li>
@@ -513,6 +535,7 @@ function IntegRow({ i, on, onToggle, hint, removable, disabled }: { i: Integrati
 }
 
 function AddMcp() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
@@ -538,13 +561,13 @@ function AddMcp() {
     setEnvText('');
     setOpen(false);
   };
-  if (!open) return <button className="link quiet-link add-integ" onClick={() => setOpen(true)}>＋ MCP 连接</button>;
+  if (!open) return <button className="link quiet-link add-integ" onClick={() => setOpen(true)}>{t('cfg.addMcp')}</button>;
   return (
     <div className="add-integ-form">
-      <input className="mem-add" placeholder="名字" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      <input className="mem-add" placeholder={t('cfg.mcpName')} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       <input
         className="mem-add"
-        placeholder="启动命令或 URL，如 npx -y @modelcontextprotocol/server-filesystem ~/Documents"
+        placeholder={t('cfg.mcpTarget')}
         value={target}
         onChange={(e) => setTarget(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
@@ -552,14 +575,14 @@ function AddMcp() {
       <textarea
         className="mem-add env-add"
         rows={2}
-        placeholder={'凭据，每行一个 KEY=VALUE；只存在本机，列表里不显示'}
+        placeholder={t('cfg.mcpEnv')}
         value={envText}
         onChange={(e) => setEnvText(e.target.value)}
         spellCheck={false}
       />
       <div className="add-integ-actions">
-        <button className="link quiet-link" onClick={() => setOpen(false)}>取消</button>
-        <button className="btn sm primary" onClick={submit} disabled={!name.trim() || !target.trim()}>连接</button>
+        <button className="link quiet-link" onClick={() => setOpen(false)}>{t('common.cancel')}</button>
+        <button className="btn sm primary" onClick={submit} disabled={!name.trim() || !target.trim()}>{t('cfg.connect')}</button>
       </div>
     </div>
   );

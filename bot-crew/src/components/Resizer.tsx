@@ -3,6 +3,7 @@ import { useStore, setColumnWidth } from '../store';
 import type { Layout } from '../types';
 import { DEFAULT_LAYOUT } from '../types';
 import { cx } from '../utils';
+import { t } from '../i18n';
 
 /**
  * A slim drag grabber on a column edge. `edge` is where it sits; `grow` is which drag direction
@@ -31,7 +32,7 @@ export function Resizer({ col, edge, grow }: { col: keyof Layout; edge: 'left' |
         document.body.classList.remove('resizing');
       }}
       onDoubleClick={() => setColumnWidth(col, DEFAULT_LAYOUT[col])}
-      title="拖动调整宽度，双击恢复"
+      title={t('common.resize')}
     >
       <i />
     </div>

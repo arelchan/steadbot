@@ -7,6 +7,7 @@ import { wsUrl, httpBase, authHeaders } from './runtime';
 import type { Bot, Channel, Pending, ThreadId, TodoStatus, FileRef } from '../types';
 import { WsAgentService } from './ws-agent';
 import { AUTONOMY_LABEL, botThread, matterThread, parseThread } from '../types';
+import { t } from '../i18n';
 import {
   addAction,
   addBot,
@@ -548,8 +549,7 @@ export class MockAgentService implements AgentService {
   }
 }
 
-export const statusLabel = (s: TodoStatus) =>
-  ({ open: '待开始', doing: '在做', waiting: '等你', blocked: '卡住', done: '完成' })[s];
+export const statusLabel = (s: TodoStatus) => t(`status.${s}`);
 
 /** Backend selection: the runtime module decides (paired server, else VITE_CREW_WS, else the in-browser mock). */
 const WS_URL = wsUrl;

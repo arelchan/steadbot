@@ -3,8 +3,10 @@ import { useStore, addMatter, select } from '../store';
 import { matterThread } from '../types';
 import { Avatar } from './Avatar';
 import { cx } from '../utils';
+import { useT } from '../i18n';
 
 export function NewGroupModal({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const bots = useStore((s) => s.bots);
   const [picked, setPicked] = useState<string[]>([]);
   const [title, setTitle] = useState('');
@@ -16,7 +18,8 @@ export function NewGroupModal({ onClose }: { onClose: () => void }) {
 
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const names = picked.map((id) => bots.find((b) => b.id === id)?.name).filter(Boolean);
-  const autoTitle = names.length ? `${names.slice(0, 2).join('、')}${names.length > 2 ? ` 等 ${names.length} 个 bot` : ''} 和你` : '';
+  const joined = names.slice(0, 2).join(t('common.listSep'));
+  const autoTitle = names.length ? (names.length > 2 ? t('group.autoTitleMore', { names: joined, n: names.length }) : t('group.autoTitle', { names: joined })) : '';
 
   const create = () => {
     if (!picked.length) return;
@@ -37,7 +40,7 @@ export function NewGroupModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal grp" onClick={(e) => e.stopPropagation()}>
-        <h2>新建群聊</h2>
+        <h2>{t('group.new')}</h2>
         <ul className="pick-list">
           {bots.map((b) => {
             const on = picked.includes(b.id);
@@ -48,7 +51,7 @@ export function NewGroupModal({ onClose }: { onClose: () => void }) {
                   <span className={cx('check', on && 'on')}>{on ? '✓' : ''}</span>
                   <Avatar bot={b} className="lg" />
                   <span className="pick-main">
-                    <span className="pick-name">{b.name}{idx === 0 && <span className="tag">牵头</span>}</span>
+                    <span className="pick-name">{b.name}{idx === 0 && <span className="tag">{t('group.lead')}</span>}</span>
                     <span className="pick-sub">{b.tagline}</span>
                   </span>
                 </button>
@@ -57,12 +60,12 @@ export function NewGroupModal({ onClose }: { onClose: () => void }) {
           })}
         </ul>
         <div className="field" style={{ marginTop: 12 }}>
-          <label>群聊名（可不填）</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={autoTitle || '选了成员后自动起名'} />
+          <label>{t('group.nameLabel')}</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={autoTitle || t('group.namePlaceholder')} />
         </div>
         <div className="actions">
-          <button className="btn" onClick={onClose}>算了</button>
-          <button className="btn primary" onClick={create} disabled={!picked.length}>建群{picked.length ? `（${picked.length}）` : ''}</button>
+          <button className="btn" onClick={onClose}>{t('group.giveUp')}</button>
+          <button className="btn primary" onClick={create} disabled={!picked.length}>{picked.length ? t('group.createN', { n: picked.length }) : t('group.create')}</button>
         </div>
       </div>
     </div>

@@ -6,17 +6,19 @@ import { fetchUpgradeStatus, runUpgrade } from '../services/upgrade';
 import { ACCENTS, SCALES, THEMES, getAccent, getDesktopNotify, getScale, getTheme, notifySupported, setAccent, setDesktopNotify, setScale, setTheme, type Accent, type Scale, type Theme } from '../services/theme';
 import { RuntimeBody } from './RuntimeView';
 import { cx } from '../utils';
+import { LOCALES, useT, useLocale, setLocale, intlLocale, tn, t as tr, type Locale } from '../i18n';
 
 type Tab = 'general' | 'cloud' | 'usage' | 'about';
-const TABS: { id: Tab; title: string }[] = [
-  { id: 'general', title: '通用' },
-  { id: 'cloud', title: '云电脑' },
-  { id: 'usage', title: '用量' },
-  { id: 'about', title: '关于' },
+const TABS: { id: Tab; key: string }[] = [
+  { id: 'general', key: 'set.general' },
+  { id: 'cloud', key: 'set.cloud' },
+  { id: 'usage', key: 'set.usage' },
+  { id: 'about', key: 'set.about' },
 ];
 
 /** 设置：one window for everything that is not a bot — how the app looks, where the bots live, what it costs. */
 export function SettingsModal({ tab: initial = 'general', onClose }: { tab?: Tab; onClose: () => void }) {
+  const t = useT();
   const [tab, setTab] = useState<Tab>(initial);
   const up = useUpgrade();
   const stale = !!up.status && !up.status.upToDate && !up.status.blocked;
@@ -27,23 +29,23 @@ export function SettingsModal({ tab: initial = 'general', onClose }: { tab?: Tab
   }, [onClose]);
   return (
     <div className="overlay" onClick={onClose}>
-      <div className="modal cfg" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label="设置">
+      <div className="modal cfg" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label={t('set.title')}>
         <aside className="cfg-side">
           <div className="cfg-who">
-            <div className="cfg-name">设置</div>
+            <div className="cfg-name">{t('set.title')}</div>
             <div className="cfg-tag">EverBot</div>
           </div>
           <nav className="cfg-nav">
-            {TABS.map((t) => (
-              <button key={t.id} className={cx('cfg-tab', tab === t.id && 'on')} onClick={() => setTab(t.id)}>
-                <span>{t.title}</span>
-                {t.id === 'about' && stale && <span className="up-dot" aria-label="有新版本" />}
+            {TABS.map((x) => (
+              <button key={x.id} className={cx('cfg-tab', tab === x.id && 'on')} onClick={() => setTab(x.id)}>
+                <span>{t(x.key)}</span>
+                {x.id === 'about' && stale && <span className="up-dot" aria-label={t('set.hasNew')} />}
               </button>
             ))}
           </nav>
         </aside>
         <div className="cfg-main">
-          <button className="cfg-close" onClick={onClose} title="关闭（Esc）">×</button>
+          <button className="cfg-close" onClick={onClose} title={t('common.closeEsc')}>×</button>
           <div className="cfg-content">
             {tab === 'general' && <General />}
             {tab === 'cloud' && <Cloud />}
@@ -67,69 +69,81 @@ function Head({ title, sub }: { title: string; sub?: string }) {
   );
 }
 
-/* ---------------- 外观 ---------------- */
-
-const LANGS: { id: 'zh' | 'en' | 'auto'; label: string; hint: string }[] = [
-  { id: 'zh', label: '中文', hint: 'bot 一律用中文' },
-  { id: 'en', label: 'English', hint: 'bot 一律用英文' },
-  { id: 'auto', label: '跟着我', hint: '你用什么语言，它就用什么语言' },
-];
+/* ---------------- 通用 ---------------- */
 
 function General() {
+  const t = useT();
+  const locale = useLocale();
   const [theme, setT] = useState<Theme>(getTheme());
   const [accent, setA] = useState<Accent>(getAccent());
   const [scale, setS] = useState<Scale>(getScale());
   const [notify, setN] = useState(getDesktopNotify());
-  const lang = useStore((s) => s.settings?.language) ?? 'zh';
+  // The bots' own language: either 'auto' (whatever the user writes in) or a locale, kept level with the interface.
+  const botLang = useStore((s) => s.settings?.language);
+  const followMe = botLang === 'auto';
+  const pickLocale = (l: Locale) => {
+    setLocale(l);
+    if (!followMe) setSettings({ language: l });
+  };
   return (
     <>
-      <Head title="通用" />
+      <Head title={t('set.general')} />
 
-      <h4>语言</h4>
-      <div className="seg">
-        {LANGS.map((l) => (
-          <button key={l.id} className={cx(lang === l.id && 'on')} onClick={() => setSettings({ language: l.id })}>
+      <h4>{t('set.language')}</h4>
+      <select className="tz-pick lang-pick" value={locale} onChange={(e) => pickLocale(e.target.value as Locale)}>
+        {LOCALES.map((l) => (
+          <option key={l.id} value={l.id}>
             {l.label}
-          </button>
+          </option>
         ))}
+      </select>
+
+      <h4>{t('set.botReply')}</h4>
+      <div className="seg">
+        <button className={cx(!followMe && 'on')} onClick={() => setSettings({ language: locale })}>
+          {t('set.followUi')}
+        </button>
+        <button className={cx(followMe && 'on')} onClick={() => setSettings({ language: 'auto' })}>
+          {t('set.followMe')}
+        </button>
       </div>
 
-      <h4>时区</h4>
+      <h4>{t('set.timezone')}</h4>
       <TimezoneRow />
 
-      <h4>主题</h4>
+      <h4>{t('set.theme')}</h4>
       <div className="seg">
-        {THEMES.map((t) => (
-          <button key={t.id} className={cx(theme === t.id && 'on')} onClick={() => { setT(t.id); setTheme(t.id); }}>
-            {t.label}
+        {THEMES.map((x) => (
+          <button key={x.id} className={cx(theme === x.id && 'on')} onClick={() => { setT(x.id); setTheme(x.id); }}>
+            {t(`theme.${x.id}`)}
           </button>
         ))}
       </div>
 
-      <h4>强调色</h4>
+      <h4>{t('set.accent')}</h4>
       <div className="swatches">
         {ACCENTS.map((a) => (
-          <button key={a.id} className={cx('swatch', accent === a.id && 'on')} onClick={() => { setA(a.id); setAccent(a.id); }} title={a.label}>
+          <button key={a.id} className={cx('swatch', accent === a.id && 'on')} onClick={() => { setA(a.id); setAccent(a.id); }} title={t(`accent.${a.id}`)}>
             <i style={{ background: a.swatch }} />
-            <span>{a.label}</span>
+            <span>{t(`accent.${a.id}`)}</span>
           </button>
         ))}
       </div>
 
-      <h4>界面密度</h4>
+      <h4>{t('set.density')}</h4>
       <div className="seg">
         {SCALES.map((x) => (
           <button key={x.id} className={cx(scale === x.id && 'on')} onClick={() => { setS(x.id); setScale(x.id); }}>
-            {x.label}
+            {t(`scale.${x.id}`)}
           </button>
         ))}
       </div>
 
-      <h4>桌面通知</h4>
+      <h4>{t('set.notifications')}</h4>
       <button className="tgl-row" onClick={() => void setDesktopNotify(!notify).then(setN)} role="switch" aria-checked={notify} disabled={!notifySupported()}>
         <span className="tgl-l">
-          <span>bot 找你时弹系统通知</span>
-          <span className="tgl-h">{notifySupported() ? '页面在后台也能看到；关掉就只在应用里提示' : '这个浏览器不支持'}</span>
+          <span>{t('set.notifySwitch')}</span>
+          <span className="tgl-h">{notifySupported() ? t('set.notifyHint') : t('set.notifyUnsupported')}</span>
         </span>
         <span className={cx('tgl', notify && 'on')}><i /></span>
       </button>
@@ -137,27 +151,101 @@ function General() {
   );
 }
 
+/* ---------------- 时区 ---------------- */
+
+/** Minutes east of UTC for a zone right now (so the list is ordered the way every other time-zone picker is). */
+function offsetMinutes(tz: string, at: Date): number {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).formatToParts(at);
+    const g = (k: string) => Number(parts.find((p) => p.type === k)?.value ?? 0);
+    const asUtc = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour') % 24, g('minute'), g('second'));
+    return Math.round((asUtc - Math.floor(at.getTime() / 1000) * 1000) / 60000);
+  } catch {
+    return 0;
+  }
+}
+
+const offsetLabel = (min: number) => {
+  const sign = min < 0 ? '-' : '+';
+  const a = Math.abs(min);
+  return `UTC${sign}${String(Math.floor(a / 60)).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}`;
+};
+
+/** The zone's own name in the current language ("中国标准时间", "China Standard Time"); empty when Intl only offers GMT+8. */
+function zoneName(tz: string, at: Date): string {
+  try {
+    const v = new Intl.DateTimeFormat(intlLocale(), { timeZone: tz, timeZoneName: 'long' }).formatToParts(at).find((p) => p.type === 'timeZoneName')?.value ?? '';
+    return /^(GMT|UTC)/i.test(v) ? '' : v;
+  } catch {
+    return '';
+  }
+}
+
+const cityOf = (tz: string) => (tz.split('/').pop() ?? tz).replace(/_/g, ' ');
+const areaOf = (tz: string) => (tz.includes('/') ? tz.split('/')[0] : 'UTC');
+
 /** Every IANA zone the browser knows, so someone travelling or working across zones can just pick theirs. */
 const ALL_ZONES: string[] = (() => {
   const sv = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf;
   const list = sv ? sv('timeZone') : [];
-  return list.length ? list : ['Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Los_Angeles', 'UTC'];
+  return list.length ? list : ['UTC', 'Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Los_Angeles'];
 })();
+
+type ZoneRow = { id: string; label: string; area: string; offset: number };
+const zoneCache = new Map<string, ZoneRow[]>();
+
+/** Built once per language: 400-odd zones, each with its offset and its name, grouped by region and ordered by offset. */
+function zoneRows(locale: string, extra?: string): ZoneRow[] {
+  const key = `${locale}|${extra ?? ''}`;
+  const hit = zoneCache.get(key);
+  if (hit) return hit;
+  const at = new Date();
+  const ids = extra && !ALL_ZONES.includes(extra) ? [extra, ...ALL_ZONES] : ALL_ZONES;
+  const rows = ids
+    .map((id) => {
+      const offset = offsetMinutes(id, at);
+      const name = zoneName(id, at);
+      return { id, area: areaOf(id), offset, label: `(${offsetLabel(offset)}) ${cityOf(id)}${name ? ` · ${name}` : ''}` };
+    })
+    .sort((a, b) => a.area.localeCompare(b.area) || a.offset - b.offset || a.id.localeCompare(b.id));
+  zoneCache.set(key, rows);
+  return rows;
+}
 
 /** 例行任务按这个时区算时间；跑 bot 的机器多半在 UTC 上，所以这条必须跟着用户走。 */
 function TimezoneRow() {
+  const t = useT();
+  const locale = useLocale();
   const tz = useStore((s) => s.settings?.timezone);
   const here = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const current = tz ?? here;
-  const zones = useMemo(() => (ALL_ZONES.includes(current) ? ALL_ZONES : [current, ...ALL_ZONES]), [current]);
+  const groups = useMemo(() => {
+    const rows = zoneRows(locale, current);
+    const out: { area: string; items: ZoneRow[] }[] = [];
+    for (const r of rows) {
+      const last = out[out.length - 1];
+      if (last && last.area === r.area) last.items.push(r);
+      else out.push({ area: r.area, items: [r] });
+    }
+    return out;
+  }, [locale, current]);
   const [, tick] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => tick((n) => n + 1), 20_000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => tick((n) => n + 1), 20_000);
+    return () => clearInterval(timer);
   }, []);
   const now = (() => {
     try {
-      return new Date().toLocaleString('zh-CN', { timeZone: current, hour: '2-digit', minute: '2-digit', weekday: 'short' });
+      return new Date().toLocaleString(intlLocale(), { timeZone: current, hour: '2-digit', minute: '2-digit', weekday: 'short' });
     } catch {
       return '';
     }
@@ -166,10 +254,14 @@ function TimezoneRow() {
     <div className="tz-row">
       <div className="tz-main">
         <select className="tz-pick" value={current} onChange={(e) => setSettings({ timezone: e.target.value })}>
-          {zones.map((z) => (
-            <option key={z} value={z}>
-              {z}
-            </option>
+          {groups.map((g) => (
+            <optgroup key={g.area} label={g.area}>
+              {g.items.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.label}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <div className="tz-s">
@@ -178,7 +270,7 @@ function TimezoneRow() {
             <>
               {' '}
               <button className="link" onClick={() => setSettings({ timezone: here })}>
-                改成这台设备的 {here}
+                {t('set.useThisDevice', { tz: here })}
               </button>
             </>
           )}
@@ -192,9 +284,10 @@ function TimezoneRow() {
 
 /** 云电脑：where the bots live, in full — the same cards as the standalone page, no jumping out of 设置. */
 function Cloud() {
+  const t = useT();
   return (
     <>
-      <Head title="云电脑" />
+      <Head title={t('set.cloud')} />
       <div className="cloud-body">
         <RuntimeBody />
       </div>
@@ -208,6 +301,7 @@ const fmtNum = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 
 const fmtMoney = (n: number) => (n >= 1 ? `$${n.toFixed(2)}` : n > 0 ? `$${n.toFixed(4)}` : '$0');
 
 function Usage() {
+  const t = useT();
   const [report, setReport] = useState<UsageReport | undefined>();
   const [err, setErr] = useState('');
   useEffect(() => {
@@ -216,33 +310,33 @@ function Usage() {
       .then((r) =>
         r.ok
           ? (r.json() as Promise<UsageReport>)
-          : Promise.reject(new Error(r.status === 404 ? '跑 bot 的那台机器还是旧版本，还统计不了用量。在「关于」里升级一下就有了。' : `读不到用量（${r.status}）`)),
+          : Promise.reject(new Error(r.status === 404 ? t('usage.oldVersion') : t('usage.readFail', { code: r.status }))),
       )
       .then((x) => alive && setReport(x))
-      .catch((e: Error) => alive && setErr(/Failed to fetch|NetworkError/.test(e.message) ? '连不上跑 bot 的那台机器。' : e.message));
+      .catch((e: Error) => alive && setErr(/Failed to fetch|NetworkError/.test(e.message) ? t('usage.offline') : e.message));
     return () => {
       alive = false;
     };
   }, []);
   const max = useMemo(() => Math.max(1, ...(report?.daily ?? []).map((d) => d.cost)), [report]);
-  if (err) return (<><Head title="用量" /><div className="quiet">{err}</div></>);
-  if (!report) return (<><Head title="用量" /><div className="quiet">读取中…</div></>);
-  const t = report.total;
+  if (err) return (<><Head title={t('set.usage')} /><div className="quiet">{err}</div></>);
+  if (!report) return (<><Head title={t('set.usage')} /><div className="quiet">{t('common.loading')}</div></>);
+  const total = report.total;
   return (
     <>
-      <Head title="用量" sub={`最近 ${report.days} 天，按每次模型调用累计`} />
+      <Head title={t('set.usage')} sub={t('usage.sub', { n: report.days })} />
       <div className="usage-top">
-        <div className="ut-cell"><span className="ut-n">{fmtMoney(t.cost)}</span><span className="ut-l">花费</span></div>
-        <div className="ut-cell"><span className="ut-n">{fmtNum(t.input + t.output)}</span><span className="ut-l">token</span></div>
-        <div className="ut-cell"><span className="ut-n">{fmtNum(t.calls)}</span><span className="ut-l">次调用</span></div>
+        <div className="ut-cell"><span className="ut-n">{fmtMoney(total.cost)}</span><span className="ut-l">{t('usage.cost')}</span></div>
+        <div className="ut-cell"><span className="ut-n">{fmtNum(total.input + total.output)}</span><span className="ut-l">{t('usage.tokens')}</span></div>
+        <div className="ut-cell"><span className="ut-n">{fmtNum(total.calls)}</span><span className="ut-l">{t('usage.calls')}</span></div>
       </div>
-      {t.calls === 0 && <div className="quiet">没有调用记录</div>}
+      {total.calls === 0 && <div className="quiet">{t('usage.none')}</div>}
       {report.daily.length > 1 && (
         <>
-          <h4>每天</h4>
+          <h4>{t('usage.daily')}</h4>
           <div className="spark">
             {report.daily.map((d) => (
-              <span key={d.day} className="spark-b" title={`${d.day} · ${fmtMoney(d.cost)} · ${fmtNum(d.calls)} 次`}>
+              <span key={d.day} className="spark-b" title={`${d.day} · ${fmtMoney(d.cost)} · ${tn('usage.callsN', d.calls)}`}>
                 <i style={{ height: `${Math.max(3, (d.cost / max) * 100)}%` }} />
               </span>
             ))}
@@ -252,12 +346,12 @@ function Usage() {
       )}
       {report.bots.length > 0 && (
         <>
-          <h4>按 bot</h4>
+          <h4>{t('usage.byBot')}</h4>
           <ul className="usage-list">
             {report.bots.map((b) => (
               <li key={b.botId}>
                 <span className="ul-n">{b.name}</span>
-                <span className="ul-v">{fmtNum(b.input + b.output)} token · {fmtNum(b.calls)} 次</span>
+                <span className="ul-v">{fmtNum(b.input + b.output)} {t('usage.tokens')} · {tn('usage.callsN', b.calls)}</span>
                 <span className="ul-c">{fmtMoney(b.cost)}</span>
               </li>
             ))}
@@ -266,12 +360,12 @@ function Usage() {
       )}
       {report.models.length > 0 && (
         <>
-          <h4>按模型</h4>
+          <h4>{t('usage.byModel')}</h4>
           <ul className="usage-list">
             {report.models.map((m) => (
               <li key={m.model}>
                 <span className="ul-n mono">{m.model}</span>
-                <span className="ul-v">{fmtNum(m.input + m.output)} token</span>
+                <span className="ul-v">{fmtNum(m.input + m.output)} {t('usage.tokens')}</span>
                 <span className="ul-c">{fmtMoney(m.cost)}</span>
               </li>
             ))}
@@ -305,7 +399,7 @@ export function useUpgrade() {
     setLog([]);
     try {
       const r = await runUpgrade((line) => setLog((x) => [...x.slice(-200), line]));
-      setDone(r.restarting ? '升级完成，正在重启；几秒后自动连回来。' : '升级完成。');
+      setDone(r.restarting ? tr('about.upgradedRestart') : tr('about.upgraded'));
       if (r.restarting) setTimeout(() => window.location.reload(), 4000);
       else refresh();
     } catch (e) {
@@ -318,49 +412,50 @@ export function useUpgrade() {
 }
 
 function About({ up }: { up: ReturnType<typeof useUpgrade> }) {
+  const t = useT();
   const rt = useStore((s) => s.runtime);
   const s = up.status;
   const stale = !!s && !s.upToDate && !s.blocked;
   return (
     <>
-      <Head title="关于" />
+      <Head title={t('set.about')} />
       <div className="about-top">
         <div className="about-mark">🤖</div>
         <div>
           <div className="about-n">EverBot</div>
-          <div className="about-v">{s ? `版本 ${s.version} · ${s.running?.slice(0, 8) ?? '未知'}` : rt?.version ? `版本 ${rt.version}` : ''}</div>
+          <div className="about-v">{s ? t('about.versionLine', { v: s.version, commit: s.running?.slice(0, 8) ?? t('about.unknown') }) : rt?.version ? t('about.versionOnly', { v: rt.version }) : ''}</div>
           {s && <div className="about-v">{s.repo} · {s.branch}</div>}
         </div>
       </div>
-      <p className="about-p">一支替你干活的 bot 团队。你交代一句，它们自己去做，做完或者卡住才回来找你。</p>
+      <p className="about-p">{t('about.blurb')}</p>
 
-      <h4>版本</h4>
-      {!s && <div className="quiet">连不上本机的 EverBot</div>}
+      <h4>{t('about.version')}</h4>
+      {!s && <div className="quiet">{t('about.noLocal')}</div>}
       {s && (
         <div className={cx('up-card', stale && 'stale')}>
           <div className="up-main">
             <div className="up-t">
-              {s.blocked ? '暂时不能升级' : stale ? '有新版本' : !s.latest ? '看不到仓库' : '已经是最新的'}
-              {stale && <span className="chip cn-chip">新</span>}
+              {s.blocked ? t('about.blocked') : stale ? t('about.stale') : !s.latest ? t('about.noRepo') : t('about.upToDate')}
+              {stale && <span className="chip cn-chip">{t('common.new')}</span>}
             </div>
             <div className="up-s">
               {s.blocked
                 ? s.blocked
                 : !s.latest
-                  ? '连不上 GitHub，暂时不知道有没有新版本。'
+                  ? t('about.noGithub')
                   : stale
                     ? s.target === 'machine'
-                      ? `仓库上有更新的版本。${s.machineName ? `「${s.machineName}」` : '那台机器'}会自己从 GitHub 拉下来；只是代码变了就重启几秒，依赖变了才重建镜像。`
-                      : '仓库上有更新的版本。升级会拉下来并重启一下，几秒钟。'
-                    : `跑的就是仓库上最新的（${s.running?.slice(0, 8) ?? '?'}）。`}
+                      ? t('about.staleMachine', { name: s.machineName ? `\u300c${s.machineName}\u300d` : t('about.thatMachine') })
+                      : t('about.staleLocal')
+                    : t('about.running', { commit: s.running?.slice(0, 8) ?? '?' })}
             </div>
           </div>
           {stale && !up.busy && (
             <button className="btn primary" onClick={up.start}>
-              升级
+              {t('about.upgrade')}
             </button>
           )}
-          {up.busy && <span className="quiet">升级中…</span>}
+          {up.busy && <span className="quiet">{t('about.upgrading')}</span>}
         </div>
       )}
       {up.err && <div className="up-err">{up.err}</div>}
@@ -371,15 +466,15 @@ function About({ up }: { up: ReturnType<typeof useUpgrade> }) {
         </pre>
       )}
 
-      <h4>这台运行机器</h4>
+      <h4>{t('about.machine')}</h4>
       <ul className="about-facts">
-        <li><span>位置</span><b>{rt?.local ? '这台电脑' : (rt?.hostname ?? '云机器')}</b></li>
-        <li><span>系统</span><b>{rt?.platform ?? '—'}</b></li>
-        <li><span>状态</span><b>{rt?.mode === 'active' ? '在跑 bot' : rt?.mode === 'moved' ? '已搬走，只是路牌' : '待命'}</b></li>
-        <li><span>bot 的电脑</span><b>{rt?.desktops ? '可用' : '不可用'}</b></li>
-        <li><span>数据目录</span><b className="mono">{rt?.home ?? '—'}</b></li>
-        {s?.latest && <li><span>仓库最新</span><b className="mono">{s.latest.slice(0, 8)}</b></li>}
-        {s?.dirty && <li><span>本地改动</span><b>有没提交的改动</b></li>}
+        <li><span>{t('about.where')}</span><b>{rt?.local ? t('side.thisComputer') : (rt?.hostname ?? t('side.cloudMachine'))}</b></li>
+        <li><span>{t('about.system')}</span><b>{rt?.platform ?? '—'}</b></li>
+        <li><span>{t('about.state')}</span><b>{rt?.mode === 'active' ? t('about.stateActive') : rt?.mode === 'moved' ? t('about.stateMoved') : t('about.stateIdle')}</b></li>
+        <li><span>{t('about.botComputer')}</span><b>{rt?.desktops ? t('about.available') : t('about.unavailable')}</b></li>
+        <li><span>{t('about.dataDir')}</span><b className="mono">{rt?.home ?? '—'}</b></li>
+        {s?.latest && <li><span>{t('about.repoLatest')}</span><b className="mono">{s.latest.slice(0, 8)}</b></li>}
+        {s?.dirty && <li><span>{t('about.localChanges')}</span><b>{t('about.uncommitted')}</b></li>}
       </ul>
     </>
   );

@@ -8,23 +8,15 @@ export type Theme = 'system' | 'light' | 'dark';
 export type Scale = 'sm' | 'md' | 'lg';
 export type Accent = 'clay' | 'ink' | 'moss' | 'plum';
 
-export const THEMES: { id: Theme; label: string }[] = [
-  { id: 'system', label: '跟随系统' },
-  { id: 'light', label: '浅色' },
-  { id: 'dark', label: '深色' },
+/** Names live in the language catalogs (`theme.*`, `accent.*`, `scale.*`); only the ids and the swatches are here. */
+export const THEMES: { id: Theme }[] = [{ id: 'system' }, { id: 'light' }, { id: 'dark' }];
+export const ACCENTS: { id: Accent; swatch: string }[] = [
+  { id: 'clay', swatch: '#9a4b28' },
+  { id: 'ink', swatch: '#2f5d80' },
+  { id: 'moss', swatch: '#4a6b3d' },
+  { id: 'plum', swatch: '#77436b' },
 ];
-export const ACCENTS: { id: Accent; label: string; swatch: string }[] = [
-  { id: 'clay', label: '陶土', swatch: '#9a4b28' },
-  { id: 'ink', label: '墨蓝', swatch: '#2f5d80' },
-  { id: 'moss', label: '苔绿', swatch: '#4a6b3d' },
-  { id: 'plum', label: '梅紫', swatch: '#77436b' },
-];
-
-export const SCALES: { id: Scale; label: string }[] = [
-  { id: 'sm', label: '紧凑' },
-  { id: 'md', label: '标准' },
-  { id: 'lg', label: '宽松' },
-];
+export const SCALES: { id: Scale }[] = [{ id: 'sm' }, { id: 'md' }, { id: 'lg' }];
 const SCALE_OF: Record<Scale, string> = { sm: '0.92', md: '1', lg: '1.12' };
 
 const S_KEY = 'bot-crew:scale';

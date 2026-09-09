@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, select, focusMessage, togglePanel, uid } from '../store';
-import { parseThread, CHANNEL_LABEL } from '../types';
+import { parseThread } from '../types';
 import type { Bot, FileRef, Message, ThreadId } from '../types';
 import { agent, uploadFile } from '../services/agent';
 import { Avatar } from './Avatar';
@@ -11,6 +11,7 @@ import { FileCards, fmtSize, kindOf } from './FileCard';
 import { GroupAvatar, membersOf } from './GroupAvatar';
 import { TasksFloat } from './RightPanel';
 import { cx, dayKey, dayLabel, msgTime } from '../utils';
+import { useT } from '../i18n';
 
 /** "soul building…" — the bot is rebuilding part of itself in the background. */
 function Evolving({ jobs }: { jobs: NonNullable<Bot['building']> }) {
@@ -22,15 +23,16 @@ function Evolving({ jobs }: { jobs: NonNullable<Bot['building']> }) {
   );
 }
 
-/** 事项 / 身份 toggles: pinned to the conversation's top-right corner. The 事项 card overlays below them, so opening it never moves them; the identity column pushes the whole conversation (and them) left. */
+/**
+ * One button in the conversation's top-right corner: 身份. The workspace (screen, tasks, routines) is simply
+ * there; opening 身份 borrows its slot, closing it gives the slot straight back.
+ */
 function PanelToggles({ bot }: { bot?: Bot }) {
+  const t = useT();
   const panels = useStore((s) => s.panels);
   return (
     <span className="hd-tools corner">
-      <button className={cx('iconbtn', panels.tasks && 'on')} title="事项" onClick={() => togglePanel('tasks')}>
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 4.5h1.5M6.5 4.5H13M3 8h1.5M6.5 8H13M3 11.5h1.5M6.5 11.5H13" /></svg>
-      </button>
-      <button className={cx('iconbtn', panels.identity && 'on')} title={bot ? 'Bot 身份' : '这件事'} onClick={() => togglePanel('identity')}>
+      <button className={cx('iconbtn', panels.identity && 'on')} title={bot ? t('thread.identity') : t('thread.matterInfo')} onClick={() => togglePanel('identity')}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="5.5" r="2.6" /><path d="M2.8 13.5c.9-2.6 2.7-3.8 5.2-3.8s4.3 1.2 5.2 3.8" /></svg>
       </button>
     </span>
@@ -38,6 +40,7 @@ function PanelToggles({ bot }: { bot?: Bot }) {
 }
 
 export function Thread({ threadId }: { threadId: ThreadId }) {
+  const t = useT();
   const s = useStore((x) => x);
   const { kind, id } = parseThread(threadId);
   const bot = kind === 'bot' ? s.bots.find((b) => b.id === id) : undefined;
@@ -62,10 +65,10 @@ export function Thread({ threadId }: { threadId: ThreadId }) {
     el.scrollTop = el.scrollHeight;
   }, [messages.length, typing.length, threadId, focusId]);
 
-  if (!bot && !matter) return <div className="col thread"><div className="empty">这个会话不存在了</div></div>;
+  if (!bot && !matter) return <div className="col thread"><div className="empty">{t('thread.gone')}</div></div>;
 
   return (
-    <section className={cx('col thread', (s.panels.tasks || s.panels.identity) && 'with-side')}>
+    <section className="col thread with-side">
       <div className="thread-main">
       <header className="hd">
         {bot ? <Avatar bot={bot} /> : <GroupAvatar bots={participants} />}
@@ -109,6 +112,7 @@ export function Thread({ threadId }: { threadId: ThreadId }) {
 const leftoverFiles = (m: Message) => (m.files ?? []).filter((f) => !f.mention || !m.text.includes(f.mention));
 
 function MessageRow({ m, bots, showName }: { m: Message; bots: Bot[]; showName: boolean }) {
+  const t = useT();
   const bot = bots.find((b) => b.id === m.botId);
   if (m.author === 'system') {
     // Centered notice, not a bubble. `born` = a bot was just generated from the user's first sentence.
@@ -121,7 +125,7 @@ function MessageRow({ m, bots, showName }: { m: Message; bots: Bot[]; showName: 
             <div className="nb">
               {gen ? (
                 <>
-                  <Sk w={64} h={12} className="sk-name" /> <span className="quiet">正在根据你这句话生成名字、职责和头像…</span>
+                  <Sk w={64} h={12} className="sk-name" /> <span className="quiet">{t('thread.born')}</span>
                 </>
               ) : (
                 <>
@@ -144,7 +148,7 @@ function MessageRow({ m, bots, showName }: { m: Message; bots: Bot[]; showName: 
           <div className="notice evolved fade-in">
             <span className="ev-ic">✦</span>
             <div className="nb">
-              <b>{bot.name}</b> <span className="quiet">进化了{label ? ` · ${label}` : ''}</span>
+              <b>{bot.name}</b> <span className="quiet">{t('thread.evolved')}{label ? ` · ${label}` : ''}</span>
               <div className="nb-role">{summary}</div>
             </div>
             <span className="t">{msgTime(m.ts)}</span>
@@ -169,7 +173,7 @@ function MessageRow({ m, bots, showName }: { m: Message; bots: Bot[]; showName: 
           {leftoverFiles(m).length ? <FileCards files={leftoverFiles(m)} /> : null}
           <div className="foot">
             {m.receipt && <span className={cx('receipt', m.receipt.kind)}>{m.receipt.text}</span>}
-            <span>{msgTime(m.ts)}{m.via && m.via !== 'app' ? ` · 从${CHANNEL_LABEL[m.via]}发的` : ''}</span>
+            <span>{msgTime(m.ts)}{m.via && m.via !== 'app' ? t('thread.via', { ch: t(`channel.${m.via}`) }) : ''}</span>
           </div>
         </div>
       </div>
@@ -192,6 +196,7 @@ function MessageRow({ m, bots, showName }: { m: Message; bots: Bot[]; showName: 
 }
 
 export function Composer({ threadId, bot, onSend, placeholder }: { threadId: string; bot?: Bot; onSend?: (text: string) => void; placeholder?: string }) {
+  const t = useT();
   const [text, setText] = useState('');
   const [files, setFiles] = useState<Attachment[]>([]);
   const [sending, setSending] = useState(false);
@@ -214,22 +219,22 @@ export function Composer({ threadId, bot, onSend, placeholder }: { threadId: str
     const next: Attachment[] = [];
     for (const f of list) {
       if (f.size > 50 * 1024 * 1024) {
-        setErr(`${f.name} 超过 50 MB`);
+        setErr(t('thread.tooBig', { name: f.name }));
         continue;
       }
       // Pasted screenshots arrive as "image.png": give them a name that still sorts and reads.
-      const name = f.name && f.name !== 'image.png' ? f.name : `截图 ${new Date().toISOString().slice(0, 19).replace('T', ' ').replace(/:/g, '.')}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`;
+      const name = f.name && f.name !== 'image.png' ? f.name : `${t('thread.screenshot')} ${new Date().toISOString().slice(0, 19).replace('T', ' ').replace(/:/g, '.')}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`;
       next.push({ id: uid(), file: f, name, preview: f.type.startsWith('image/') ? URL.createObjectURL(f) : undefined });
     }
     if (next.length) setFiles((cur) => [...cur, ...next].slice(0, 12));
   };
 
   const send = async () => {
-    const t = text.trim();
-    if (sending || (!t && !files.length)) return;
+    const body = text.trim();
+    if (sending || (!body && !files.length)) return;
     if (onSend) {
-      if (!t) return;
-      onSend(t);
+      if (!body) return;
+      onSend(body);
       setText('');
       return;
     }
@@ -238,12 +243,12 @@ export function Composer({ threadId, bot, onSend, placeholder }: { threadId: str
     try {
       const refs = [];
       for (const a of files) refs.push(await uploadFile(threadId as ThreadId, new File([a.file], a.name, { type: a.file.type })));
-      agent.onUserMessage(threadId as ThreadId, t, undefined, refs);
+      agent.onUserMessage(threadId as ThreadId, body, undefined, refs);
       select(threadId as ThreadId);
       setText('');
       setFiles([]);
     } catch (e) {
-      setErr((e as Error).message || '上传失败');
+      setErr((e as Error).message || t('thread.uploadFail'));
     } finally {
       setSending(false);
     }
@@ -264,7 +269,7 @@ export function Composer({ threadId, bot, onSend, placeholder }: { threadId: str
                 {a.preview ? <img src={a.preview} alt="" /> : <span className="at-ic">{kindOf({ name: a.name, mime: a.file.type } as FileRef).icon}</span>}
                 <span className="at-name">{a.name}</span>
                 <span className="at-size">{fmtSize(a.file.size)}</span>
-                <button className="at-x" title="去掉" onClick={() => setFiles((cur) => cur.filter((x) => x.id !== a.id))}>×</button>
+                <button className="at-x" title={t('thread.removeAttach')} onClick={() => setFiles((cur) => cur.filter((x) => x.id !== a.id))}>×</button>
               </div>
             ))}
           </div>
@@ -272,7 +277,7 @@ export function Composer({ threadId, bot, onSend, placeholder }: { threadId: str
         <div className="box-row">
           {canAttach && (
             <>
-              <button className="attach-btn" title="发文件（也可以直接粘贴或拖进来）" onClick={() => fileRef.current?.click()}>
+              <button className="attach-btn" title={t('thread.attach')} onClick={() => fileRef.current?.click()}>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M10.5 5.5 6 10a1.8 1.8 0 0 0 2.5 2.5l4.6-4.6a3.2 3.2 0 0 0-4.5-4.5L3.9 8.1a4.4 4.4 0 0 0 6.2 6.2l3.4-3.4" /></svg>
               </button>
               <input ref={fileRef} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files ?? []); e.target.value = ''; }} />
@@ -282,7 +287,7 @@ export function Composer({ threadId, bot, onSend, placeholder }: { threadId: str
             ref={ref}
             rows={1}
             value={text}
-            placeholder={placeholder ?? (bot ? '交代一件事，或者回它一句…' : '对这件事说一句 · @ 可以指定哪个 bot')}
+            placeholder={placeholder ?? (bot ? t('thread.composer') : t('thread.composerMatter'))}
             onChange={(e) => setText(e.target.value)}
             onPaste={(e) => {
               const fs = Array.from(e.clipboardData.files);
@@ -298,10 +303,10 @@ export function Composer({ threadId, bot, onSend, placeholder }: { threadId: str
               }
             }}
           />
-          <button className={cx('send', sending && 'busy')} onClick={() => void send()} title="发送（Enter）" disabled={sending}>{sending ? '…' : '↵'}</button>
+          <button className={cx('send', sending && 'busy')} onClick={() => void send()} title={t('thread.send')} disabled={sending}>{sending ? '…' : '↵'}</button>
         </div>
         {err && <div className="attach-err">{err}</div>}
-        {drag && <div className="drop-hint">松手就发给它</div>}
+        {drag && <div className="drop-hint">{t('thread.dropHint')}</div>}
       </div>
     </div>
   );

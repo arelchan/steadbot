@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore, getState } from '../store';
 import { agent } from '../services/agent';
 import { cx } from '../utils';
+import { useT, tn } from '../i18n';
 
 export function CardView({ card, messageId }: { card: Card; messageId?: string }) {
+  const t = useT();
   const pending = useStore((s) => ('pendingId' in card ? s.pendings.find((p) => p.id === card.pendingId) : undefined));
 
   if (card.type === 'secrets') return <SecretsCard card={card} messageId={messageId} />;
@@ -16,31 +18,33 @@ export function CardView({ card, messageId }: { card: Card; messageId?: string }
     const dead = !!card.failed || !!card.expired;
     const retry = () => {
       const sel = getState().selection;
-      if (sel.includes(':')) agent.onUserMessage(sel as ThreadId, `再发一张 ${card.name} 的授权卡，我重新试一次`);
+      if (sel.includes(':')) agent.onUserMessage(sel as ThreadId, t('card.retryCard', { name: card.name }));
     };
     const sub = card.done
-      ? `已连接${card.account ? ` · ${card.account}` : ''}`
+      ? card.account
+        ? t('card.connectedAs', { account: card.account })
+        : t('card.connected')
       : card.failed
-        ? `没有完成：${card.failed}`
+        ? t('card.notDone', { why: card.failed })
         : card.expired
-          ? '这张卡过期了，重新发一张即可。'
-          : `${card.blurb}。点一下，登录并同意，回来就接好了。`;
+          ? t('card.expired')
+          : t('card.connectBlurb', { blurb: card.blurb });
     return (
       <div className={cx('card connect', card.done && 'resolved', dead && 'dead')}>
         <div className="c-head">
           <div>
-            <div className="c-title">连接 {card.name}</div>
+            <div className="c-title">{t('card.connect', { name: card.name })}</div>
             <div className="c-sub">{sub}</div>
           </div>
           <span className="cn-mark" aria-hidden>{card.done ? '✓' : dead ? '!' : '↗'}</span>
         </div>
         {card.done ? null : dead ? (
           <div className="c-actions">
-            <button className="btn" onClick={retry}>再试一次</button>
+            <button className="btn" onClick={retry}>{t('common.retry')}</button>
           </div>
         ) : (
           <div className="c-actions">
-            <a className="btn primary" href={card.url} target="_blank" rel="noopener noreferrer">去授权 {card.name}</a>
+            <a className="btn primary" href={card.url} target="_blank" rel="noopener noreferrer">{t('card.authorize', { name: card.name })}</a>
           </div>
         )}
       </div>
@@ -122,6 +126,7 @@ export function CardView({ card, messageId }: { card: Card; messageId?: string }
 
 /** Credentials go straight to the backend's integration env; nothing is kept in local state or shown afterwards. */
 function SecretsCard({ card, messageId }: { card: Extract<Card, { type: 'secrets' }>; messageId?: string }) {
+  const t = useT();
   const [values, setValues] = useState<Record<string, string>>({});
   const [sent, setSent] = useState(false);
   const ready = card.fields.every((f) => (values[f.key] ?? '').trim());
@@ -131,7 +136,7 @@ function SecretsCard({ card, messageId }: { card: Extract<Card, { type: 'secrets
         <div className="c-head">
           <div>
             <div className="c-title">{card.title}</div>
-            <div className="c-sub">{card.done ? '已填好，接没接上看下一条' : '已发送'}</div>
+            <div className="c-sub">{card.done ? t('card.secretsFilled') : t('card.secretsSent')}</div>
           </div>
           <span className="cn-mark" aria-hidden>✓</span>
         </div>
@@ -143,7 +148,7 @@ function SecretsCard({ card, messageId }: { card: Extract<Card, { type: 'secrets
       <div className="c-head">
         <div>
           <div className="c-title">{card.title}</div>
-          <div className="c-sub">只有连接本身能读到这些值，bot 和聊天记录都看不到。</div>
+          <div className="c-sub">{t('card.secretsNote')}</div>
         </div>
         <span className="cn-mark" aria-hidden>⌁</span>
       </div>
@@ -155,7 +160,7 @@ function SecretsCard({ card, messageId }: { card: Extract<Card, { type: 'secrets
             </ol>
           ) : null}
           {card.help.url ? (
-            <a className="btn sm" href={card.help.url} target="_blank" rel="noopener noreferrer">{card.help.urlLabel ?? '打开设置页'} ↗</a>
+            <a className="btn sm" href={card.help.url} target="_blank" rel="noopener noreferrer">{card.help.urlLabel ?? t('card.openSettingsPage')} ↗</a>
           ) : null}
         </div>
       ) : null}
@@ -185,7 +190,7 @@ function SecretsCard({ card, messageId }: { card: Extract<Card, { type: 'secrets
             setSent(true);
           }}
         >
-          填好了
+          {t('card.secretsSubmit')}
         </button>
       </div>
     </div>
@@ -214,6 +219,7 @@ const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
  * its output streaming in, so the user can watch what is being done. move: one click ships the bots' home over.
  */
 function MachineCard({ card, messageId }: { card: Extract<Card, { type: 'machine' }>; messageId?: string }) {
+  const t = useT();
   const [host, setHost] = useState('');
   const [user, setUser] = useState(card.user ?? 'root');
   const [password, setPassword] = useState('');
@@ -230,7 +236,7 @@ function MachineCard({ card, messageId }: { card: Extract<Card, { type: 'machine
         <div className="c-head">
           <div>
             <div className="c-title">{card.title}</div>
-            <div className="c-sub">{form ? '密码存在这台电脑的凭据文件里，和其他账号一样；管家看不到。' : running ? '正在连接…' : '已连上。管家接着在那台机器上干活，进展会显示在下面。'}</div>
+            <div className="c-sub">{form ? t('card.machineForm') : running ? t('card.machineConnecting') : t('card.machineConnected')}</div>
           </div>
           <span className="cn-mark" aria-hidden>{card.state === 'done' ? '✓' : '⌂'}</span>
         </div>
@@ -238,10 +244,10 @@ function MachineCard({ card, messageId }: { card: Extract<Card, { type: 'machine
           <>
             {card.error && <div className="mc-err">{card.error}</div>}
             <div className="sc-fields">
-              <label className="sc-field"><span className="sc-label">公网 IP</span><input value={host} onChange={(e) => setHost(e.target.value)} placeholder="例如 43.153.1.2（非 22 端口写 IP:端口）" spellCheck={false} autoComplete="off" /></label>
+              <label className="sc-field"><span className="sc-label">{t('card.machineIp')}</span><input value={host} onChange={(e) => setHost(e.target.value)} placeholder={t('card.machineIpHint')} spellCheck={false} autoComplete="off" /></label>
               <div className="mc-two">
-                <label className="sc-field"><span className="sc-label">登录用户名</span><input value={user} onChange={(e) => setUser(e.target.value)} spellCheck={false} autoComplete="off" /></label>
-                <label className="sc-field"><span className="sc-label">密码</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" /></label>
+                <label className="sc-field"><span className="sc-label">{t('card.machineUser')}</span><input value={user} onChange={(e) => setUser(e.target.value)} spellCheck={false} autoComplete="off" /></label>
+                <label className="sc-field"><span className="sc-label">{t('card.machinePass')}</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="off" /></label>
               </div>
             </div>
             <div className="c-actions">
@@ -256,7 +262,7 @@ function MachineCard({ card, messageId }: { card: Extract<Card, { type: 'machine
                   setPassword('');
                 }}
               >
-                {card.state === 'error' ? '改一下重试' : '连接'}
+                {card.state === 'error' ? t('card.machineFix') : t('card.machineConnect')}
               </button>
             </div>
           </>
@@ -285,7 +291,7 @@ function MachineCard({ card, messageId }: { card: Extract<Card, { type: 'machine
         {running ? (
           <pre className="wiz-log live mc-log" ref={logRef}>{lines.join('\n') || '…'}{'\n▍'}</pre>
         ) : lines.length ? (
-          <details className="mc-details" open={failed}><summary>{failed ? '输出（出错了）' : `输出 · ${lines.length} 行`}</summary><pre className="wiz-log mc-log">{lines.join('\n')}</pre></details>
+          <details className="mc-details" open={failed}><summary>{failed ? t('card.outErr') : tn('card.outLines', lines.length)}</summary><pre className="wiz-log mc-log">{lines.join('\n')}</pre></details>
         ) : null}
       </div>
     );
@@ -299,10 +305,10 @@ function MachineCard({ card, messageId }: { card: Extract<Card, { type: 'machine
         <div>
           <div className="c-title">{card.title}</div>
           <div className="c-sub">
-            {card.state === 'idle' && `${card.target?.bots ?? ''} 个 bot，连同聊天记录、记忆、技能一起搬到「${card.target?.name ?? ''}」。搬完这台电脑关机也没关系。`}
-            {running && (!p ? '正在打包…' : p.sent < p.total ? `正在送过去 ${mb(p.sent)} / ${mb(p.total)} MB…` : `已送到（${mb(p.total)} MB），对方正在接收…`)}
-            {card.state === 'done' && '搬好了，正在切换到那台机器…'}
-            {card.state === 'error' && '没搬成，bot 们还在这台电脑上。'}
+            {card.state === 'idle' && t('card.moveIdle', { n: card.target?.bots ?? '', name: card.target?.name ?? '' })}
+            {running && (!p ? t('card.movePacking') : p.sent < p.total ? t('card.moveSending', { sent: mb(p.sent), total: mb(p.total) }) : t('card.moveSent', { total: mb(p.total) }))}
+            {card.state === 'done' && t('card.moveDone')}
+            {card.state === 'error' && t('card.moveFailed')}
           </div>
         </div>
         <span className="cn-mark" aria-hidden>{card.state === 'done' ? '✓' : '☁'}</span>
@@ -310,7 +316,7 @@ function MachineCard({ card, messageId }: { card: Extract<Card, { type: 'machine
       {card.state === 'error' && card.error && <div className="mc-err">{card.error}</div>}
       {(card.state === 'idle' || card.state === 'error') && (
         <div className="c-actions">
-          <button className="btn primary" disabled={!messageId} onClick={() => messageId && agent.machineMove(messageId)}>{card.state === 'error' ? '再试一次' : '搬过去'}</button>
+          <button className="btn primary" disabled={!messageId} onClick={() => messageId && agent.machineMove(messageId)}>{card.state === 'error' ? t('common.retry') : t('card.moveGo')}</button>
         </div>
       )}
     </div>
@@ -319,23 +325,24 @@ function MachineCard({ card, messageId }: { card: Extract<Card, { type: 'machine
 
 /** The vigil card: a bot is watching a long task. Shows the goal, what it watches, and the latest check. */
 function VigilCard({ card }: { card: Extract<Card, { type: 'vigil' }> }) {
+  const t = useT();
   const running = card.state === 'running';
   return (
     <div className={cx('card connect vigil', !running && 'resolved')}>
       <div className="c-head">
         <div>
-          <div className="c-title">{running ? '值守中' : '值守结束'}·{card.goal}</div>
+          <div className="c-title">{running ? t('card.vigilOn') : t('card.vigilOff')}·{card.goal}</div>
           <div className="c-sub">
-            盯着：{card.watching}
-            {card.checkLabel ? ` · 每 ${card.everyS}s 看一次「${card.checkLabel}」` : ` · 每 ${card.everyS}s 提醒推进`}
-            {card.ticks ? ` · 已看 ${card.ticks} 次` : ''}
+            {t('card.vigilWatch', { what: card.watching })}
+            {card.checkLabel ? t('card.vigilEvery', { s: card.everyS, label: card.checkLabel }) : t('card.vigilPush', { s: card.everyS })}
+            {card.ticks ? tn('card.vigilTicks', card.ticks) : ''}
             {!running && card.reason ? ` · ${card.reason}` : ''}
           </div>
         </div>
         <span className="cn-mark vigil-dot" aria-hidden>{running ? '◉' : '✓'}</span>
       </div>
       {running && card.last ? (
-        <details className="mc-details"><summary>{card.lastOk === false ? '最近一次检查（异常）' : '最近一次检查'}</summary><pre className="wiz-log mc-log">{card.last}</pre></details>
+        <details className="mc-details"><summary>{card.lastOk === false ? t('card.vigilLastBad') : t('card.vigilLast')}</summary><pre className="wiz-log mc-log">{card.last}</pre></details>
       ) : null}
     </div>
   );
@@ -343,6 +350,7 @@ function VigilCard({ card }: { card: Extract<Card, { type: 'vigil' }> }) {
 
 /** An external agent at work: what it is doing (tool calls), its running reply, and how it ended. */
 function AgentRunCard({ card }: { card: Extract<Card, { type: 'agent_run' }> }) {
+  const t = useT();
   const running = card.state === 'running';
   const failed = card.state === 'error';
   const logRef = useRef<HTMLPreElement>(null);
@@ -354,11 +362,11 @@ function AgentRunCard({ card }: { card: Extract<Card, { type: 'agent_run' }> }) 
     <div className={cx('card connect machine run agent', card.state === 'done' && 'resolved', failed && 'dead')}>
       <div className="c-head">
         <div>
-          <div className="c-title">{card.name}{running ? ' 正在做' : failed ? ' 没做完' : ' 做完了'}</div>
+          <div className="c-title">{running ? t('card.agentDoing', { name: card.name }) : failed ? t('card.agentFailed', { name: card.name }) : t('card.agentDone', { name: card.name })}</div>
           <div className="mc-cmd">{card.title}</div>
           <div className="c-sub">
-            {card.viaHost ? `在你的电脑「${card.viaHost}」上运行` : card.mode === 'acp' ? 'ACP 接入，过程可见' : '一次性调用'}
-            {card.asked ? ` · 问过你 ${card.asked} 次` : ''}
+            {card.viaHost ? t('card.agentViaHost', { name: card.viaHost }) : card.mode === 'acp' ? t('card.agentAcp') : t('card.agentOnce')}
+            {card.asked ? tn('card.agentAsked', card.asked) : ''}
             {failed && card.error ? ` · ${card.error}` : ''}
           </div>
         </div>
@@ -367,7 +375,7 @@ function AgentRunCard({ card }: { card: Extract<Card, { type: 'agent_run' }> }) 
       {running ? (
         <pre className="wiz-log live mc-log" ref={logRef}>{[...lines, ...(card.output ? ['', card.output] : [])].join('\n') || '…'}{'\n▍'}</pre>
       ) : lines.length || card.output ? (
-        <details className="mc-details" open={failed}><summary>{failed ? '过程（出错了）' : `过程 · ${lines.length} 步`}</summary><pre className="wiz-log mc-log">{[...lines, ...(card.output ? ['', card.output] : [])].join('\n')}</pre></details>
+        <details className="mc-details" open={failed}><summary>{failed ? t('card.agentStepsErr') : tn('card.agentSteps', lines.length)}</summary><pre className="wiz-log mc-log">{[...lines, ...(card.output ? ['', card.output] : [])].join('\n')}</pre></details>
       ) : null}
     </div>
   );

@@ -12,6 +12,7 @@ import { NewGroupModal } from './NewGroupModal';
 import { getRuntime } from '../services/runtime';
 import { fetchUpgradeStatus } from '../services/upgrade';
 import { SettingsModal } from './SettingsModal';
+import { useT, tn } from '../i18n';
 
 /** Most recent message in a thread (falls back to creation time): pinned first, then newest activity on top. */
 function lastActivity(s: State, tid: ThreadId, fallback?: number) {
@@ -19,6 +20,7 @@ function lastActivity(s: State, tid: ThreadId, fallback?: number) {
 }
 
 export function Sidebar() {
+  const t = useT();
   const s = useStore((x) => x);
   const [menu, setMenu] = useState(false);
   const [newGroup, setNewGroup] = useState(false);
@@ -57,14 +59,14 @@ export function Sidebar() {
               <div style={{ minWidth: 0 }}>
                 <div className="row">
                   <BotName bot={b} className="name" />
-                  {b.pinned && <span className="pin" title="已置顶">⌃</span>}
-                  {!b.notify && <span className="muted-ic" title="通知已关">◌</span>}
-                  {waiting > 0 ? <span className={cx('wait')} style={blocked ? { color: 'var(--warn)' } : undefined}>{blocked ? '卡住' : `等你 ${waiting}`}</span> : null}
-                  {fresh ? <span className="fresh" title="新回复" /> : last ? <span className="time">{shortDay(last.ts)}</span> : null}
+                  {b.pinned && <span className="pin" title={t('side.pinned')}>⌃</span>}
+                  {!b.notify && <span className="muted-ic" title={t('side.muted')}>◌</span>}
+                  {waiting > 0 ? <span className={cx('wait')} style={blocked ? { color: 'var(--warn)' } : undefined}>{blocked ? t('side.stuck') : tn('side.waiting', waiting)}</span> : null}
+                  {fresh ? <span className="fresh" title={t('side.fresh')} /> : last ? <span className="time">{shortDay(last.ts)}</span> : null}
                 </div>
                 <div className="prev">
                   {typing ? (
-                    <span className="typing-line">输出中…</span>
+                    <span className="typing-line">{t('side.typing')}</span>
                   ) : b.building?.length ? (
                     <span className="evolving"><i className="ev-orb" />{Array.from(new Set(b.building.map((j) => j.aspect))).map((a) => `${a} building…`).join(' ')}</span>
                   ) : last ? last.text : b.generating?.identity ? <Sk w="70%" h={10} /> : b.tagline}
@@ -90,15 +92,15 @@ export function Sidebar() {
               <div style={{ minWidth: 0 }}>
                 <div className="row">
                   <span className="name">{m.title}{m.date ? ` · ${m.date}` : ''}</span>
-                  {m.pinned && <span className="pin" title="已置顶">⌃</span>}
-                  {!m.notify && <span className="muted-ic" title="通知已关">◌</span>}
-                  {waiting > 0 ? <span className="wait">等你 {waiting}</span> : null}
-                  {fresh ? <span className="fresh" title="新回复" /> : last ? <span className="time">{shortDay(last.ts)}</span> : null}
+                  {m.pinned && <span className="pin" title={t('side.pinned')}>⌃</span>}
+                  {!m.notify && <span className="muted-ic" title={t('side.muted')}>◌</span>}
+                  {waiting > 0 ? <span className="wait">{tn('side.waiting', waiting)}</span> : null}
+                  {fresh ? <span className="fresh" title={t('side.fresh')} /> : last ? <span className="time">{shortDay(last.ts)}</span> : null}
                 </div>
                 <div className="prev">
                   {typers.length ? (
-                    <span className="typing-line">{typers.map((b) => b.name).join('、')} 输出中…</span>
-                  ) : last ? `${last.author === 'user' ? '你' : s.bots.find((b) => b.id === last.botId)?.name}：${last.text}` : m.summary}
+                    <span className="typing-line">{t('side.typingWho', { who: typers.map((b) => b.name).join(t('common.listSep')) })}</span>
+                  ) : last ? `${last.author === 'user' ? t('common.you') : s.bots.find((b) => b.id === last.botId)?.name}: ${last.text}` : m.summary}
                 </div>
               </div>
             </>,
@@ -118,16 +120,16 @@ export function Sidebar() {
       <div className="hd">
         <h1>EverBot</h1>
         <div className="menu-wrap" ref={menuRef}>
-          <button className={cx('iconbtn', menu && 'on')} title="新建" onClick={() => setMenu(!menu)}>＋</button>
+          <button className={cx('iconbtn', menu && 'on')} title={t('side.new')} onClick={() => setMenu(!menu)}>＋</button>
           {menu && (
             <div className="menu">
               <button className="menu-item" onClick={() => { setMenu(false); select('draft-bot'); }}>
-                <span className="mi-t">新建 bot</span>
-                <span className="mi-s">开一个窗口，你说第一句话它就成形</span>
+                <span className="mi-t">{t('side.newBot')}</span>
+                <span className="mi-s">{t('side.newBotSub')}</span>
               </button>
               <button className="menu-item" onClick={() => { setMenu(false); setNewGroup(true); }}>
-                <span className="mi-t">新建群聊</span>
-                <span className="mi-s">一件事，拉几个 bot 一起做</span>
+                <span className="mi-t">{t('side.newGroup')}</span>
+                <span className="mi-s">{t('side.newGroupSub')}</span>
               </button>
             </div>
           )}
@@ -135,8 +137,8 @@ export function Sidebar() {
       </div>
       <div className="side-body">
         <button className={cx('filter', s.selection === 'inbox' && 'active')} onClick={() => select('inbox')}>
-          <span>全部 · 等你处理</span>
-          {totalWaiting > 0 ? <span className="badge">{totalWaiting}</span> : <span className="quiet" style={{ color: 'var(--muted)', fontSize: 11 }}>清了</span>}
+          <span>{t('side.inbox')}</span>
+          {totalWaiting > 0 ? <span className="badge">{totalWaiting}</span> : <span className="quiet" style={{ color: 'var(--muted)', fontSize: 11 }}>{t('side.clear')}</span>}
         </button>
 
         {rows.map((r) => (r.kind === 'bot' ? renderBotRow(r.bot) : renderMatterRow(r.matter)))}
@@ -152,6 +154,7 @@ export function Sidebar() {
  * badge when there is a newer version to upgrade to.
  */
 function RuntimeFoot() {
+  const t = useT();
   const rt = useStore((s) => s.runtime);
   const online = useStore((s) => s.online);
   const [open, setOpen] = useState(false);
@@ -167,16 +170,16 @@ function RuntimeFoot() {
     };
   }, []);
   const remote = getRuntime().kind === 'remote';
-  const label = remote ? (getRuntime() as { name?: string }).name || rt?.hostname || '云机器' : '这台电脑';
+  const label = remote ? (getRuntime() as { name?: string }).name || rt?.hostname || t('side.cloudMachine') : t('side.thisComputer');
   const tone = online === false ? 'off' : rt?.mode === 'active' ? 'ok' : rt ? 'warn' : 'off';
   return (
     <>
-      <button className={cx('rt-foot', open && 'active')} onClick={() => setOpen(true)} title="设置">
+      <button className={cx('rt-foot', open && 'active')} onClick={() => setOpen(true)} title={t('side.settings')}>
         <span className={cx('rt-dot', tone)} />
         <span className="rt-foot-t">
-          设置<span className="quiet"> · bot 在{label}</span>
+          {t('side.settings')}<span className="quiet">{t('side.botsOn', { where: label })}</span>
         </span>
-        {stale ? <span className="up-dot" title="有新版本" /> : <span className="chev">›</span>}
+        {stale ? <span className="up-dot" title={t('side.newVersion')} /> : <span className="chev">›</span>}
       </button>
       {open && <SettingsModal tab={stale ? 'about' : 'general'} onClose={() => setOpen(false)} />}
     </>

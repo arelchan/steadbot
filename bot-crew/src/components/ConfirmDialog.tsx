@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 import { cx } from '../utils';
+import { useT } from '../i18n';
 
 /** In-app confirmation. Keeps the product's look instead of the browser's native dialog. */
 export function ConfirmDialog({
   title,
   message,
-  confirmLabel = '确认',
+  confirmLabel,
   danger,
   onConfirm,
   onCancel,
@@ -17,6 +18,7 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
@@ -31,8 +33,8 @@ export function ConfirmDialog({
         <h2>{title}</h2>
         {message && <p className="lead">{message}</p>}
         <div className="actions">
-          <button className="btn" onClick={onCancel}>取消</button>
-          <button className={cx('btn primary', danger && 'danger')} onClick={onConfirm} autoFocus>{confirmLabel}</button>
+          <button className="btn" onClick={onCancel}>{t('common.cancel')}</button>
+          <button className={cx('btn primary', danger && 'danger')} onClick={onConfirm} autoFocus>{confirmLabel ?? t('common.confirm')}</button>
         </div>
       </div>
     </div>

@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useStore, setSharedProfile, patchBot, select } from '../store';
 import { botThread } from '../types';
 import { Avatar } from './Avatar';
+import { useT } from '../i18n';
 
 export function ProfileView() {
+  const t = useT();
   const s = useStore((x) => x);
   const [draft, setDraft] = useState('');
   return (
@@ -11,13 +13,13 @@ export function ProfileView() {
       <header className="hd">
         <Avatar you />
         <div className="who">
-          <span className="n">它们眼中的你</span>
-          <span className="t">共享的一层所有 bot 都看得到，每个 bot 自己的那层只影响它</span>
+          <span className="n">{t('profile.title')}</span>
+          <span className="t">{t('profile.sub')}</span>
         </div>
       </header>
       <div className="inbox" style={{ maxWidth: 720 }}>
         <div className="inbox-group">
-          <h4>所有 bot 共享</h4>
+          <h4>{t('profile.shared')}</h4>
           <ul className="mem">
             {s.sharedProfile.map((v, i) => (
               <li key={i}>
@@ -28,7 +30,7 @@ export function ProfileView() {
           </ul>
           <input
             className="mem-add"
-            placeholder="加一条所有 bot 都该知道的事…"
+            placeholder={t('profile.addShared')}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -43,10 +45,10 @@ export function ProfileView() {
         {s.bots.map((b) => (
           <div className="inbox-group" key={b.id}>
             <h4>
-              <Avatar bot={b} size="xs" /> {b.name} 自己记的
-              <button className="link" onClick={() => select(botThread(b.id))}>去看它</button>
+              <Avatar bot={b} size="xs" /> {t('profile.own', { name: b.name })}
+              <button className="link" onClick={() => select(botThread(b.id))}>{t('profile.goSee')}</button>
             </h4>
-            {b.viewOfYou.length === 0 ? <p className="quiet" style={{ color: 'var(--muted)' }}>没有</p> : (
+            {b.viewOfYou.length === 0 ? <p className="quiet" style={{ color: 'var(--muted)' }}>{t('common.none')}</p> : (
               <ul className="mem">
                 {b.viewOfYou.map((v, i) => (
                   <li key={i}>

@@ -7,9 +7,21 @@ const AUTONOMY_RULES = {
   do: '自主度「直接办」：在职责范围内直接用 act 执行，事后简短汇报并保证可撤销。超出预算或不可逆的事仍要 ask_user。',
 } as const;
 
-/** 说什么语言：用户在设置里选的（设置 › 通用 › 语言），默认中文。 */
-const LANGUAGE_RULE = (lang: 'zh' | 'en' | 'auto' | undefined) =>
-  lang === 'en' ? '用英文' : lang === 'auto' ? '用用户跟你说话时用的那种语言回他（他换语言你就跟着换）' : '用中文';
+/** 说什么语言：用户在设置里选的（设置 › 通用），值是界面语言的代码，或 auto = 跟着用户当时说的语言。 */
+const LANGUAGE_NAMES: Record<string, string> = {
+  zh: '中文',
+  'zh-TW': '繁体中文',
+  en: '英文',
+  ja: '日文',
+  ko: '韩文',
+  es: '西班牙文',
+  fr: '法文',
+  de: '德文',
+  pt: '葡萄牙文',
+  ru: '俄文',
+};
+const LANGUAGE_RULE = (lang: string | undefined) =>
+  lang === 'auto' ? '用用户跟你说话时用的那种语言回他（他换语言你就跟着换）' : `用${LANGUAGE_NAMES[lang ?? 'zh'] ?? lang}`;
 
 /** 什么时候找用户，是 bot 自己的判断，没有系统级的攒批或定时汇总（见 notifier.ts）。 */
 const REACH_OUT_RULE =

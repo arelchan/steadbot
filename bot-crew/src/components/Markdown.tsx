@@ -3,6 +3,7 @@ import { useEffect, useId, useState, type ReactNode } from 'react';
 import type { Bot, FileRef } from '../types';
 import { FileChip } from './FileCard';
 import { openPreview } from './Preview';
+import { t } from '../i18n';
 
 /* ------------------------------------------------------------------ inline ------------------------------------------------------------------ */
 
@@ -109,7 +110,7 @@ export function CodeBlock({ lang, code, note }: { lang: string; code: string; no
             });
           }}
         >
-          {copied ? '已复制' : '复制'}
+          {copied ? t('common.copied') : t('common.copy')}
         </button>
       </div>
       <pre><code>{code}</code></pre>
@@ -178,26 +179,26 @@ export function MermaidView({ code }: { code: string }) {
           try {
             await m.parse(src);
           } catch {
-            throw new Error(firstErr || '图的语法有问题');
+            throw new Error(firstErr || t('md.badSyntax'));
           }
         }
         const r = await m.render(`mm${id}${Date.now().toString(36)}`, src);
         if (alive) setSvg(r.svg);
       })
-      .catch((e: unknown) => alive && setErr((e as Error).message || '渲染失败'));
+      .catch((e: unknown) => alive && setErr((e as Error).message || t('md.renderFailed')));
     return () => {
       alive = false;
     };
   }, [code, id]);
   if (err) {
     const where = /line (\d+)/.exec(err)?.[1];
-    return <CodeBlock lang="mermaid" code={code} note={`图的语法有错${where ? `（第 ${where} 行）` : ''}，显示源码`} />;
+    return <CodeBlock lang="mermaid" code={code} note={where ? t('md.badSyntaxAt', { line: where }) : t('md.badSyntaxNoLine')} />;
   }
-  if (!svg) return <div className="mermaid loading">正在画图…</div>;
+  if (!svg) return <div className="mermaid loading">{t('md.drawing')}</div>;
   return (
     <div className="mermaid">
-      <div className="mm-svg" dangerouslySetInnerHTML={{ __html: svg }} onClick={() => openPreview({ kind: 'svg', svg, title: '图', source: code })} title="点击放大" />
-      <button className="mm-open" title="放大查看" onClick={() => openPreview({ kind: 'svg', svg, title: '图', source: code })}>
+      <div className="mm-svg" dangerouslySetInnerHTML={{ __html: svg }} onClick={() => openPreview({ kind: 'svg', svg, title: t('file.diagram'), source: code })} title={t('md.zoom')} />
+      <button className="mm-open" title={t('md.zoomIn')} onClick={() => openPreview({ kind: 'svg', svg, title: t('file.diagram'), source: code })}>
         ⤢
       </button>
     </div>

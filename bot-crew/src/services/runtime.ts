@@ -1,4 +1,5 @@
 import type { FileRef, RuntimeInfo } from '../types';
+import { t } from '../i18n';
 
 /**
  * Which server this client talks to: the user's own machine (default, from VITE_CREW_WS) or a server the
@@ -56,7 +57,7 @@ export function parsePairingCode(code: string): { url: string; token: string; na
   const b64 = code.trim().replace(/-/g, '+').replace(/_/g, '/');
   const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
   const j = JSON.parse(new TextDecoder().decode(bytes)) as { url?: string; token?: string; name?: string };
-  if (!j.url || !j.token) throw new Error('连接码不完整');
+  if (!j.url || !j.token) throw new Error(t('err.badCode'));
   return { url: j.url.replace(/\/$/, ''), token: j.token, name: j.name };
 }
 
@@ -67,10 +68,10 @@ export async function probeRuntime(url: string, tok: string): Promise<RuntimeInf
     r = await fetch(`${url.replace(/\/$/, '')}/runtime/info`, { headers: { authorization: `Bearer ${tok}` }, signal: AbortSignal.timeout(8000) });
   } catch {
     const port = /:(\d+)/.exec(url.replace(/^https?:\/\//, ''))?.[1] ?? (url.startsWith('https') ? '443' : '80');
-    throw new Error(`连不上那台机器的 ${port} 端口。机器装好了，但云厂商的防火墙还没放开这个端口：去控制台找到这台机器 →「防火墙」→ 添加规则，协议 TCP、端口 ${port}、来源 全部，保存后再点检查。`);
+    throw new Error(t('err.portClosed', { port }));
   }
-  if (r.status === 401) throw new Error('连接码不对，那台机器拒绝了');
-  if (!r.ok) throw new Error(`那台机器没有正常回应（${r.status}）`);
+  if (r.status === 401) throw new Error(t('err.badToken'));
+  if (!r.ok) throw new Error(t('err.noAnswer', { code: r.status }));
   return (await r.json()) as RuntimeInfo;
 }
 
@@ -83,12 +84,12 @@ export function oneShot<T extends { type: string }>(ws: string, msg: object, wan
     const sock = new WebSocket(ws);
     const timer = setTimeout(() => {
       sock.close();
-      reject(new Error('等了太久没有回应'));
+      reject(new Error(t('err.timeout')));
     }, timeoutMs);
     sock.onopen = () => sock.send(JSON.stringify(msg));
     sock.onerror = () => {
       clearTimeout(timer);
-      reject(new Error('连不上那台机器'));
+      reject(new Error(t('err.unreachable')));
     };
     sock.onmessage = (ev) => {
       const m = JSON.parse(String(ev.data)) as { type: string; error?: string };
@@ -99,7 +100,7 @@ export function oneShot<T extends { type: string }>(ws: string, msg: object, wan
       } else if (m.type === 'error') {
         clearTimeout(timer);
         sock.close();
-        reject(new Error(m.error ?? '失败'));
+        reject(new Error(m.error ?? t('err.failed')));
       }
     };
   });

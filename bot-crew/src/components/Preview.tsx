@@ -5,6 +5,7 @@ import { fmtSize, kindOf } from './FileCard';
 import { cx } from '../utils';
 import { fileHref, openHref, authHeaders } from '../services/runtime';
 import { useStore } from '../store';
+import { t } from '../i18n';
 
 /**
  * One preview surface for everything a bot hands over: deliverable files (image / html / pdf / text / code /
@@ -32,7 +33,7 @@ const subscribe = (l: () => void) => {
 };
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
-const REVEAL_LABEL = isMac ? '在 Finder 中显示' : '在文件夹中显示';
+const revealLabel = () => t(isMac ? 'pv.reveal.mac' : 'pv.reveal.other');
 const TEXT_MAX = 2 * 1024 * 1024;
 
 type Viewer = 'image' | 'html' | 'pdf' | 'video' | 'audio' | 'md' | 'csv' | 'mermaid' | 'code' | 'none';
@@ -89,8 +90,8 @@ function PreviewBody({ item }: { item: PreviewItem }) {
     return () => clearTimeout(t);
   }, [hint]);
 
-  const title = file ? file.name : item.kind === 'svg' ? item.title : item.kind === 'image' ? item.title || item.url.split('/').pop() || '图片' : '';
-  const k = file ? kindOf(file) : item.kind === 'svg' ? { icon: '⟁', label: '图' } : { icon: '▣', label: '图片' };
+  const title = file ? file.name : item.kind === 'svg' ? item.title : item.kind === 'image' ? item.title || item.url.split('/').pop() || t('file.image') : '';
+  const k = file ? kindOf(file) : item.kind === 'svg' ? { icon: '⟁', label: t('file.diagram') } : { icon: '▣', label: t('file.image') };
   const meta = file ? `${k.label} · ${fmtSize(file.size)}` : k.label;
 
   const step = (dir: 1 | -1) => {
@@ -103,9 +104,9 @@ function PreviewBody({ item }: { item: PreviewItem }) {
     try {
       const r = await fetch(url, { method: 'POST', headers: authHeaders() });
       const j = (await r.json()) as { ok: boolean; error?: string };
-      setHint(j.ok ? okText : `没打开：${j.error ?? ''}`);
+      setHint(j.ok ? okText : t('pv.openFailed', { why: j.error ?? '' }));
     } catch {
-      setHint('没连上后端');
+      setHint(t('pv.noBackend'));
     }
   };
   const download = (href: string, name: string) => {
@@ -126,33 +127,33 @@ function PreviewBody({ item }: { item: PreviewItem }) {
     const absPath = rt && file.botId ? `${rt.botsDir}/${file.botId}/${file.path}` : file.path;
     if (openUrl) {
       actions.push(
-        { label: '用系统默认应用打开', run: () => void post(openUrl, '已交给系统应用打开'), primary: true },
-        { label: REVEAL_LABEL, run: () => void post(openUrl + (openUrl.includes('?') ? '&' : '?') + 'reveal=1', '已在文件夹里选中') },
+        { label: t('pv.openSystem'), run: () => void post(openUrl, t('pv.handedToSystem')), primary: true },
+        { label: revealLabel(), run: () => void post(openUrl + (openUrl.includes('?') ? '&' : '?') + 'reveal=1', t('pv.revealed')) },
       );
     }
     actions.push(
-      { label: '在浏览器新标签打开', primary: !openUrl, run: () => void window.open(href, '_blank', 'noopener') },
-      { label: '下载', run: () => download(href, file.name) },
-      { label: rt && !rt.local ? '复制在那台机器上的路径' : '复制路径', run: () => copy(absPath, '路径已复制') },
+      { label: t('pv.openTab'), primary: !openUrl, run: () => void window.open(href, '_blank', 'noopener') },
+      { label: t('common.download'), run: () => download(href, file.name) },
+      { label: rt && !rt.local ? t('pv.copyRemotePath') : t('pv.copyPath'), run: () => copy(absPath, t('pv.pathCopied')) },
     );
   } else if (item.kind === 'svg') {
     actions.push(
       {
-        label: '在浏览器新标签打开',
+        label: t('pv.openTab'),
         primary: true,
         run: () => {
           const w = window.open('', '_blank');
           if (w) w.document.write(`<!doctype html><title>${item.title}</title><body style="margin:24px;background:#fff;font-family:system-ui">${item.svg}</body>`);
         },
       },
-      { label: '下载 SVG', run: () => download(URL.createObjectURL(new Blob([item.svg], { type: 'image/svg+xml' })), `${item.title}.svg`) },
+      { label: t('pv.downloadSvg'), run: () => download(URL.createObjectURL(new Blob([item.svg], { type: 'image/svg+xml' })), `${item.title}.svg`) },
     );
-    if (item.source) actions.push({ label: '复制 mermaid 源码', run: () => copy(item.source!, '源码已复制') });
+    if (item.source) actions.push({ label: t('pv.copyMermaid'), run: () => copy(item.source!, t('pv.sourceCopied')) });
   } else if (item.kind === 'image') {
     const url = item.url;
     actions.push(
-      { label: '在浏览器新标签打开', primary: true, run: () => void window.open(url, '_blank', 'noopener') },
-      { label: '复制图片地址', run: () => copy(url, '地址已复制') },
+      { label: t('pv.openTab'), primary: true, run: () => void window.open(url, '_blank', 'noopener') },
+      { label: t('pv.copyImageUrl'), run: () => copy(url, t('pv.urlCopied')) },
     );
   }
 
@@ -168,14 +169,14 @@ function PreviewBody({ item }: { item: PreviewItem }) {
           {hint ? <span className="pv-hint">{hint}</span> : null}
           {zoomable && (
             <div className="pv-zoom">
-              <button onClick={() => step(-1)} title="缩小">−</button>
-              <button className="pv-zoom-val" onClick={() => setZoom(undefined)} title="适应窗口">{zoom === undefined ? '适应' : `${Math.round(zoom * 100)}%`}</button>
-              <button onClick={() => step(1)} title="放大">+</button>
+              <button onClick={() => step(-1)} title={t('pv.zoomOut')}>−</button>
+              <button className="pv-zoom-val" onClick={() => setZoom(undefined)} title={t('pv.fitWindow')}>{zoom === undefined ? t('pv.fit') : `${Math.round(zoom * 100)}%`}</button>
+              <button onClick={() => step(1)} title={t('pv.zoomIn')}>+</button>
             </div>
           )}
           <div className="menu-wrap" ref={menuRef}>
             <button className={cx('pv-btn', menu && 'on')} onClick={() => setMenu(!menu)}>
-              打开方式 <span className="pv-caret">▾</span>
+              {t('pv.openWith')} <span className="pv-caret">▾</span>
             </button>
             {menu && (
               <div className="menu pv-menu">
@@ -187,7 +188,7 @@ function PreviewBody({ item }: { item: PreviewItem }) {
               </div>
             )}
           </div>
-          <button className="pv-close" onClick={closePreview} title="关闭（Esc）">×</button>
+          <button className="pv-close" onClick={closePreview} title={t('common.closeEsc')}>×</button>
         </header>
         <div className={cx('pv-body', viewer, zoom !== undefined && 'zoomed')}>
           {item.kind === 'svg' ? (
@@ -370,7 +371,7 @@ function Canvas({ natural, zoom, setZoom, onFit, maxFit = 1, children }: CanvasP
         if (zoom === undefined || Math.abs(scale - 1) > 0.01) zoomAt(1, px, py);
         else setZoom(undefined);
       }}
-      title="拖动移动 · 双指或 Ctrl+滚轮缩放 · 双击切换 100% / 适应"
+      title={t('pv.canvasHint')}
     >
       {natural && (
         <div
@@ -390,7 +391,7 @@ function ImageCanvas({ src, alt, zoom, setZoom, onFit }: { src: string; alt: str
   return (
     <>
       <img src={src} alt="" className="pv-probe" onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth || 1, h: e.currentTarget.naturalHeight || 1 })} />
-      {!natural && <div className="pv-loading">正在加载…</div>}
+      {!natural && <div className="pv-loading">{t('pv.loading')}</div>}
       <Canvas natural={natural} zoom={zoom} setZoom={setZoom} onFit={onFit}>
         <img src={src} alt={alt} draggable={false} />
       </Canvas>
@@ -405,14 +406,14 @@ function FileViewer({ file, viewer, zoom, setZoom, onFit, onOpen, onDownload }: 
   useEffect(() => {
     if (!textual) return;
     if (file.size > TEXT_MAX) {
-      setErr('文件太大，浏览器里不预览了');
+      setErr(t('pv.tooBig'));
       return;
     }
     let alive = true;
     fetch(fileHref(file), { headers: authHeaders() })
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
       .then((t) => alive && setText(t))
-      .catch(() => alive && setErr('读不到文件'));
+      .catch(() => alive && setErr(t('pv.unreadable')));
     return () => {
       alive = false;
     };
@@ -434,7 +435,7 @@ function FileViewer({ file, viewer, zoom, setZoom, onFit, onOpen, onDownload }: 
       return <NoPreview file={file} onOpen={onOpen} onDownload={onDownload} />;
   }
   if (err) return <NoPreview file={file} note={err} onOpen={onOpen} onDownload={onDownload} />;
-  if (text === null) return <div className="pv-loading">正在读取…</div>;
+  if (text === null) return <div className="pv-loading">{t('pv.reading')}</div>;
   if (viewer === 'md') return <article className="pv-doc">{renderText(text, [])}</article>;
   if (viewer === 'mermaid') return <div className="pv-doc"><MermaidView code={text} /></div>;
   if (viewer === 'csv') return <div className="pv-doc"><CsvTable text={text} /></div>;
@@ -455,10 +456,10 @@ function NoPreview({ file, note, onOpen, onDownload }: { file: FileRef; note?: s
     <div className="pv-none">
       <div className="pv-none-ic">{k.icon}</div>
       <div className="pv-none-name">{file.name}</div>
-      <div className="pv-none-note">{note ?? `${k.label} 文件浏览器里预览不了，用系统应用打开`}</div>
+      <div className="pv-none-note">{note ?? t('pv.noPreview', { kind: k.label })}</div>
       <div className="pv-none-actions">
-        <button className="btn primary" onClick={onOpen}>用系统默认应用打开</button>
-        <button className="btn" onClick={onDownload}>下载</button>
+        <button className="btn primary" onClick={onOpen}>{t('pv.openSystem')}</button>
+        <button className="btn" onClick={onDownload}>{t('common.download')}</button>
       </div>
     </div>
   );
@@ -501,7 +502,7 @@ function parseCsv(text: string, maxRows = 2000): string[][] {
 
 function CsvTable({ text }: { text: string }) {
   const rows = parseCsv(text);
-  if (!rows.length) return <div className="pv-loading">空文件</div>;
+  if (!rows.length) return <div className="pv-loading">{t('pv.emptyFile')}</div>;
   const [head, ...body] = rows;
   return (
     <div className="md-table pv-csv">
@@ -509,7 +510,7 @@ function CsvTable({ text }: { text: string }) {
         <thead><tr>{head.map((c, i) => <th key={i}>{c}</th>)}</tr></thead>
         <tbody>{body.map((r, i) => <tr key={i}>{head.map((_, j) => <td key={j}>{r[j] ?? ''}</td>)}</tr>)}</tbody>
       </table>
-      {rows.length >= 2000 && <div className="pv-loading">只显示前 2000 行</div>}
+      {rows.length >= 2000 && <div className="pv-loading">{t('pv.first2000')}</div>}
     </div>
   );
 }

@@ -219,8 +219,8 @@ export interface UpgradeStatus {
 
 /** 全局偏好：跟着这套 bot 走，不是某个浏览器的设置 */
 export interface CrewSettings {
-  /** bot 用什么语言说话和写东西；auto = 跟着用户当时说的语言 */
-  language?: 'zh' | 'en' | 'auto';
+  /** bot 用什么语言说话和写东西：界面语言的代码（zh、en、ja…），或 auto = 跟着用户当时说的语言 */
+  language?: string;
   /** 你所在的时区（IANA 名）。例行任务按它算时间：云机器本身跑在 UTC 上。 */
   timezone?: string;
 }
@@ -384,16 +384,8 @@ export interface LibraryEntry {
   license?: string;
 }
 
-export const LIBRARY_CATEGORIES: Record<string, string> = {
-  dev: '开发',
-  docs: '文档办公',
-  writing: '写作沟通',
-  research: '研究数据',
-  productivity: '效率生活',
-  business: '商业营销',
-  design: '设计创意',
-  meta: '方法与元技能',
-};
+/** Library categories the backend tags skills with; their names live in the language catalogs (`lib.<id>`). */
+export const LIBRARY_CATEGORY_IDS = ['dev', 'docs', 'writing', 'research', 'productivity', 'business', 'design', 'meta'];
 
 export type ThreadId = `bot:${string}` | `matter:${string}`;
 export type Selection = ThreadId | 'inbox' | 'profile' | 'draft-bot' | 'runtime';

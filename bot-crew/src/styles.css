@@ -1419,6 +1419,7 @@ textarea.ident-desc:focus { outline: 0; border-color: var(--accent-hair); backgr
 .tz-t { font-weight: 600; font-size: 12.5px; }
 .tz-t .quiet { font-weight: 400; }
 .tz-s { color: var(--text-2); font-size: 11.5px; margin-top: 2px; }
+.lang-pick { display: block; min-width: 200px; }
 .tz-pick { font: inherit; font-weight: 600; font-size: 12.5px; color: var(--text); background: var(--panel); border: 1px solid var(--hair); border-radius: var(--r-sm); padding: 5px 8px; max-width: 100%; }
 
 /* ---- the screen card, redone: a still with one action, a caption under it ---- */

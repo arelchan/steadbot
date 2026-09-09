@@ -2,6 +2,7 @@ import { setRuntime, healRuntimeTarget } from './runtime';
 import type { AgentService } from './agent';
 import { getState, setState, select, setTyping, pushToast, resolvePending, removeBot, removeMatter, upsertSkill, upsertIntegration, clearThread, uid, setRemoteSink, remoteApply } from '../store';
 import { botThread, type Action, type Bot, type Channel, type CrewSettings, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo } from '../types';
+import { t } from '../i18n';
 
 type Snapshot = Pick<ReturnType<typeof getState>, 'bots' | 'matters' | 'todos' | 'pendings' | 'actions' | 'messages' | 'sharedProfile'> & { skills?: SkillDoc[]; library?: LibraryEntry[]; integrations?: Integration[]; typing?: Record<string, string[]>; runtime?: RuntimeInfo; settings?: CrewSettings };
 
@@ -103,7 +104,7 @@ export class WsAgentService implements AgentService {
     ws.onclose = () => {
       this.mode = 'offline';
       if (this.installWaiter) {
-        this.installWaiter.reject(new Error('和本机服务的连接断了，安装中止；请重试'));
+        this.installWaiter.reject(new Error(t('err.installLinkLost')));
         this.installWaiter = null;
       }
       remoteApply(() => setState({ online: false }));
@@ -283,7 +284,7 @@ export class WsAgentService implements AgentService {
           const w = this.installWaiter;
           this.installWaiter = null;
           if (!w) break;
-          if (m.error || !m.code) w.reject(new Error(m.error ?? '没拿到连接码'));
+          if (m.error || !m.code) w.reject(new Error(m.error ?? t('err.noPairingCode')));
           else w.resolve({ code: m.code, url: m.url ?? '' });
           break;
         }

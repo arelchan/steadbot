@@ -27,7 +27,8 @@ function load(): State {
         typing: {},
         lastSeen: parsed.lastSeen ?? {},
         panel: { mode: 'board' },
-        panels: parsed.panels ?? { identity: true, tasks: true },
+        // 工作区 is always there; 身份 takes its place while it is open.
+        panels: { identity: parsed.panels?.identity ?? true, tasks: true },
         layout: { ...DEFAULT_LAYOUT, ...(parsed.layout ?? {}) },
         focusMessageId: undefined,
         online: undefined,
@@ -112,19 +113,17 @@ const forward = () => (applyingRemote ? null : remote);
 export const select = (selection: Selection) => setState((s) => ({ selection, panel: s.selection === selection ? s.panel : { mode: 'board' } }));
 export const setPanel = (panel: Panel) => setState({ panel });
 /**
- * The column beside the conversation shows one thing at a time: the bot's 身份 (who it is, its settings) or its
- * 工作区 (screen, tasks, routines). Opening one closes the other; closing 身份 brings the workspace back, because
- * that is what people look at day to day. Only 工作区 can be closed to nothing (full-width conversation).
+ * The column beside the conversation shows one thing at a time: the bot's 工作区 (screen, tasks, routines), which
+ * is what people look at day to day and is always there, or its 身份 (who it is, its settings), which takes the
+ * same slot while it is open. One button, one place; closing 身份 hands the slot back.
  */
 export const togglePanel = (k: keyof Panels) => {
-  setState((s) => {
-    if (k === 'identity') return { panels: s.panels.identity ? { identity: false, tasks: true } : { identity: true, tasks: false } };
-    return { panels: { identity: false, tasks: !s.panels.tasks } };
-  });
+  if (k !== 'identity') return;
+  setState((s) => ({ panels: { identity: !s.panels.identity, tasks: true } }));
   clampLayout();
 };
 /** A brand-new bot: its 身份 first (name, role, avatar being generated), the workspace after it is closed. */
-export const showIdentity = () => setState({ panels: { identity: true, tasks: false } });
+export const showIdentity = () => setState({ panels: { identity: true, tasks: true } });
 /** Re-apply the width limits (window resized, a panel opened): the side columns give way first. */
 export const clampLayout = () => {
   for (const k of ['side', 'right', 'sidebar'] as const) setColumnWidth(k, getState().layout[k]);
@@ -133,7 +132,7 @@ export const setColumnWidth = (k: keyof Layout, px: number) =>
   setState((s) => {
     const [lo, hi0] = LAYOUT_LIMITS[k];
     // whatever gets dragged, the conversation keeps at least 360px
-    const others = (k === 'sidebar' ? 0 : s.layout.sidebar) + (k === 'right' || !s.panels.identity ? 0 : s.layout.right) + (k === 'side' || !s.panels.tasks ? 0 : s.layout.side);
+    const others = (k === 'sidebar' ? 0 : s.layout.sidebar) + (k === 'right' || !s.panels.identity ? 0 : s.layout.right) + (k === 'side' ? 0 : s.layout.side);
     const hi = Math.max(lo, Math.min(hi0, (typeof window === 'undefined' ? 1e9 : window.innerWidth) - others - 360));
     return { layout: { ...s.layout, [k]: Math.round(Math.min(hi, Math.max(lo, px))) } };
   });

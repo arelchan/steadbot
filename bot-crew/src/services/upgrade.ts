@@ -1,5 +1,6 @@
 import type { UpgradeStatus } from '../types';
 import { localHttpBase, localWsUrl } from './runtime';
+import { t } from '../i18n';
 
 /**
  * 升级. The code lives on the user's own computer, so the local EverBot is always the one that performs an
@@ -27,7 +28,7 @@ export function runUpgrade(onLine: (line: string) => void): Promise<{ restarting
     try {
       ws = new WebSocket(url);
     } catch (e) {
-      return reject(new Error(`连不上这台电脑上的 EverBot：${(e as Error).message}`));
+      return reject(new Error(t('err.noLocalEverbot', { why: (e as Error).message })));
     }
     let done = false;
     const finish = (fn: () => void) => {
@@ -40,7 +41,7 @@ export function runUpgrade(onLine: (line: string) => void): Promise<{ restarting
       }
       fn();
     };
-    const timer = setTimeout(() => finish(() => reject(new Error('升级超时了；那台机器可能还在构建，过几分钟刷新看看'))), 50 * 60_000);
+    const timer = setTimeout(() => finish(() => reject(new Error(t('err.upgradeTimeout')))), 50 * 60_000);
     ws.onopen = () => ws.send(JSON.stringify({ type: 'upgrade' }));
     ws.onmessage = (e) => {
       let m: { type?: string; line?: string; error?: string; restarting?: boolean };
@@ -59,6 +60,6 @@ export function runUpgrade(onLine: (line: string) => void): Promise<{ restarting
     };
     // The local server restarts itself mid-upgrade when the bots run here: a closed socket is the success signal.
     ws.onclose = () => finish(() => { clearTimeout(timer); resolve({ restarting: true }); });
-    ws.onerror = () => finish(() => { clearTimeout(timer); reject(new Error('连不上这台电脑上的 EverBot；它可能没在跑')); });
+    ws.onerror = () => finish(() => { clearTimeout(timer); reject(new Error(t('err.localEverbotDown'))); });
   });
 }

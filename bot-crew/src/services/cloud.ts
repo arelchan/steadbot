@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 /**
  * The hosted cloud (our control plane): an anonymous account per browser, one home per account.
  * Configured with VITE_CREW_CLOUD (the control plane's public URL); absent → the option is hidden.
@@ -25,7 +26,7 @@ const saveAccount = (a: CloudAccount) => localStorage.setItem(KEY, JSON.stringif
 async function call<T>(path: string, init: RequestInit & { token?: string } = {}): Promise<T> {
   const r = await fetch(`${cloudUrl}${path}`, { ...init, headers: { 'content-type': 'application/json', ...(init.token ? { authorization: `Bearer ${init.token}` } : {}), ...(init.headers ?? {}) } });
   const body = (await r.json().catch(() => ({}))) as T & { error?: string };
-  if (!r.ok) throw new Error(body.error || `云端没有正常回应（${r.status}）`);
+  if (!r.ok) throw new Error(body.error || t('err.cloudNoAnswer', { code: r.status }));
   return body;
 }
 
@@ -53,7 +54,7 @@ export async function cloudHomeStatus(): Promise<{ id: string; url: string; name
 /** Destroy the cloud home (the control plane keeps one final backup). */
 export async function destroyCloudHome(id: string): Promise<void> {
   const acct = getCloudAccount();
-  if (!acct) throw new Error('没有云端账号');
+  if (!acct) throw new Error(t('err.noCloudAccount'));
   await call(`/v1/homes/${id}`, { method: 'DELETE', token: acct.accountToken });
   saveAccount({ accountId: acct.accountId, accountToken: acct.accountToken });
 }

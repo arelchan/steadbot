@@ -1,56 +1,66 @@
-const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-const pad = (n: number) => String(n).padStart(2, '0');
+import { getLocale, intlLocale, t } from './i18n';
 
-export const fmtTime = (ts: number) => {
-  const d = new Date(ts);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+/** Intl formatters are expensive to build and get called per message: keep one of each per language. */
+const cache = new Map<string, Intl.DateTimeFormat>();
+const fmt = (opts: Intl.DateTimeFormatOptions, tag: string) => {
+  const key = `${getLocale()}:${tag}`;
+  let f = cache.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(intlLocale(), opts);
+    cache.set(key, f);
+  }
+  return f;
 };
+
+/** Clock, in whatever shape the language uses (24-hour here, 10:10 AM in en-US). */
+export const fmtTime = (ts: number) => fmt({ hour: '2-digit', minute: '2-digit' }, 'hm').format(ts);
+
+const weekday = (ts: number) => fmt({ weekday: 'short' }, 'wd').format(ts);
+const monthDay = (ts: number) => fmt({ month: 'numeric', day: 'numeric' }, 'md').format(ts);
 
 export const dayKey = (ts: number) => {
   const d = new Date(ts);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 };
 
-export const dayLabel = (ts: number) => {
+/** How many days ago, counting calendar days rather than 24-hour blocks. */
+const daysAgo = (ts: number) => {
   const d = new Date(ts);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
-  const md = `${d.getMonth() + 1}/${d.getDate()}`;
-  if (diff === 0) return `今天 ${WEEK[d.getDay()]} ${md}`;
-  if (diff === 1) return `昨天 ${WEEK[d.getDay()]} ${md}`;
-  return `${WEEK[d.getDay()]} ${md}`;
+  return Math.round((today.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
 };
 
-/** Full date for records: 2026年9月7日 12:28 (withTime=false drops the clock). */
+export const dayLabel = (ts: number) => {
+  const diff = daysAgo(ts);
+  const tail = `${weekday(ts)} ${monthDay(ts)}`;
+  if (diff === 0) return `${t('day.today')} ${tail}`;
+  if (diff === 1) return `${t('day.yesterday')} ${tail}`;
+  return tail;
+};
+
+/** Full date for records (withTime=false drops the clock). */
 export const fullDate = (ts: number, withTime = true) => {
-  const d = new Date(ts);
-  const date = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  const date = fmt({ year: 'numeric', month: 'long', day: 'numeric' }, 'ymd').format(ts);
   return withTime ? `${date} ${fmtTime(ts)}` : date;
 };
 
-/** Message timestamps: 10:10 today, 昨天 10:10, 前天 10:10, then 10月10日 10:10 (with the year once it differs). */
+/** Message timestamps: the clock today, 昨天 / yesterday, then the date (with the year once it differs). */
 export const msgTime = (ts: number) => {
-  const d = new Date(ts);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
+  const diff = daysAgo(ts);
   const hm = fmtTime(ts);
   if (diff === 0) return hm;
-  if (diff === 1) return `昨天 ${hm}`;
-  if (diff === 2) return `前天 ${hm}`;
-  const md = `${d.getMonth() + 1}月${d.getDate()}日`;
-  return d.getFullYear() === today.getFullYear() ? `${md} ${hm}` : `${d.getFullYear()}年${md} ${hm}`;
+  if (diff === 1) return `${t('day.yesterday')} ${hm}`;
+  if (diff === 2) return `${t('day.beforeYesterday')} ${hm}`;
+  const sameYear = new Date(ts).getFullYear() === new Date().getFullYear();
+  return `${sameYear ? monthDay(ts) : fmt({ year: 'numeric', month: 'numeric', day: 'numeric' }, 'ymdn').format(ts)} ${hm}`;
 };
 
 export const shortDay = (ts: number) => {
-  const d = new Date(ts);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
+  const diff = daysAgo(ts);
   if (diff === 0) return fmtTime(ts);
-  if (diff === 1) return '昨天';
-  return WEEK[d.getDay()];
+  if (diff === 1) return t('day.yesterday');
+  return weekday(ts);
 };
 
 export const cx = (...xs: (string | false | null | undefined)[]) => xs.filter(Boolean).join(' ');

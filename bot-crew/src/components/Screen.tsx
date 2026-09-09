@@ -6,6 +6,7 @@ import type { Bot } from '../types';
 import { agent } from '../services/agent';
 import { httpBase, withToken } from '../services/runtime';
 import { cx } from '../utils';
+import { useT } from '../i18n';
 
 /**
  * The bot's own computer. It is always *there*: the card shows what is on the screen — live while the bot is
@@ -17,6 +18,7 @@ import { cx } from '../utils';
 type ScreenState = 'on' | 'starting' | 'off' | 'error' | 'none';
 
 export function ScreenCard({ bot }: { bot: Bot }) {
+  const t = useT();
   const rt = useStore((s) => s.runtime);
   const [big, setBig] = useState(false);
   const d = bot.desktop;
@@ -38,24 +40,24 @@ export function ScreenCard({ bot }: { bot: Bot }) {
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9.5 2.5H13.5V6.5M13.5 2.5L9 7M6.5 13.5H2.5V9.5M2.5 13.5L7 9" />
                 </svg>
-                打开
+                {t('screen.open')}
               </button>
             </>
           ) : (
             <div className="sc-off">
-              <span className="sc-msg">{idle ? 'bot 不在这台机器' : old ? '这个版本还没有' : '还没有电脑'}</span>
-              {!old && !idle && rt?.local && <button className="btn sm" onClick={() => select('runtime')}>装配云电脑</button>}
+              <span className="sc-msg">{idle ? t('screen.notHere') : old ? t('screen.oldVersion') : t('screen.noComputer')}</span>
+              {!old && !idle && rt?.local && <button className="btn sm" onClick={() => select('runtime')}>{t('screen.install')}</button>}
             </div>
           )}
         </div>
         <div className="sc-cap">
           <span className={cx('sc-dot', st)} />
-          {bot.name} 的屏幕
-          {st === 'off' && <span className="sc-state">· 闲着</span>}
-          {st === 'starting' && <span className="sc-state">· 正在醒来</span>}
-          {st === 'error' && <span className="sc-state err">· 没响应</span>}
+          {t('screen.of', { name: bot.name })}
+          {st === 'off' && <span className="sc-state">{t('screen.idle')}</span>}
+          {st === 'starting' && <span className="sc-state">{t('screen.waking')}</span>}
+          {st === 'error' && <span className="sc-state err">{t('screen.noResponse')}</span>}
         </div>
-        {st === 'error' && <div className="sc-note">电脑没响应，点「打开」重试</div>}
+        {st === 'error' && <div className="sc-note">{t('screen.retryHint')}</div>}
         {st === 'none' && !old && !idle && !rt?.local && rt?.desktopsNote && <div className="sc-note">{rt.desktopsNote}</div>}
       </div>
       {big && st !== 'none' && <ScreenModal bot={bot} onClose={() => setBig(false)} />}
@@ -73,6 +75,7 @@ function stillUrl(botId: string, tick: number, width = 640) {
  * once (the frame does not change), and again when the computer has been up since (`epoch`).
  */
 function Still({ botId, live, epoch }: { botId: string; live: boolean; epoch: number }) {
+  const t = useT();
   const [tick, setTick] = useState(() => Date.now());
   const [dead, setDead] = useState(false);
   useEffect(() => {
@@ -86,7 +89,7 @@ function Still({ botId, live, epoch }: { botId: string; live: boolean; epoch: nu
   return (
     <>
       <img className={cx('sc-still', dead && 'hidden')} src={stillUrl(botId, tick)} alt="" draggable={false} onError={() => setDead(true)} onLoad={() => setDead(false)} />
-      {dead && live && <span className="sc-msg sc-still-msg">拿不到画面，重试中…</span>}
+      {dead && live && <span className="sc-msg sc-still-msg">{t('screen.noFrame')}</span>}
     </>
   );
 }
@@ -100,6 +103,7 @@ function Still({ botId, live, epoch }: { botId: string; live: boolean; epoch: nu
  * A small tag shows while the user is actively moving or typing, so it is clear whose hands are on it.
  */
 function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
+  const t = useT();
   const [hands, setHands] = useState(false);
   const st = bot.desktop?.state ?? 'off';
   const on = st === 'on';
@@ -122,11 +126,11 @@ function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
         <div className="sc-head">
           <span className="sc-title">
             <i className={cx('sc-dot', st)} />
-            {bot.name} 的电脑
-            {on && hands && <span className="chip cn-chip">你在操作</span>}
+            {t('screen.computerOf', { name: bot.name })}
+            {on && hands && <span className="chip cn-chip">{t('screen.yourHands')}</span>}
           </span>
           <span className="sc-actions">
-            <button className="link quiet-link" onClick={onClose}>关闭</button>
+            <button className="link quiet-link" onClick={onClose}>{t('common.close')}</button>
           </span>
         </div>
         <div className="sc-big">
@@ -137,12 +141,12 @@ function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
               <img className="sc-ghost" src={placeholder} alt="" draggable={false} onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} />
               {st === 'error' ? (
                 <span className="sc-wait-msg">
-                  <b>电脑没响应</b>
+                  <b>{t('screen.dead')}</b>
                   {bot.desktop?.note && <small>{bot.desktop.note}</small>}
-                  <button className="btn sm" onClick={() => agent.computerPower(bot.id, true)}>再试一次</button>
+                  <button className="btn sm" onClick={() => agent.computerPower(bot.id, true)}>{t('common.retry')}</button>
                 </span>
               ) : (
-                <span className="sc-wait-msg pulse">正在唤醒它的电脑，十秒左右…</span>
+                <span className="sc-wait-msg pulse">{t('screen.waking2')}</span>
               )}
             </div>
           )}
@@ -160,6 +164,7 @@ function ScreenModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
  * for a long link: moderate compression (the machine has two CPUs; heavy zlib costs more than it saves).
  */
 function Vnc({ botId, placeholder, onHands }: { botId: string; placeholder: string; onHands: (v: boolean) => void }) {
+  const t = useT();
   const box = useRef<HTMLDivElement>(null);
   const rfb = useRef<RFB | null>(null);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'lost'>('connecting');
@@ -230,8 +235,8 @@ function Vnc({ botId, placeholder, onHands }: { botId: string; placeholder: stri
     <div className={cx('vnc', status, painted && 'painted')} onPointerDown={touch} onPointerMove={touch} onKeyDown={touch} onWheel={touch}>
       <img className="sc-ghost" src={placeholder} alt="" draggable={false} onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} />
       <div className="vnc-screen" ref={box} />
-      {!painted && status !== 'lost' && <span className="sc-wait-msg pulse">连接屏幕…</span>}
-      {status === 'lost' && <span className="sc-wait-msg pulse">断开了，重连中…</span>}
+      {!painted && status !== 'lost' && <span className="sc-wait-msg pulse">{t('screen.connecting')}</span>}
+      {status === 'lost' && <span className="sc-wait-msg pulse">{t('screen.reconnecting')}</span>}
     </div>
   );
 }
