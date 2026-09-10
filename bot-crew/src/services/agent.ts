@@ -8,7 +8,7 @@ import type { Bot, Channel, Pending, ThreadId, TodoStatus, FileRef } from '../ty
 import { WsAgentService } from './ws-agent';
 import { AUTONOMY_LABEL, botThread, matterThread, parseThread } from '../types';
 import { t } from '../i18n';
-import {
+import { showIdentity,
   addAction,
   addBot,
   addMessage,
@@ -316,6 +316,7 @@ export class MockAgentService implements AgentService {
     const bot = addBot(inferBot(text));
     const threadId = botThread(bot.id);
     select(threadId);
+    showIdentity();
     addMessage({ threadId, author: 'bot', botId: bot.id, ts: Date.now(), text: `我是${bot.name}，以后负责：${bot.role} 职责、权限和记忆都在右边「Bot 身份」里，随时改。先办你这句：`, status: '由你的第一句话生成' });
     this.onUserMessage(threadId, text);
   }

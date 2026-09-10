@@ -25,7 +25,7 @@ function Evolving({ jobs }: { jobs: NonNullable<Bot['building']> }) {
 
 /**
  * One button in the conversation's top-right corner: 身份. The workspace (screen, tasks, routines) is simply
- * there; opening 身份 borrows its slot, closing it gives the slot straight back.
+ * there; opening 身份 puts it beside the workspace, which slides left.
  */
 function PanelToggles({ bot }: { bot?: Bot }) {
   const t = useT();
@@ -48,6 +48,7 @@ export function Thread({ threadId }: { threadId: ThreadId }) {
   const participants = matter ? membersOf(matter, s.bots) : bot ? [bot] : [];
   const messages = useMemo(() => s.messages.filter((m) => m.threadId === threadId), [s.messages, threadId]);
   const typing = s.typing[threadId] ?? [];
+  const both = s.panels.identity && (bot || matter);
   const scroller = useRef<HTMLDivElement>(null);
 
   const focusId = s.focusMessageId;
@@ -68,7 +69,7 @@ export function Thread({ threadId }: { threadId: ThreadId }) {
   if (!bot && !matter) return <div className="col thread"><div className="empty">{t('thread.gone')}</div></div>;
 
   return (
-    <section className="col thread with-side">
+    <section className={cx('col thread with-side', both && 'both')}>
       <div className="thread-main">
       <header className="hd">
         {bot ? <Avatar bot={bot} /> : <GroupAvatar bots={participants} />}

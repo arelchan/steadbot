@@ -19,10 +19,10 @@ import { useT, tn, t as tr } from '../i18n';
 const when = (ts: number) => (shortDay(ts) === fmtTime(ts) ? fmtTime(ts) : `${shortDay(ts)} ${fmtTime(ts)}`);
 
 /* =========================================================
-   The column beside the conversation shows one thing at a time (store.togglePanel):
+   The column beside the conversation (store.togglePanel):
    ① 工作区 — its screen, its tasks, its routines. Always there; this is the day-to-day view.
-   ② 身份 — the bot's card and settings. Borrows the slot while it is open (a new bot opens on this).
-   Both are the same stack of cards in the same slot, so switching never moves anything else.
+   ② 身份 — the bot's card and settings. Opens as a second column on the outside, pushing 工作区 left; it is
+      open by itself only on a bot that was just born, and closes again the moment you go somewhere else.
    ========================================================= */
 
 /**
@@ -32,14 +32,7 @@ const when = (ts: number) => (shortDay(ts) === fmtTime(ts) ? fmtTime(ts) : `${sh
 export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
   const t = useT();
   const s = useStore((x) => x);
-  if (s.panels.identity && (bot || matter)) {
-    return (
-      <aside className="thread-side">
-        <Resizer col="side" edge="left" />
-        <div className="workspace">{bot ? <BotIdentity bot={bot} /> : <GroupInfo matter={matter!} />}</div>
-      </aside>
-    );
-  }
+  const identity = s.panels.identity && (bot || matter);
   const todos = s.todos.filter((t) => (bot ? t.botId === bot.id : matter ? t.matterId === matter.id : false));
   const open = todos.filter((t) => t.status !== 'done').length;
   const wait = todos.filter((t) => t.status === 'waiting' || t.status === 'blocked').length;
@@ -49,7 +42,14 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
   const routines = bot?.routines ?? [];
   const live = routines.filter((r) => r.enabled).length;
   return (
-    <aside className="thread-side">
+    <>
+    {identity && (
+      <aside className="thread-side identity">
+        <Resizer col="right" edge="left" />
+        <div className="workspace">{bot ? <BotIdentity bot={bot} /> : <GroupInfo matter={matter!} />}</div>
+      </aside>
+    )}
+    <aside className={cx('thread-side', identity && 'shifted')}>
       <Resizer col="side" edge="left" />
       <div className="workspace">
         {bot && (
@@ -73,6 +73,7 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
         )}
       </div>
     </aside>
+    </>
   );
 }
 

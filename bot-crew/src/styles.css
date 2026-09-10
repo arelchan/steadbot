@@ -281,8 +281,12 @@ input, textarea { font: inherit; color: inherit; }
 /* the 事项 band: overlays the right part of the conversation; messages + composer pad away from it,
    so the conversation's scrollbar stays on the page's right edge */
 .thread-side { position: absolute; top: 56px; right: 16px; bottom: 12px; width: var(--w-side, 316px); display: flex; flex-direction: column; pointer-events: none; z-index: 4; }
+/* 身份 opens outside 工作区, which slides left to make room; both are read at once. */
+.thread-side.identity { width: var(--w-right, 312px); }
+.thread-side.shifted { right: calc(var(--w-right, 312px) + 28px); }
 .thread-side > * { pointer-events: auto; }
 .thread.with-side .msgs, .thread.with-side .composer { padding-right: calc(var(--w-side, 316px) + 40px); }
+.thread.with-side.both .msgs, .thread.with-side.both .composer { padding-right: calc(var(--w-side, 316px) + var(--w-right, 312px) + 52px); }
 
 /* drag grabbers on column edges: a short pill at mid-height, only visible on hover / while dragging */
 .resizer { position: absolute; top: 0; bottom: 0; width: 8px; z-index: 7; cursor: col-resize; touch-action: none; display: flex; align-items: center; justify-content: center; }

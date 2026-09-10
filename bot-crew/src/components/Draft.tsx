@@ -1,4 +1,3 @@
-import { showIdentity } from '../store';
 import { agent } from '../services/agent';
 import { Composer } from './Thread';
 import { useT } from '../i18n';
@@ -20,7 +19,7 @@ export function Draft() {
           <div className="de-s">{t('draft.sub')}</div>
         </div>
       </div>
-      <Composer threadId="draft-bot" placeholder={t('draft.placeholder')} onSend={(text) => { showIdentity(); agent.onDraftMessage(text); }} />
+      <Composer threadId="draft-bot" placeholder={t('draft.placeholder')} onSend={(text) => agent.onDraftMessage(text)} />
     </section>
   );
 }

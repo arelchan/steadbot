@@ -27,8 +27,9 @@ function load(): State {
         typing: {},
         lastSeen: parsed.lastSeen ?? {},
         panel: { mode: 'board' },
-        // 工作区 is always there; 身份 takes its place while it is open.
-        panels: { identity: parsed.panels?.identity ?? true, tasks: true },
+        // 工作区 is always there. 身份 is not a place you keep open: it opens on a bot that was just born and on
+        // the button, and it is gone again the next time you walk into a conversation.
+        panels: { identity: false, tasks: true },
         layout: { ...DEFAULT_LAYOUT, ...(parsed.layout ?? {}) },
         focusMessageId: undefined,
         online: undefined,
@@ -110,19 +111,19 @@ const forward = () => (applyingRemote ? null : remote);
 
 /* ---------- mutations ---------- */
 
-export const select = (selection: Selection) => setState((s) => ({ selection, panel: s.selection === selection ? s.panel : { mode: 'board' } }));
+export const select = (selection: Selection) =>
+  setState((s) => (s.selection === selection ? { selection } : { selection, panel: { mode: 'board' }, panels: { identity: false, tasks: true } }));
 export const setPanel = (panel: Panel) => setState({ panel });
 /**
- * The column beside the conversation shows one thing at a time: the bot's 工作区 (screen, tasks, routines), which
- * is what people look at day to day and is always there, or its 身份 (who it is, its settings), which takes the
- * same slot while it is open. One button, one place; closing 身份 hands the slot back.
+ * 工作区 (screen, tasks, routines) is simply beside every conversation. 身份 (who the bot is, its settings) opens
+ * as a second column outside it, so the two are read together instead of taking turns.
  */
 export const togglePanel = (k: keyof Panels) => {
   if (k !== 'identity') return;
   setState((s) => ({ panels: { identity: !s.panels.identity, tasks: true } }));
   clampLayout();
 };
-/** A brand-new bot: its 身份 first (name, role, avatar being generated), the workspace after it is closed. */
+/** A brand-new bot: its 身份 opens once, beside the workspace, so the name, role and avatar appear as they are made. */
 export const showIdentity = () => setState({ panels: { identity: true, tasks: true } });
 /** Re-apply the width limits (window resized, a panel opened): the side columns give way first. */
 export const clampLayout = () => {

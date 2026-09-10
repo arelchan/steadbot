@@ -1,6 +1,6 @@
 import { setRuntime, healRuntimeTarget } from './runtime';
 import type { AgentService } from './agent';
-import { getState, setState, select, setTyping, pushToast, resolvePending, removeBot, removeMatter, upsertSkill, upsertIntegration, clearThread, uid, setRemoteSink, remoteApply } from '../store';
+import { showIdentity, getState, setState, select, setTyping, pushToast, resolvePending, removeBot, removeMatter, upsertSkill, upsertIntegration, clearThread, uid, setRemoteSink, remoteApply } from '../store';
 import { botThread, type Action, type Bot, type Channel, type Computer, type CrewSettings, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo } from '../types';
 import { t } from '../i18n';
 
@@ -246,6 +246,9 @@ export class WsAgentService implements AgentService {
         case 'bot_created':
           setState((s) => ({ bots: upsert(s.bots, m.bot) }));
           select(botThread(m.bot.id));
+          // The only time 身份 opens by itself: a bot that was just born, so its name, role and avatar can be
+          // watched as they arrive. Walking into the same bot tomorrow shows the workspace alone.
+          showIdentity();
           break;
         case 'skill':
           upsertSkill(m.skill);
