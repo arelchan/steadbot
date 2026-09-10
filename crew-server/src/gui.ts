@@ -304,18 +304,15 @@ export async function operate(hands: Hands, goal: string, opts: { display?: stri
   return p;
 }
 
+/** The OS tools the hands need on this machine — a machine dependency like any skill's (deps.ts installs them). */
+export const handsBins = (): string[] => (platform() === 'linux' ? ['xdotool', 'import', 'identify'] : platform() === 'darwin' ? ['cliclick'] : []);
+
 /** Whether this machine can run the loop at all, and why not. */
 export async function guiCapability(display?: string): Promise<{ ok: boolean; note?: string }> {
-  if (platform() === 'linux') {
-    if (!display) return { ok: false, note: '电脑没开' };
-    for (const bin of ['xdotool', 'import', 'identify']) if (!(await which(bin))) return { ok: false, note: `这台机器上没装 ${bin}（用最新镜像重装一次就有）` };
-    return { ok: true };
-  }
-  if (platform() === 'darwin') {
-    if (!(await which('cliclick'))) return { ok: false, note: '这台 Mac 上没装 cliclick（brew install cliclick），装了才能替你点鼠标' };
-    return { ok: true };
-  }
-  return { ok: false, note: '这个系统上还不支持操作屏幕' };
+  if (platform() === 'linux' && !display) return { ok: false, note: '电脑没开' };
+  if (platform() !== 'linux' && platform() !== 'darwin') return { ok: false, note: '这个系统上还不支持操作屏幕' };
+  for (const bin of handsBins()) if (!(await which(bin))) return { ok: false, note: `这台机器上没有 ${bin}，装好才能替你点鼠标` };
+  return { ok: true };
 }
 
 async function operateNow(hands: Hands, goal: string, opts: { display?: string; outDir: string; context?: string; maxSteps?: number }): Promise<OperateResult> {

@@ -18,6 +18,7 @@ import type { Integration } from './types.ts';
 import type { SkillStore } from './skills.ts';
 import { type Requires, type Ready, describe, ensure, missing, restoreSystem, sanitize } from './tools.ts';
 import { pipNameFor } from './requires.ts';
+import { handsBins } from './gui.ts';
 
 const NPX = new Set(['npx', 'pnpx', 'bunx', 'yarn']);
 const PYX = new Set(['uvx', 'pipx']);
@@ -76,6 +77,9 @@ export function wantSet(): { entry: string; req: Requires }[] {
     const r = sanitize(mcpRequires(i));
     if (has(r)) out.push({ entry: `mcp:${i.name}`, req: r });
   }
+  // The computer's hands (gui.ts) need OS tools of their own; they are wanted on every machine that has a screen.
+  const hands = handsBins();
+  if (hands.length) out.push({ entry: 'computer:hands', req: { bin: hands } });
   return out;
 }
 

@@ -5,7 +5,8 @@ import { Type } from 'typebox';
 import type { BotCtx } from './ctx.ts';
 import type { DesktopManager } from '../desktop.ts';
 import { config } from '../config.ts';
-import { guiCapability, operate, screenHeldBy, type Hands } from '../gui.ts';
+import { guiCapability, handsBins, operate, screenHeldBy, type Hands } from '../gui.ts';
+import { ready as depsReady } from '../deps.ts';
 
 /**
  * operate: hand a goal to the hands (gui.ts) — a vision model that looks at the screen and works it click by
@@ -43,6 +44,9 @@ export function operateExtension(c: BotCtx, hands: () => Hands | undefined, desk
           if (!d?.capable) throw new Error(`这台机器没有可操作的屏幕：${d?.capableNote ?? ''}`);
           await d.wake();
           const display = d.display;
+          // The hands' OS tools are a machine dependency (deps.ts keeps them installed); a first use waits a little for them.
+          const dep = await depsReady({ bin: handsBins() }, 'computer:hands');
+          if (!dep.ok) throw new Error(dep.note ?? '操作屏幕的工具还没装好');
           const cap = await guiCapability(display);
           if (!cap.ok) throw new Error(cap.note ?? '现在不能操作屏幕');
           const outDir = join(config.botsDir, c.botId, 'workspace', '_gui');
