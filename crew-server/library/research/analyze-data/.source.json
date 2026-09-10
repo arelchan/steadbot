@@ -1,0 +1,9 @@
+{
+  "repo": "anthropics/knowledge-work-plugins",
+  "path": "data/skills/analyze",
+  "commit": "11ac5ee",
+  "url": "https://github.com/anthropics/knowledge-work-plugins/tree/HEAD/data/skills/analyze",
+  "license": "Apache-2.0",
+  "licenseFile": "LICENSE",
+  "fetchedAt": "2026-09-10T14:43:12.968Z"
+}

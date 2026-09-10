@@ -1,9 +1,9 @@
 {
-  "repo": "w95/awesome-claude-corporate-skills",
-  "path": "02-finance-accounting/dcf-model",
-  "commit": "78dbc7c",
-  "url": "https://github.com/w95/awesome-claude-corporate-skills/tree/HEAD/02-finance-accounting/dcf-model",
-  "license": "MIT",
+  "repo": "anthropics/financial-services",
+  "path": "plugins/agent-plugins/model-builder/skills/dcf-model",
+  "commit": "69cbc81",
+  "url": "https://github.com/anthropics/financial-services/tree/HEAD/plugins/agent-plugins/model-builder/skills/dcf-model",
+  "license": "Apache-2.0",
   "licenseFile": "LICENSE",
-  "fetchedAt": "2026-09-10T14:11:39.646Z"
+  "fetchedAt": "2026-09-10T14:43:18.400Z"
 }

@@ -1,9 +1,9 @@
 {
-  "repo": "w95/awesome-claude-corporate-skills",
-  "path": "09-product-management/sprint-planning",
-  "commit": "78dbc7c",
-  "url": "https://github.com/w95/awesome-claude-corporate-skills/tree/HEAD/09-product-management/sprint-planning",
-  "license": "MIT",
+  "repo": "anthropics/knowledge-work-plugins",
+  "path": "product-management/skills/sprint-planning",
+  "commit": "11ac5ee",
+  "url": "https://github.com/anthropics/knowledge-work-plugins/tree/HEAD/product-management/skills/sprint-planning",
+  "license": "Apache-2.0",
   "licenseFile": "LICENSE",
-  "fetchedAt": "2026-09-10T14:11:40.134Z"
+  "fetchedAt": "2026-09-10T14:43:13.303Z"
 }

@@ -960,750 +960,6 @@
       "path": "skills/seo-ecommerce"
     },
     {
-      "slug": "dcf-model",
-      "category": "finance",
-      "description": "从财报和公开数据搭现金流预测、算 WACC、做敏感性分析，输出可复核的估值表。",
-      "tags": [
-        "估值",
-        "DCF",
-        "现金流",
-        "WACC",
-        "财务模型",
-        "投资"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "02-finance-accounting/dcf-model"
-    },
-    {
-      "slug": "three-statements",
-      "category": "finance",
-      "description": "利润表、资产负债表、现金流量表联动建模，勾稽关系自检。",
-      "tags": [
-        "三表",
-        "财务模型",
-        "利润表",
-        "资产负债表",
-        "现金流",
-        "建模"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "02-finance-accounting/3-statements"
-    },
-    {
-      "slug": "lbo-model",
-      "category": "finance",
-      "description": "收购结构、债务分层、还款计划与 IRR 测算。",
-      "tags": [
-        "LBO",
-        "并购",
-        "杠杆",
-        "IRR",
-        "私募",
-        "模型"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "02-finance-accounting/lbo-model"
-    },
-    {
-      "slug": "comps-analysis",
-      "category": "finance",
-      "description": "选可比、取倍数、清洗口径、出估值区间。",
-      "tags": [
-        "可比公司",
-        "估值倍数",
-        "comps",
-        "对标",
-        "市盈率"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "02-finance-accounting/comps-analysis"
-    },
-    {
-      "slug": "check-model",
-      "category": "finance",
-      "description": "循环引用、写死的数、勾稽不平、公式断链，逐项排查。",
-      "tags": [
-        "查错",
-        "审模型",
-        "Excel",
-        "勾稽",
-        "审计"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "02-finance-accounting/check-model"
-    },
-    {
-      "slug": "pitch-deck",
-      "category": "finance",
-      "description": "按投资人关心的顺序组织内容，逐页给结构和数据要求。",
-      "tags": [
-        "路演",
-        "BP",
-        "融资",
-        "pitch deck",
-        "投资人"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "02-finance-accounting/pitch-deck"
-    },
-    {
-      "slug": "invoice-organizer",
-      "category": "finance",
-      "description": "从一堆票据里提取金额、税号、日期，分类归档并出台账。",
-      "tags": [
-        "发票",
-        "报销",
-        "台账",
-        "归档",
-        "财务",
-        "票据"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "02-finance-accounting/invoice-organizer"
-    },
-    {
-      "slug": "earnings-analysis",
-      "category": "finance",
-      "description": "季报出来后快速出一份结构化点评：超预期项、指引变化、关键指标。",
-      "tags": [
-        "财报",
-        "季报",
-        "点评",
-        "业绩",
-        "研究"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "02-finance-accounting/earnings-analysis"
-    },
-    {
-      "slug": "ma-due-diligence",
-      "category": "finance",
-      "description": "标的评估、协同测算、整合计划和文化匹配的完整清单。",
-      "tags": [
-        "并购",
-        "尽调",
-        "M&A",
-        "整合",
-        "协同"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "01-executive-leadership/ma-due-diligence"
-    },
-    {
-      "slug": "job-description-writer",
-      "category": "people",
-      "description": "写清职责、硬性与加分条件、薪资区间，去掉会劝退人的措辞。",
-      "tags": [
-        "JD",
-        "招聘",
-        "职位描述",
-        "岗位",
-        "用人"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "03-human-resources/job-description-writer"
-    },
-    {
-      "slug": "interview-kit-builder",
-      "category": "people",
-      "description": "按岗位生成分轮面试题、追问点和统一评分表。",
-      "tags": [
-        "面试",
-        "题库",
-        "评分",
-        "招聘",
-        "面试官"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "03-human-resources/interview-kit-builder"
-    },
-    {
-      "slug": "onboarding-planner",
-      "category": "people",
-      "description": "30/60/90 天目标、对接人、必读材料和检查点。",
-      "tags": [
-        "入职",
-        "新人",
-        "onboarding",
-        "培训",
-        "30-60-90"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "03-human-resources/onboarding-planner"
-    },
-    {
-      "slug": "performance-review-assistant",
-      "category": "people",
-      "description": "按事实写评语、定等级、给改进项，避免笼统和偏见。",
-      "tags": [
-        "绩效",
-        "考核",
-        "评估",
-        "review",
-        "反馈"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "03-human-resources/performance-review-assistant"
-    },
-    {
-      "slug": "compensation-benchmarking",
-      "category": "people",
-      "description": "岗位分级、市场分位、调薪包设计和沟通口径。",
-      "tags": [
-        "薪酬",
-        "对标",
-        "调薪",
-        "职级",
-        "benchmark"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "03-human-resources/compensation-benchmarking"
-    },
-    {
-      "slug": "employee-handbook-builder",
-      "category": "people",
-      "description": "制度条目清单、合规必备章节和公司文化表达。",
-      "tags": [
-        "员工手册",
-        "制度",
-        "HR",
-        "合规",
-        "政策"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "03-human-resources/employee-handbook-builder"
-    },
-    {
-      "slug": "resume-generator",
-      "category": "people",
-      "description": "按目标岗位重排经历、量化成果、匹配关键词。",
-      "tags": [
-        "简历",
-        "求职",
-        "CV",
-        "投递",
-        "岗位匹配"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "03-human-resources/resume-generator"
-    },
-    {
-      "slug": "nda-triage",
-      "category": "legal",
-      "description": "逐条比对常见条款，标出偏离市场惯例的地方和谈判口径。",
-      "tags": [
-        "NDA",
-        "保密协议",
-        "审查",
-        "条款",
-        "谈判"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "06-legal-compliance/nda-triage"
-    },
-    {
-      "slug": "legal-risk-assessment",
-      "category": "legal",
-      "description": "按业务场景列风险点、发生概率、后果和缓解措施。",
-      "tags": [
-        "法律风险",
-        "评估",
-        "合规",
-        "风险点"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "06-legal-compliance/legal-risk-assessment"
-    },
-    {
-      "slug": "compliance-program",
-      "category": "legal",
-      "description": "制度、培训、监控、举报和整改的一套落地框架。",
-      "tags": [
-        "合规",
-        "制度",
-        "培训",
-        "监控",
-        "内控"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "06-legal-compliance/compliance"
-    },
-    {
-      "slug": "contract-review-en",
-      "category": "legal",
-      "description": "四层审查法：主体、基础条款、商业条款、法律风险，逐条批注。",
-      "tags": [
-        "合同",
-        "审查",
-        "英文",
-        "条款",
-        "批注",
-        "contract"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "06-legal-compliance/contract-review"
-    },
-    {
-      "slug": "account-research",
-      "category": "sales",
-      "description": "拜访前把公司、业务、近况、决策链摸清楚，出一页纸。",
-      "tags": [
-        "销售",
-        "背调",
-        "客户",
-        "拜访",
-        "B2B"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "05-sales/account-research"
-    },
-    {
-      "slug": "call-prep",
-      "category": "sales",
-      "description": "开场、提问清单、异议应对和下一步承诺。",
-      "tags": [
-        "销售",
-        "通话",
-        "拜访",
-        "异议",
-        "话术"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "05-sales/call-prep"
-    },
-    {
-      "slug": "draft-outreach",
-      "category": "sales",
-      "description": "按线索来源和阶段写第一封与跟进，给多个版本。",
-      "tags": [
-        "触达",
-        "外联",
-        "跟进",
-        "邮件",
-        "销售"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "05-sales/draft-outreach"
-    },
-    {
-      "slug": "sales-competitive-intelligence",
-      "category": "sales",
-      "description": "对手强弱项、常见攻击点和我方应对，做成对战卡。",
-      "tags": [
-        "竞品",
-        "对抗",
-        "话术",
-        "battle card",
-        "销售"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "05-sales/competitive-intelligence"
-    },
-    {
-      "slug": "ticket-triage",
-      "category": "sales",
-      "description": "按紧急度和类型分流、判优先级、给标准回复模板。",
-      "tags": [
-        "工单",
-        "客服",
-        "分流",
-        "优先级",
-        "support"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "11-customer-success/ticket-triage"
-    },
-    {
-      "slug": "response-drafting",
-      "category": "sales",
-      "description": "按场景写回复：致歉、解释、补偿、拒绝，语气统一。",
-      "tags": [
-        "客服",
-        "回复",
-        "话术",
-        "致歉",
-        "模板"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "11-customer-success/response-drafting"
-    },
-    {
-      "slug": "churn-analysis",
-      "category": "sales",
-      "description": "分层看流失、找共同信号、排干预动作。",
-      "tags": [
-        "流失",
-        "客户成功",
-        "留存",
-        "分析",
-        "预警"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "11-customer-success/churn-analysis"
-    },
-    {
-      "slug": "qbr-builder",
-      "category": "sales",
-      "description": "客户 QBR 的结构、数据准备和续约铺垫。",
-      "tags": [
-        "QBR",
-        "季度回顾",
-        "客户成功",
-        "续约"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "11-customer-success/qbr-builder"
-    },
-    {
-      "slug": "escalation",
-      "category": "sales",
-      "description": "出事之后怎么升级、怎么沟通、怎么复盘。",
-      "tags": [
-        "升级",
-        "投诉",
-        "客户",
-        "危机",
-        "处理"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "11-customer-success/escalation"
-    },
-    {
-      "slug": "rfp-builder",
-      "category": "business",
-      "description": "需求书结构、评分办法、供应商问答和时间表。",
-      "tags": [
-        "招标",
-        "RFP",
-        "采购",
-        "评分",
-        "供应商"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "12-procurement-supply-chain/rfp-builder"
-    },
-    {
-      "slug": "vendor-evaluation",
-      "category": "business",
-      "description": "资质、能力、价格、风险四维打分和尽调清单。",
-      "tags": [
-        "供应商",
-        "评估",
-        "采购",
-        "尽调",
-        "打分"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "12-procurement-supply-chain/vendor-evaluation"
-    },
-    {
-      "slug": "supplier-scorecard",
-      "category": "business",
-      "description": "交付、质量、成本、响应的持续考核表和季度复盘。",
-      "tags": [
-        "供应商",
-        "考核",
-        "记分卡",
-        "绩效",
-        "采购"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "12-procurement-supply-chain/supplier-scorecard"
-    },
-    {
-      "slug": "inventory-forecasting",
-      "category": "business",
-      "description": "需求预测、安全库存、补货点和缺货成本权衡。",
-      "tags": [
-        "库存",
-        "预测",
-        "补货",
-        "供应链",
-        "安全库存"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "12-procurement-supply-chain/inventory-forecasting"
-    },
-    {
-      "slug": "contract-negotiation",
-      "category": "business",
-      "description": "谈判前的底线与筹码梳理、条款优先级和让步节奏。",
-      "tags": [
-        "谈判",
-        "采购",
-        "合同",
-        "议价",
-        "条款"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "12-procurement-supply-chain/contract-negotiation"
-    },
-    {
-      "slug": "data-exploration",
-      "category": "research",
-      "description": "拿到一份数据先看什么：分布、缺失、异常、相关，出摘要。",
-      "tags": [
-        "数据探索",
-        "EDA",
-        "分布",
-        "缺失值",
-        "分析"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "10-data-analytics/data-exploration"
-    },
-    {
-      "slug": "data-validation",
-      "category": "research",
-      "description": "完整性、一致性、口径和重复值的检查规则与报告。",
-      "tags": [
-        "数据质量",
-        "校验",
-        "清洗",
-        "一致性",
-        "规则"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "10-data-analytics/data-validation"
-    },
-    {
-      "slug": "data-visualization",
-      "category": "research",
-      "description": "按问题选图表、配色与标注规范，避免误导性图。",
-      "tags": [
-        "可视化",
-        "图表",
-        "配色",
-        "看板",
-        "图"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "10-data-analytics/data-visualization"
-    },
-    {
-      "slug": "sql-queries",
-      "category": "research",
-      "description": "从需求到 SQL：连表、窗口函数、口径对齐和性能。",
-      "tags": [
-        "SQL",
-        "查询",
-        "数据库",
-        "窗口函数",
-        "报表"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "10-data-analytics/sql-queries"
-    },
-    {
-      "slug": "interactive-dashboard-builder",
-      "category": "research",
-      "description": "把一份数据做成可交互的 HTML 看板，筛选、下钻、导出。",
-      "tags": [
-        "看板",
-        "dashboard",
-        "交互",
-        "HTML",
-        "指标"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "10-data-analytics/interactive-dashboard-builder"
-    },
-    {
-      "slug": "incident-postmortem",
-      "category": "productivity",
-      "description": "时间线、根因、影响面、改进项，不追责只追机制。",
-      "tags": [
-        "复盘",
-        "故障",
-        "事故",
-        "postmortem",
-        "根因"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "07-operations/incident-postmortem"
-    },
-    {
-      "slug": "business-case-builder",
-      "category": "productivity",
-      "description": "把一个想法写成能过会的商业论证：成本、收益、风险、替代方案。",
-      "tags": [
-        "立项",
-        "商业论证",
-        "ROI",
-        "提案",
-        "决策"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "07-operations/business-case-builder"
-    },
-    {
-      "slug": "project-status-report",
-      "category": "productivity",
-      "description": "进度、风险、决策请求三段式，给不同层级不同详略。",
-      "tags": [
-        "周报",
-        "项目",
-        "进度",
-        "汇报",
-        "状态"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "07-operations/project-status-report"
-    },
-    {
-      "slug": "file-organizer",
-      "category": "productivity",
-      "description": "按内容识别归类、批量改名、建目录结构、清重复。",
-      "tags": [
-        "文件",
-        "整理",
-        "归档",
-        "改名",
-        "目录"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "07-operations/file-organizer"
-    },
-    {
-      "slug": "meeting-insights-analyzer",
-      "category": "productivity",
-      "description": "从录音转写或纪要里抽结论、待办、负责人和分歧点。",
-      "tags": [
-        "会议",
-        "纪要",
-        "待办",
-        "转写",
-        "复盘"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "07-operations/meeting-insights-analyzer"
-    },
-    {
-      "slug": "board-meeting-prep",
-      "category": "business",
-      "description": "议程、董事会 deck 结构、关键数字和预期问答。",
-      "tags": [
-        "董事会",
-        "board",
-        "汇报",
-        "材料",
-        "治理"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "01-executive-leadership/board-meeting-prep"
-    },
-    {
-      "slug": "executive-communication",
-      "category": "writing",
-      "description": "全员信、投资人更新、危机声明这类高风险文字的写法。",
-      "tags": [
-        "高管",
-        "全员信",
-        "投资人",
-        "声明",
-        "沟通"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "01-executive-leadership/executive-communication"
-    },
-    {
-      "slug": "kpi-dashboard",
-      "category": "business",
-      "description": "选指标、定义口径、设阈值，搭一张能长期看的经营看板。",
-      "tags": [
-        "KPI",
-        "指标",
-        "看板",
-        "经营",
-        "北极星"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "01-executive-leadership/kpi-dashboard"
-    },
-    {
-      "slug": "prd-writer",
-      "category": "product",
-      "description": "背景、目标、范围、方案、验收标准，一份能开工的需求文档。",
-      "tags": [
-        "PRD",
-        "需求",
-        "文档",
-        "产品",
-        "验收"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "09-product-management/prd-writer"
-    },
-    {
-      "slug": "feature-spec",
-      "category": "product",
-      "description": "把一个功能拆成状态、边界、异常和埋点，交给研发不返工。",
-      "tags": [
-        "功能",
-        "规格",
-        "spec",
-        "边界",
-        "异常"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "09-product-management/feature-spec"
-    },
-    {
-      "slug": "roadmap-builder",
-      "category": "product",
-      "description": "按主题和时间段组织，讲清取舍依据而不是排期承诺。",
-      "tags": [
-        "路线图",
-        "roadmap",
-        "规划",
-        "优先级"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "09-product-management/roadmap-builder"
-    },
-    {
-      "slug": "sprint-planning",
-      "category": "product",
-      "description": "拆任务、估容量、定验收，处理插入需求。",
-      "tags": [
-        "迭代",
-        "sprint",
-        "排期",
-        "敏捷",
-        "规划"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "09-product-management/sprint-planning"
-    },
-    {
-      "slug": "user-research-synthesizer",
-      "category": "product",
-      "description": "一堆访谈记录里归纳主题、频次和证据链。",
-      "tags": [
-        "用户研究",
-        "访谈",
-        "归纳",
-        "洞察",
-        "证据"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "09-product-management/user-research-synthesizer"
-    },
-    {
-      "slug": "product-launch-playbook",
-      "category": "product",
-      "description": "发布前的检查清单、内外部沟通和上线后跟踪。",
-      "tags": [
-        "发布",
-        "上线",
-        "checklist",
-        "产品",
-        "GTM"
-      ],
-      "repo": "w95/awesome-claude-corporate-skills",
-      "path": "09-product-management/product-launch-playbook"
-    },
-    {
       "slug": "measuring-pmf",
       "category": "product",
       "description": "用可验证的信号判断有没有 PMF，而不是靠感觉。",
@@ -2707,6 +1963,1407 @@
       "exclude": [
         ".github"
       ]
+    },
+    {
+      "slug": "ticket-triage",
+      "category": "sales",
+      "description": "按类型、紧急度和影响面给工单定级分流，给出下一步和责任人。",
+      "tags": [
+        "工单",
+        "客服",
+        "分流",
+        "优先级",
+        "support"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "customer-support/skills/ticket-triage"
+    },
+    {
+      "slug": "draft-response",
+      "category": "sales",
+      "description": "写客服回复：致歉、解释、变通方案，语气一致、不过度承诺。",
+      "tags": [
+        "客服",
+        "回复",
+        "话术",
+        "致歉",
+        "模板"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "customer-support/skills/draft-response"
+    },
+    {
+      "slug": "customer-escalation",
+      "category": "sales",
+      "description": "升级处理：什么时候升、升给谁、怎么跟客户同步、事后怎么收口。",
+      "tags": [
+        "升级",
+        "投诉",
+        "危机",
+        "客户",
+        "处理"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "customer-support/skills/customer-escalation"
+    },
+    {
+      "slug": "kb-article",
+      "category": "sales",
+      "description": "把重复问题写成知识库文章，结构统一、能被搜到。",
+      "tags": [
+        "知识库",
+        "FAQ",
+        "帮助文档",
+        "客服",
+        "沉淀"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "customer-support/skills/kb-article"
+    },
+    {
+      "slug": "support-customer-research",
+      "category": "sales",
+      "description": "从工单、访谈和评价里归纳客户在意什么、卡在哪。",
+      "tags": [
+        "客户调研",
+        "洞察",
+        "反馈",
+        "归纳",
+        "VOC"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "customer-support/skills/customer-research"
+    },
+    {
+      "slug": "explore-data",
+      "category": "research",
+      "description": "拿到一份新数据先看什么：结构、分布、缺失、异常，出一页摘要。",
+      "tags": [
+        "数据探索",
+        "EDA",
+        "分布",
+        "缺失值",
+        "摘要"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "data/skills/explore-data"
+    },
+    {
+      "slug": "validate-data",
+      "category": "research",
+      "description": "按规则校验数据质量：完整性、一致性、口径、重复，出问题清单。",
+      "tags": [
+        "数据质量",
+        "校验",
+        "清洗",
+        "一致性",
+        "规则"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "data/skills/validate-data"
+    },
+    {
+      "slug": "create-viz",
+      "category": "research",
+      "description": "按问题选图、按数据定形，出能直接放进报告的图。",
+      "tags": [
+        "可视化",
+        "图表",
+        "作图",
+        "报告",
+        "选图"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "data/skills/create-viz"
+    },
+    {
+      "slug": "sql-queries",
+      "category": "research",
+      "description": "从业务问题到 SQL：连表、窗口函数、口径对齐、性能。",
+      "tags": [
+        "SQL",
+        "查询",
+        "数据库",
+        "窗口函数",
+        "报表"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "data/skills/sql-queries"
+    },
+    {
+      "slug": "build-dashboard",
+      "category": "research",
+      "description": "搭看板：选指标、定层级、留下钻，做成能长期看的东西。",
+      "tags": [
+        "看板",
+        "dashboard",
+        "指标",
+        "监控",
+        "BI"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "data/skills/build-dashboard"
+    },
+    {
+      "slug": "analyze-data",
+      "category": "research",
+      "description": "一份数据从问题到结论的完整分析路径，含结论怎么写。",
+      "tags": [
+        "分析",
+        "数据",
+        "结论",
+        "洞察",
+        "报告"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "data/skills/analyze"
+    },
+    {
+      "slug": "design-critique",
+      "category": "design",
+      "description": "按可用性和视觉原则评一版设计，指出问题并给改法。",
+      "tags": [
+        "设计评审",
+        "critique",
+        "可用性",
+        "视觉",
+        "反馈"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "design/skills/design-critique"
+    },
+    {
+      "slug": "accessibility-review",
+      "category": "design",
+      "description": "无障碍检查：对比度、焦点、语义、键盘可达、读屏。",
+      "tags": [
+        "无障碍",
+        "a11y",
+        "对比度",
+        "键盘",
+        "WCAG"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "design/skills/accessibility-review"
+    },
+    {
+      "slug": "ux-copy",
+      "category": "design",
+      "description": "界面文案：按钮、空状态、报错、引导，短而准、语气统一。",
+      "tags": [
+        "UX 文案",
+        "微文案",
+        "按钮",
+        "报错",
+        "空状态"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "design/skills/ux-copy"
+    },
+    {
+      "slug": "design-handoff",
+      "category": "design",
+      "description": "设计交付给研发：标注、切图、状态、边界情况一次说清。",
+      "tags": [
+        "交付",
+        "标注",
+        "handoff",
+        "研发",
+        "规范"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "design/skills/design-handoff"
+    },
+    {
+      "slug": "design-system",
+      "category": "design",
+      "description": "搭或改一套设计系统：token、组件、用法和治理。",
+      "tags": [
+        "设计系统",
+        "token",
+        "组件库",
+        "规范",
+        "一致性"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "design/skills/design-system"
+    },
+    {
+      "slug": "incident-response",
+      "category": "dev",
+      "description": "线上出事时的处置顺序：止血、定位、沟通、复盘。",
+      "tags": [
+        "故障",
+        "事故",
+        "应急",
+        "oncall",
+        "复盘"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "engineering/skills/incident-response"
+    },
+    {
+      "slug": "system-design",
+      "category": "dev",
+      "description": "做系统设计：约束、方案对比、取舍和失败模式。",
+      "tags": [
+        "系统设计",
+        "架构",
+        "方案",
+        "取舍",
+        "扩展性"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "engineering/skills/system-design"
+    },
+    {
+      "slug": "tech-debt",
+      "category": "dev",
+      "description": "把技术债列出来、估成本、排优先级，讲清不还的代价。",
+      "tags": [
+        "技术债",
+        "重构",
+        "优先级",
+        "成本",
+        "偿还"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "engineering/skills/tech-debt"
+    },
+    {
+      "slug": "testing-strategy",
+      "category": "dev",
+      "description": "定测试策略：测什么、测到哪层、覆盖率之外看什么。",
+      "tags": [
+        "测试",
+        "策略",
+        "覆盖率",
+        "用例",
+        "质量"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "engineering/skills/testing-strategy"
+    },
+    {
+      "slug": "deploy-checklist",
+      "category": "dev",
+      "description": "上线前后的检查表：回滚、开关、监控、公告。",
+      "tags": [
+        "上线",
+        "部署",
+        "回滚",
+        "检查表",
+        "发布"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "engineering/skills/deploy-checklist"
+    },
+    {
+      "slug": "financial-statements",
+      "category": "finance",
+      "description": "读财报三张表：勾稽、异常项和该追问的地方。",
+      "tags": [
+        "财报",
+        "三表",
+        "勾稽",
+        "会计",
+        "分析"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "finance/skills/financial-statements"
+    },
+    {
+      "slug": "reconciliation",
+      "category": "finance",
+      "description": "对账：两边匹配、差异归类、逐笔追到源头。",
+      "tags": [
+        "对账",
+        "差异",
+        "核对",
+        "会计",
+        "月结"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "finance/skills/reconciliation"
+    },
+    {
+      "slug": "close-management",
+      "category": "finance",
+      "description": "月结流程：任务清单、时间线、卡点和交付物。",
+      "tags": [
+        "月结",
+        "关账",
+        "流程",
+        "清单",
+        "会计"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "finance/skills/close-management"
+    },
+    {
+      "slug": "variance-analysis",
+      "category": "finance",
+      "description": "预实差异分析：超阈值的科目逐条解释驱动因素。",
+      "tags": [
+        "差异分析",
+        "预算",
+        "实际",
+        "flux",
+        "解释"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "finance/skills/variance-analysis"
+    },
+    {
+      "slug": "journal-entry",
+      "category": "finance",
+      "description": "起草会计分录并附支持材料，等复核。",
+      "tags": [
+        "分录",
+        "记账",
+        "凭证",
+        "会计",
+        "JE"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "finance/skills/journal-entry"
+    },
+    {
+      "slug": "audit-support",
+      "category": "finance",
+      "description": "应对审计：底稿准备、抽样应答、问题清单跟踪。",
+      "tags": [
+        "审计",
+        "底稿",
+        "抽样",
+        "合规",
+        "应对"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "finance/skills/audit-support"
+    },
+    {
+      "slug": "comp-analysis",
+      "category": "people",
+      "description": "薪酬分析：分位对标、内部公平性、调薪包测算。",
+      "tags": [
+        "薪酬",
+        "对标",
+        "调薪",
+        "职级",
+        "公平性"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "human-resources/skills/comp-analysis"
+    },
+    {
+      "slug": "draft-offer",
+      "category": "people",
+      "description": "写 offer：结构、条款、口径，避免含糊承诺。",
+      "tags": [
+        "offer",
+        "录用",
+        "薪资",
+        "条款",
+        "招聘"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "human-resources/skills/draft-offer"
+    },
+    {
+      "slug": "interview-prep",
+      "category": "people",
+      "description": "面试准备：按岗位出题、追问点和评分口径。",
+      "tags": [
+        "面试",
+        "出题",
+        "评分",
+        "招聘",
+        "准备"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "human-resources/skills/interview-prep"
+    },
+    {
+      "slug": "hr-onboarding",
+      "category": "people",
+      "description": "新人入职：清单、对接人、前 90 天节奏。",
+      "tags": [
+        "入职",
+        "新人",
+        "onboarding",
+        "清单",
+        "培训"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "human-resources/skills/onboarding"
+    },
+    {
+      "slug": "org-planning",
+      "category": "people",
+      "description": "组织规划：编制、汇报线、职级和缺口。",
+      "tags": [
+        "组织",
+        "编制",
+        "汇报线",
+        "职级",
+        "规划"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "human-resources/skills/org-planning"
+    },
+    {
+      "slug": "people-report",
+      "category": "people",
+      "description": "人力数据报告：编制、流动、招聘漏斗、留存。",
+      "tags": [
+        "人力数据",
+        "报表",
+        "流动率",
+        "招聘",
+        "分析"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "human-resources/skills/people-report"
+    },
+    {
+      "slug": "performance-review",
+      "category": "people",
+      "description": "绩效评估：按事实写、定等级、给可执行的改进项。",
+      "tags": [
+        "绩效",
+        "考核",
+        "评语",
+        "等级",
+        "反馈"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "human-resources/skills/performance-review"
+    },
+    {
+      "slug": "recruiting-pipeline",
+      "category": "people",
+      "description": "招聘漏斗管理：各阶段转化、卡点和提速办法。",
+      "tags": [
+        "招聘",
+        "漏斗",
+        "转化",
+        "流程",
+        "候选人"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "human-resources/skills/recruiting-pipeline"
+    },
+    {
+      "slug": "review-contract",
+      "category": "legal",
+      "description": "审合同：按条款清单逐条过，标风险、给替代表述。",
+      "tags": [
+        "合同",
+        "审查",
+        "条款",
+        "风险",
+        "法务"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "legal/skills/review-contract"
+    },
+    {
+      "slug": "triage-nda",
+      "category": "legal",
+      "description": "保密协议速判：偏离常规的条款和可接受的谈判区间。",
+      "tags": [
+        "NDA",
+        "保密",
+        "速审",
+        "谈判",
+        "条款"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "legal/skills/triage-nda"
+    },
+    {
+      "slug": "legal-risk-assessment",
+      "category": "legal",
+      "description": "法律风险评估：场景、概率、后果、缓解措施。",
+      "tags": [
+        "法律风险",
+        "评估",
+        "合规",
+        "风险点"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "legal/skills/legal-risk-assessment"
+    },
+    {
+      "slug": "compliance-check",
+      "category": "legal",
+      "description": "合规检查：对照规则清单核对，列出不符项。",
+      "tags": [
+        "合规",
+        "检查",
+        "规则",
+        "核对",
+        "清单"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "legal/skills/compliance-check"
+    },
+    {
+      "slug": "legal-brief",
+      "category": "legal",
+      "description": "写法律意见备忘：事实、争点、依据、结论。",
+      "tags": [
+        "法律意见",
+        "备忘",
+        "争点",
+        "依据",
+        "写作"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "legal/skills/brief"
+    },
+    {
+      "slug": "vendor-check",
+      "category": "legal",
+      "description": "供应商法务核查：资质、条款、数据与合规红线。",
+      "tags": [
+        "供应商",
+        "核查",
+        "法务",
+        "资质",
+        "合规"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "legal/skills/vendor-check"
+    },
+    {
+      "slug": "brand-review",
+      "category": "business",
+      "description": "品牌一致性检查：语气、视觉、表述是否跑偏。",
+      "tags": [
+        "品牌",
+        "一致性",
+        "检查",
+        "语气",
+        "规范"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "marketing/skills/brand-review"
+    },
+    {
+      "slug": "campaign-plan",
+      "category": "business",
+      "description": "策划一场营销战役：目标、受众、渠道、节奏、衡量。",
+      "tags": [
+        "战役",
+        "campaign",
+        "策划",
+        "渠道",
+        "节奏"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "marketing/skills/campaign-plan"
+    },
+    {
+      "slug": "competitive-brief",
+      "category": "business",
+      "description": "竞品简报：定位、卖点、价格、动向，一页看完。",
+      "tags": [
+        "竞品",
+        "简报",
+        "对标",
+        "定位",
+        "情报"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "marketing/skills/competitive-brief"
+    },
+    {
+      "slug": "runbook",
+      "category": "productivity",
+      "description": "把一件反复要做的事写成可照做的 runbook。",
+      "tags": [
+        "runbook",
+        "操作手册",
+        "流程",
+        "SOP",
+        "运维"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "operations/skills/runbook"
+    },
+    {
+      "slug": "process-doc",
+      "category": "productivity",
+      "description": "把现有流程写清楚：角色、步骤、输入输出、例外。",
+      "tags": [
+        "流程",
+        "SOP",
+        "文档",
+        "角色",
+        "例外"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "operations/skills/process-doc"
+    },
+    {
+      "slug": "process-optimization",
+      "category": "productivity",
+      "description": "找流程里的浪费和瓶颈，给改造方案和预期收益。",
+      "tags": [
+        "流程优化",
+        "瓶颈",
+        "精益",
+        "改造",
+        "效率"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "operations/skills/process-optimization"
+    },
+    {
+      "slug": "ops-risk-assessment",
+      "category": "productivity",
+      "description": "运营风险评估：识别、定级、缓解和责任人。",
+      "tags": [
+        "风险",
+        "运营",
+        "评估",
+        "缓解",
+        "清单"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "operations/skills/risk-assessment"
+    },
+    {
+      "slug": "change-request",
+      "category": "productivity",
+      "description": "变更申请：影响面、回滚方案、审批链。",
+      "tags": [
+        "变更",
+        "审批",
+        "回滚",
+        "影响",
+        "流程"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "operations/skills/change-request"
+    },
+    {
+      "slug": "status-report",
+      "category": "productivity",
+      "description": "项目状态报告：进度、风险、要决策的事，分层详略。",
+      "tags": [
+        "周报",
+        "状态",
+        "项目",
+        "汇报",
+        "进度"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "operations/skills/status-report"
+    },
+    {
+      "slug": "write-spec",
+      "category": "product",
+      "description": "写需求规格：背景、范围、方案、边界、验收标准。",
+      "tags": [
+        "需求",
+        "spec",
+        "PRD",
+        "验收",
+        "边界"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "product-management/skills/write-spec"
+    },
+    {
+      "slug": "roadmap-update",
+      "category": "product",
+      "description": "更新路线图：取舍依据、变更说明和对外口径。",
+      "tags": [
+        "路线图",
+        "roadmap",
+        "规划",
+        "取舍",
+        "沟通"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "product-management/skills/roadmap-update"
+    },
+    {
+      "slug": "sprint-planning",
+      "category": "product",
+      "description": "迭代规划：拆任务、估容量、定验收、处理插队。",
+      "tags": [
+        "迭代",
+        "sprint",
+        "排期",
+        "敏捷",
+        "容量"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "product-management/skills/sprint-planning"
+    },
+    {
+      "slug": "metrics-review",
+      "category": "product",
+      "description": "指标复盘：数据怎么读、异常怎么归因、下一步做什么。",
+      "tags": [
+        "指标",
+        "复盘",
+        "归因",
+        "数据",
+        "决策"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "product-management/skills/metrics-review"
+    },
+    {
+      "slug": "synthesize-research",
+      "category": "product",
+      "description": "把一堆用户研究材料归纳成主题、证据和结论。",
+      "tags": [
+        "用户研究",
+        "归纳",
+        "洞察",
+        "证据",
+        "综合"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "product-management/skills/synthesize-research"
+    },
+    {
+      "slug": "stakeholder-update",
+      "category": "product",
+      "description": "给相关方的进展同步：他们关心什么就说什么。",
+      "tags": [
+        "同步",
+        "汇报",
+        "相关方",
+        "沟通",
+        "进展"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "product-management/skills/stakeholder-update"
+    },
+    {
+      "slug": "account-research",
+      "category": "sales",
+      "description": "拜访前把客户公司、业务、近况和决策链摸清楚。",
+      "tags": [
+        "销售",
+        "背调",
+        "客户",
+        "拜访",
+        "B2B"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "partner-built/common-room/skills/account-research"
+    },
+    {
+      "slug": "call-prep",
+      "category": "sales",
+      "description": "销售通话准备：开场、问题清单、异议应对、下一步。",
+      "tags": [
+        "销售",
+        "通话",
+        "拜访",
+        "异议",
+        "准备"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "partner-built/common-room/skills/call-prep"
+    },
+    {
+      "slug": "call-summary",
+      "category": "sales",
+      "description": "通话纪要：结论、承诺、下一步和风险信号。",
+      "tags": [
+        "纪要",
+        "通话",
+        "跟进",
+        "承诺",
+        "销售"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "sales/skills/call-summary"
+    },
+    {
+      "slug": "sales-competitive-intelligence",
+      "category": "sales",
+      "description": "竞品对抗：强弱项、常见攻击点和我方应答。",
+      "tags": [
+        "竞品",
+        "对抗",
+        "话术",
+        "battle card",
+        "销售"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "sales/skills/competitive-intelligence"
+    },
+    {
+      "slug": "draft-outreach",
+      "category": "sales",
+      "description": "写触达：按线索来源和阶段给多个版本。",
+      "tags": [
+        "触达",
+        "外联",
+        "跟进",
+        "邮件",
+        "销售"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "sales/skills/draft-outreach"
+    },
+    {
+      "slug": "pipeline-review",
+      "category": "sales",
+      "description": "管道复盘：每个机会的真实进展、风险和该做的动作。",
+      "tags": [
+        "管道",
+        "pipeline",
+        "复盘",
+        "机会",
+        "预测"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "sales/skills/pipeline-review"
+    },
+    {
+      "slug": "sales-forecast",
+      "category": "sales",
+      "description": "销售预测：分级加权、口径一致、说清不确定性。",
+      "tags": [
+        "预测",
+        "forecast",
+        "加权",
+        "口径",
+        "销售"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "sales/skills/forecast"
+    },
+    {
+      "slug": "cash-flow-snapshot",
+      "category": "finance",
+      "description": "现金流快照：这个月进多少出多少、下个月缺不缺钱。",
+      "tags": [
+        "现金流",
+        "资金",
+        "小店",
+        "经营",
+        "月度"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/cash-flow-snapshot"
+    },
+    {
+      "slug": "invoice-chase",
+      "category": "finance",
+      "description": "催收未付账款：账龄排序、催收话术和升级节奏。",
+      "tags": [
+        "催款",
+        "应收",
+        "账龄",
+        "回款",
+        "小店"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/invoice-chase"
+    },
+    {
+      "slug": "close-month",
+      "category": "finance",
+      "description": "小生意的月结：对账、归档、出一张经营小结。",
+      "tags": [
+        "月结",
+        "小店",
+        "对账",
+        "经营",
+        "账目"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/close-month"
+    },
+    {
+      "slug": "tax-prep",
+      "category": "finance",
+      "description": "报税准备：材料清单、分类归集、常见漏项。",
+      "tags": [
+        "报税",
+        "税务",
+        "材料",
+        "归集",
+        "小店"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/tax-prep"
+    },
+    {
+      "slug": "margin-analyzer",
+      "category": "finance",
+      "description": "算清每个产品或客户的真实毛利，找出在亏的那些。",
+      "tags": [
+        "毛利",
+        "成本",
+        "定价",
+        "盈利",
+        "分析"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/margin-analyzer"
+    },
+    {
+      "slug": "price-check",
+      "category": "business",
+      "description": "定价检查：对比市场、成本和感知价值，给调价建议。",
+      "tags": [
+        "定价",
+        "调价",
+        "成本",
+        "竞品",
+        "小店"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/price-check"
+    },
+    {
+      "slug": "handle-complaint",
+      "category": "sales",
+      "description": "处理客户投诉：先安抚再解决，给补偿档次和话术。",
+      "tags": [
+        "投诉",
+        "客诉",
+        "安抚",
+        "补偿",
+        "门店"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/handle-complaint"
+    },
+    {
+      "slug": "job-post-builder",
+      "category": "people",
+      "description": "写招聘启事：岗位、要求、待遇、亮点，适合小团队。",
+      "tags": [
+        "招聘",
+        "启事",
+        "JD",
+        "小店",
+        "用人"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/job-post-builder"
+    },
+    {
+      "slug": "lead-triage",
+      "category": "sales",
+      "description": "线索分级：哪些今天就跟、哪些放进培育、哪些直接放弃。",
+      "tags": [
+        "线索",
+        "分级",
+        "跟进",
+        "销售",
+        "转化"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/lead-triage"
+    },
+    {
+      "slug": "customer-pulse",
+      "category": "sales",
+      "description": "客户健康度盘点：谁在流失边缘、谁该加把火。",
+      "tags": [
+        "客户",
+        "健康度",
+        "流失",
+        "盘点",
+        "维系"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/customer-pulse"
+    },
+    {
+      "slug": "quarterly-review",
+      "category": "business",
+      "description": "季度复盘：数字、原因、下季度三件事。",
+      "tags": [
+        "季度",
+        "复盘",
+        "经营",
+        "目标",
+        "小店"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/quarterly-review"
+    },
+    {
+      "slug": "crm-cleanup",
+      "category": "sales",
+      "description": "清理 CRM：去重、补字段、归档死线索。",
+      "tags": [
+        "CRM",
+        "清理",
+        "去重",
+        "数据",
+        "销售"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "small-business/skills/crm-cleanup"
+    },
+    {
+      "slug": "knowledge-synthesis",
+      "category": "research",
+      "description": "把多个来源的搜索结果合成一个答案，去重并标出处。",
+      "tags": [
+        "综合",
+        "检索",
+        "去重",
+        "出处",
+        "信息"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "enterprise-search/skills/knowledge-synthesis"
+    },
+    {
+      "slug": "search-strategy",
+      "category": "research",
+      "description": "复杂问题怎么查：拆成子问题、选信源、定停止条件。",
+      "tags": [
+        "检索",
+        "策略",
+        "信源",
+        "拆解",
+        "研究"
+      ],
+      "repo": "anthropics/knowledge-work-plugins",
+      "path": "enterprise-search/skills/search-strategy"
+    },
+    {
+      "slug": "dcf-model",
+      "category": "finance",
+      "description": "搭真正能用的 DCF：取财报数据、做现金流预测、算 WACC 和终值、跑敏感性表。",
+      "tags": [
+        "DCF",
+        "估值",
+        "现金流",
+        "WACC",
+        "投资",
+        "建模"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/model-builder/skills/dcf-model"
+    },
+    {
+      "slug": "lbo-model",
+      "category": "finance",
+      "description": "填 LBO 模型：收购结构、债务分层、还款计划、IRR 和回报归因。",
+      "tags": [
+        "LBO",
+        "杠杆收购",
+        "私募",
+        "IRR",
+        "债务",
+        "模型"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/model-builder/skills/lbo-model"
+    },
+    {
+      "slug": "comps-analysis",
+      "category": "finance",
+      "description": "可比公司分析：选池、清洗口径、算倍数、出估值区间。",
+      "tags": [
+        "可比",
+        "倍数",
+        "估值",
+        "对标",
+        "comps"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/model-builder/skills/comps-analysis"
+    },
+    {
+      "slug": "three-statement-model",
+      "category": "finance",
+      "description": "三表联动建模：利润表、资产负债表、现金流量表互相勾稽。",
+      "tags": [
+        "三表",
+        "建模",
+        "勾稽",
+        "财务模型",
+        "预测"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/model-builder/skills/3-statement-model"
+    },
+    {
+      "slug": "audit-xls",
+      "category": "finance",
+      "description": "审一张表：公式对不对、有没有写死的数、勾稽平不平。",
+      "tags": [
+        "查错",
+        "审表",
+        "Excel",
+        "公式",
+        "勾稽"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/model-builder/skills/audit-xls"
+    },
+    {
+      "slug": "xlsx-author",
+      "category": "docs",
+      "description": "在没有 Excel 的机器上直接生成 .xlsx 文件（配合建模那几份手册用）。",
+      "tags": [
+        "Excel",
+        "xlsx",
+        "生成",
+        "无界面",
+        "表格"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/model-builder/skills/xlsx-author"
+    },
+    {
+      "slug": "pitch-deck",
+      "category": "finance",
+      "description": "把数据填进投行路演模板：图表、表格、脚注一次对齐。",
+      "tags": [
+        "路演",
+        "pitch",
+        "投行",
+        "模板",
+        "deck"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/pitch-agent/skills/pitch-deck"
+    },
+    {
+      "slug": "ib-check-deck",
+      "category": "finance",
+      "description": "投行级 deck 质检：跨页数字一致性、图文是否对得上、措辞。",
+      "tags": [
+        "质检",
+        "一致性",
+        "deck",
+        "投行",
+        "校对"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/pitch-agent/skills/ib-check-deck"
+    },
+    {
+      "slug": "deck-refresh",
+      "category": "finance",
+      "description": "用新一季的数字刷新一份现成 deck，不动版式。",
+      "tags": [
+        "更新",
+        "季度",
+        "deck",
+        "数字",
+        "刷新"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/pitch-agent/skills/deck-refresh"
+    },
+    {
+      "slug": "sector-overview",
+      "category": "finance",
+      "description": "行业全景报告：市场格局、玩家、驱动因素和主题趋势。",
+      "tags": [
+        "行业",
+        "研究",
+        "格局",
+        "趋势",
+        "报告"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/pitch-agent/skills/sector-overview"
+    },
+    {
+      "slug": "earnings-analysis",
+      "category": "finance",
+      "description": "财报点评：超预期项、指引变化、关键指标和结论。",
+      "tags": [
+        "财报",
+        "点评",
+        "季报",
+        "业绩",
+        "研究"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/vertical-plugins/equity-research/skills/earnings-analysis"
+    },
+    {
+      "slug": "earnings-preview",
+      "category": "finance",
+      "description": "财报前瞻：预期、情景、要盯的指标。",
+      "tags": [
+        "前瞻",
+        "财报",
+        "预期",
+        "情景",
+        "研究"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/vertical-plugins/equity-research/skills/earnings-preview"
+    },
+    {
+      "slug": "initiating-coverage",
+      "category": "finance",
+      "description": "首次覆盖研究报告：公司、模型、估值、风险，一整套。",
+      "tags": [
+        "首次覆盖",
+        "研报",
+        "估值",
+        "模型",
+        "股票"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/vertical-plugins/equity-research/skills/initiating-coverage"
+    },
+    {
+      "slug": "gl-recon",
+      "category": "finance",
+      "description": "总账与子账对账：逐笔匹配、列出差异并归类原因。",
+      "tags": [
+        "对账",
+        "总账",
+        "子账",
+        "差异",
+        "会计"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/gl-reconciler/skills/gl-recon"
+    },
+    {
+      "slug": "break-trace",
+      "category": "finance",
+      "description": "把一笔对账差异追到源头凭证，说清两边差在哪。",
+      "tags": [
+        "差异",
+        "追溯",
+        "凭证",
+        "对账",
+        "排查"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/gl-reconciler/skills/break-trace"
+    },
+    {
+      "slug": "variance-commentary",
+      "category": "finance",
+      "description": "月结的差异说明：超阈值的每一行都解释清楚驱动因素。",
+      "tags": [
+        "差异说明",
+        "月结",
+        "预算",
+        "flux",
+        "解释"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/month-end-closer/skills/variance-commentary"
+    },
+    {
+      "slug": "roll-forward",
+      "category": "finance",
+      "description": "科目滚存表：期初 + 变动 - 冲回 = 期末，每项都对得上总账。",
+      "tags": [
+        "滚存",
+        "期末",
+        "科目",
+        "月结",
+        "底稿"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/month-end-closer/skills/roll-forward"
+    },
+    {
+      "slug": "ic-memo",
+      "category": "finance",
+      "description": "投委会备忘：把尽调、模型和条款写成能过会的一份材料。",
+      "tags": [
+        "投委会",
+        "IC",
+        "备忘",
+        "尽调",
+        "决策"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/valuation-reviewer/skills/ic-memo"
+    },
+    {
+      "slug": "kyc-doc-parse",
+      "category": "finance",
+      "description": "把开户材料解析成结构化 KYC 字段：身份、股权、控制人、资金来源。",
+      "tags": [
+        "KYC",
+        "开户",
+        "反洗钱",
+        "材料",
+        "结构化"
+      ],
+      "repo": "anthropics/financial-services",
+      "path": "plugins/agent-plugins/kyc-screener/skills/kyc-doc-parse"
+    },
+    {
+      "slug": "k12-lesson-plan",
+      "category": "productivity",
+      "description": "按课标写一节课的教案：目标、环节、时间分配和练习。",
+      "tags": [
+        "教案",
+        "备课",
+        "课时",
+        "教学",
+        "K12"
+      ],
+      "repo": "anthropics/k12-teacher-skills",
+      "path": "plugin/skills/k12-lesson-plan-creation"
+    },
+    {
+      "slug": "k12-lesson-prep",
+      "category": "productivity",
+      "description": "上课前的准备：材料、板书、可能卡住的地方。",
+      "tags": [
+        "备课",
+        "准备",
+        "材料",
+        "教学",
+        "课堂"
+      ],
+      "repo": "anthropics/k12-teacher-skills",
+      "path": "plugin/skills/k12-lesson-prep"
+    },
+    {
+      "slug": "k12-differentiation",
+      "category": "productivity",
+      "description": "同一节课分层：给学有余力和跟不上的两头各一套安排。",
+      "tags": [
+        "分层",
+        "差异化",
+        "因材施教",
+        "教学",
+        "K12"
+      ],
+      "repo": "anthropics/k12-teacher-skills",
+      "path": "plugin/skills/k12-lesson-differentiation"
+    },
+    {
+      "slug": "k12-check-understanding",
+      "category": "productivity",
+      "description": "设计课堂检测：几个问题就能看出学生真懂没懂。",
+      "tags": [
+        "检测",
+        "提问",
+        "形成性评价",
+        "课堂",
+        "教学"
+      ],
+      "repo": "anthropics/k12-teacher-skills",
+      "path": "plugin/skills/k12-check-for-understanding"
     }
   ],
   "$comment2": "tools：池里不是手册的条目——MCP 服务、素材包。纯数据，不用同步，不落盘。走产品 OAuth 服务的平台（Gmail、Notion…）在 src/connectors.ts 的 TOOLKITS 里，不写在这。",

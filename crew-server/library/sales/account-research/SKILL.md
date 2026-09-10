@@ -1,287 +1,140 @@
 ---
 name: account-research
-description: Research a company or person and get actionable sales intel. Works standalone with web search, supercharged when you connect enrichment tools or your CRM. Trigger with "research [company]", "look up [person]", "intel on [prospect]", "who is [name] at [company]", or "tell me about [company]".
+description: "Research a company using Common Room data. Triggers on 'research [company]', 'tell me about [domain]', 'pull up signals for [account]', 'what's going on with [company]', or any account-level question."
 ---
 
 # Account Research
 
-Get a complete picture of any company or person before outreach. This skill always works with web search, and gets significantly better with enrichment and CRM data.
+Retrieve and synthesize account information from Common Room. Handles four interaction patterns: full overviews, targeted field questions, sparse data situations, and combined MCP data + LLM reasoning.
 
-## How It Works
+## Step 0: Load User Context (Me)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     ACCOUNT RESEARCH                             │
-├─────────────────────────────────────────────────────────────────┤
-│  ALWAYS (works standalone via web search)                        │
-│  ✓ Company overview: what they do, size, industry               │
-│  ✓ Recent news: funding, leadership changes, announcements      │
-│  ✓ Hiring signals: open roles, growth indicators                │
-│  ✓ Key people: leadership team from LinkedIn                    │
-│  ✓ Product/service: what they sell, who they serve              │
-├─────────────────────────────────────────────────────────────────┤
-│  SUPERCHARGED (when you connect your tools)                      │
-│  + Enrichment: verified emails, phone, tech stack, org chart    │
-│  + CRM: prior relationship, past opportunities, contacts        │
-└─────────────────────────────────────────────────────────────────┘
-```
+Before researching any account, fetch the `Me` object from Common Room. This provides:
+- The user's profile, title, role, and Persona in CR
+- The user's segments ("My Segments")
 
----
+Default all queries to the user's own segments unless the user explicitly asks for a broader view. This keeps results scoped to their territory.
 
-## Getting Started
+## Step 1: Identify the Interaction Pattern
 
-Just tell me who to research:
+Determine what the user actually needs before deciding how much data to fetch:
 
-- "Research Stripe"
-- "Look up the CTO at Notion"
-- "Intel on acme.com"
-- "Who is Sarah Chen at TechCorp?"
-- "Tell me about [company] before my call"
+**Pattern 1 — Full Overview:** "Tell me about Datadog" / "Summarize cloudflare.com"
+→ Fetch the full field set and produce a structured briefing.
 
-I'll run web searches immediately. If you have enrichment or CRM connected, I'll pull that data too.
+**Pattern 2 — Targeted Question:** "Who owns the Snowflake account?" / "Is acme.io showing buying signals?" / "What's the employee count for notion.so?"
+→ Fetch only the relevant field(s). Return a direct, concise answer — do not produce a full brief for a simple question.
 
----
+**Pattern 3 — Sparse Data:** "Tell me about tiny-startup.io"
+→ If Common Room has limited data for an account, say so honestly: "There is limited information available for this account." Never speculate or fill gaps with generic statements.
 
-## Connectors (Optional)
+**Pattern 4 — Combined Reasoning:** Fetch structured MCP data, then layer in LLM analysis — e.g., "Stripe has 8,000 employees and is hiring heavily for AI roles. Based on your ICP of 1k–10k fintech companies, this is a strong fit."
 
-Connect your tools to supercharge this skill:
+## Step 2: Look Up the Account
 
-| Connector | What It Adds |
-|-----------|--------------|
-| **Enrichment** | Verified emails, phone numbers, tech stack, org chart, funding details |
-| **CRM** | Prior relationship history, past opportunities, existing contacts, notes |
+Search Common Room for the account by domain or company name. Exact match first; if no result, try partial match and confirm with the user before proceeding.
 
-> **No connectors?** No problem. Web search provides solid research for any company or person.
+## Step 3: Fetch the Right Fields
 
----
+Use the Common Room object catalog to see available field groups and their contents. For full overviews, request all field groups. For targeted questions, request only what's relevant.
 
-## Output Format
+**Key field groups to know about:**
+- **Scores** — always return as raw values or percentiles, never labels
+- **Summary research** — RoomieAI output; often the richest qualitative signal
+- **Top contacts** — sorted by score desc; use communityMemberID for full lookups
 
-```markdown
-# Research: [Company or Person Name]
+**Choosing what to fetch:**
 
-**Generated:** [Date]
-**Sources:** Web Search [+ Enrichment] [+ CRM]
+| User query type | Fields to request |
+|-----------------|------------------|
+| Full account overview | All field groups |
+| "Who owns this account?" | Company profiles & links, CRM fields |
+| "Is this company a good fit?" | Key fields, scores, about |
+| "What signals is this account showing?" | Scores, summary research, CRM fields |
+| "Who are the top contacts?" | Top contacts |
+| "What does RoomieAI say about them?" | Summary research, all research |
+| "Find engineers at this account" | Prospects (with title filter) |
 
----
+## Step 4: Web Search (Sparse Data Only)
 
-## Quick Take
+Common Room is the primary data source. Do not run web search when CR returns rich data.
 
-[2-3 sentences: Who they are, why they might need you, best angle for outreach]
+When CR data is sparse (Pattern 3 — few fields returned, no activity, no scores), run a targeted web search to fill gaps:
+- `"[company name]" news` — scoped to the last 30 days
+- Look for: funding rounds, acquisitions, product launches, executive changes, press coverage
 
----
+If the user explicitly asks for external context or recent news, run web search regardless of data richness.
 
-## Company Profile
+## Step 5: Apply Reasoning (Pattern 4)
 
-| Field | Value |
-|-------|-------|
-| **Company** | [Name] |
-| **Website** | [URL] |
-| **Industry** | [Industry] |
-| **Size** | [Employee count] |
-| **Headquarters** | [Location] |
-| **Founded** | [Year] |
-| **Funding** | [Stage + amount if known] |
-| **Revenue** | [Estimate if available] |
+When the user's question invites synthesis — not just data retrieval — layer in analysis:
+- Compare account data to known ICP criteria from session context
+- Identify fit signals (size, industry, tech stack, hiring patterns)
+- Note timing signals (funding, trial status, recent activity spike)
+- Frame insights as clearly derived from data, not assumed
 
-### What They Do
-[1-2 sentence description of their business, product, and customers]
+When the user's company context is available (see `references/my-company-context.md`), position findings relative to the user's value proposition and ICP.
 
-### Recent News
-- **[Headline]** — [Date] — [Why it matters for your outreach]
-- **[Headline]** — [Date] — [Why it matters]
+## Step 6: Produce Output
 
-### Hiring Signals
-- [X] open roles in [Department]
-- Notable: [Relevant roles like Engineering, Sales, AI/ML]
-- Growth indicator: [Hiring velocity interpretation]
+Only include sections where Common Room returned actual data. Omit sections entirely rather than filling them with guesses.
 
----
-
-## Key People
-
-### [Name] — [Title]
-| Field | Detail |
-|-------|--------|
-| **LinkedIn** | [URL] |
-| **Background** | [Prior companies, education] |
-| **Tenure** | [Time at company] |
-| **Email** | [If enrichment connected] |
-
-**Talking Points:**
-- [Personal hook based on background]
-- [Professional hook based on role]
-
-[Repeat for relevant contacts]
-
----
-
-## Tech Stack [If Enrichment Connected]
-
-| Category | Tools |
-|----------|-------|
-| **Cloud** | [AWS, GCP, Azure, etc.] |
-| **Data** | [Snowflake, Databricks, etc.] |
-| **CRM** | [e.g. Salesforce, HubSpot] |
-| **Other** | [Relevant tools] |
-
-**Integration Opportunity:** [How your product fits with their stack]
-
----
-
-## Prior Relationship [If CRM Connected]
-
-| Field | Detail |
-|-------|--------|
-| **Status** | [New / Prior prospect / Customer / Churned] |
-| **Last Contact** | [Date and type] |
-| **Previous Opps** | [Won/Lost and why] |
-| **Known Contacts** | [Names already in CRM] |
-
-**History:** [Summary of past relationship]
-
----
-
-## Qualification Signals
-
-### Positive Signals
-- ✅ [Signal and evidence]
-- ✅ [Signal and evidence]
-
-### Potential Concerns
-- ⚠️ [Concern and what to watch for]
-
-### Unknown (Ask in Discovery)
-- ❓ [Gap in understanding]
-
----
-
-## Recommended Approach
-
-**Best Entry Point:** [Person and why]
-
-**Opening Hook:** [What to lead with based on research]
-
-**Discovery Questions:**
-1. [Question about their situation]
-2. [Question about pain points]
-3. [Question about decision process]
-
----
-
-## Sources
-- [Source 1](URL)
-- [Source 2](URL)
-```
-
----
-
-## Execution Flow
-
-### Step 1: Parse Request
+**Full overview (when data is rich):**
 
 ```
-Identify what to research:
-- "Research Stripe" → Company research
-- "Look up John Smith at Acme" → Person + company
-- "Who is the CTO at Notion" → Role-based search
-- "Intel on acme.com" → Domain-based lookup
+## [Company Name] — Account Overview
+
+**Snapshot**
+[2–3 sentences: what they do, plan/stage, relationship status]
+
+**Key Details**
+[Employee count, industry, location, domain, funding — from key fields]
+
+**CRM & Ownership** [If CRM fields returned]
+[Owner, opp stage, ARR]
+
+**Scores** [If scores returned]
+[All available scores as raw values or percentiles]
+
+**Signal Highlights** [If activity/signals exist]
+[3–5 most important signals with dates]
+
+**Top Contacts** [If contacts returned]
+[Name | Title | Score — top 5 sorted by score desc]
+
+**RoomieAI Research** [If summary research is non-null]
+[Summary research output; list all available research topic names]
+
+**Recommended Next Steps**
+[2–3 specific, signal-backed actions]
 ```
 
-### Step 2: Web Search (Always)
+**Targeted question:** 1–3 sentence direct answer. No full brief needed.
+
+**Sparse data (few fields returned, most sections would be empty):**
 
 ```
-Run these searches:
-1. "[Company name]" → Homepage, about page
-2. "[Company name] news" → Recent announcements
-3. "[Company name] funding" → Investment history
-4. "[Company name] careers" → Hiring signals
-5. "[Person name] [Company] LinkedIn" → Profile info
-6. "[Company name] product" → What they sell
-7. "[Company name] customers" → Who they serve
+## [Company Name] — Account Overview (Limited Data)
+
+**Data available:** [List exactly what Common Room returned]
+
+[Present only the returned fields]
+
+**Web Search**
+[Findings from web search — or "No significant recent news found"]
+
+**Note:** Common Room has limited data on this account. The account may need enrichment in Common Room.
 ```
 
-**Extract:**
-- Company description and positioning
-- Recent news (last 90 days)
-- Leadership team
-- Open job postings
-- Technology mentions
-- Customer base
+## Quality Standards
 
-### Step 3: Enrichment (If Connected)
+- Scores must always be raw values or percentiles — never categorical labels
+- For targeted questions, answer precisely and don't over-deliver
+- Be explicit when data is missing or stale — don't speculate
+- Keep full briefings readable in 2–3 minutes
+- **Every fact must trace to a tool call** — don't include data not returned by Common Room
 
-```
-If enrichment tools available:
-1. Enrich company → Firmographics, funding, tech stack
-2. Search people → Org chart, contact list
-3. Enrich person → Email, phone, background
-4. Get signals → Intent data, hiring velocity
-```
+## Reference Files
 
-**Enrichment adds:**
-- Verified contact info
-- Complete org chart
-- Precise employee count
-- Detailed tech stack
-- Funding history with investors
+- **`references/signals-guide.md`** — signal type taxonomy and interpretation guide
 
-### Step 4: CRM Check (If Connected)
-
-```
-If CRM available:
-1. Search for account by domain
-2. Get related contacts
-3. Get opportunity history
-4. Get activity timeline
-```
-
-**CRM adds:**
-- Prior relationship context
-- What happened before (won/lost deals)
-- Who we've talked to
-- Notes and history
-
-### Step 5: Synthesize
-
-```
-1. Combine all sources
-2. Prioritize enrichment data over web (more accurate)
-3. Add CRM context if exists
-4. Identify qualification signals
-5. Generate talking points
-6. Recommend approach
-```
-
----
-
-## Research Variations
-
-### Company Research
-Focus on: Business overview, news, hiring, leadership
-
-### Person Research
-Focus on: Background, role, LinkedIn activity, talking points
-
-### Competitor Research
-Focus on: Product comparison, positioning, win/loss patterns
-
-### Pre-Meeting Research
-Focus on: Attendee backgrounds, recent news, relationship history
-
----
-
-## Tips for Better Research
-
-1. **Include the domain** — "research acme.com" is more precise
-2. **Specify the person** — "look up Jane Smith, VP Sales at Acme"
-3. **State your goal** — "research Stripe before my demo call"
-4. **Ask for specifics** — "what's their tech stack?" after initial research
-
----
-
-## Related Skills
-
-- **call-prep** — Full meeting prep with this research plus context
-- **draft-outreach** — Write personalized message based on research
-- **prospecting** — Qualify and prioritize research targets

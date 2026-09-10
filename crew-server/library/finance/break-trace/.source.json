@@ -1,0 +1,9 @@
+{
+  "repo": "anthropics/financial-services",
+  "path": "plugins/agent-plugins/gl-reconciler/skills/break-trace",
+  "commit": "69cbc81",
+  "url": "https://github.com/anthropics/financial-services/tree/HEAD/plugins/agent-plugins/gl-reconciler/skills/break-trace",
+  "license": "Apache-2.0",
+  "licenseFile": "LICENSE",
+  "fetchedAt": "2026-09-10T14:43:18.621Z"
+}

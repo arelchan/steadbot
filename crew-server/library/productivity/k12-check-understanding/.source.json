@@ -1,0 +1,9 @@
+{
+  "repo": "anthropics/k12-teacher-skills",
+  "path": "plugin/skills/k12-check-for-understanding",
+  "commit": "281eb8d",
+  "url": "https://github.com/anthropics/k12-teacher-skills/tree/HEAD/plugin/skills/k12-check-for-understanding",
+  "license": "Apache-2.0",
+  "licenseFile": "LICENSE",
+  "fetchedAt": "2026-09-10T14:43:23.291Z"
+}

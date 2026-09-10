@@ -1,9 +1,9 @@
 {
-  "repo": "w95/awesome-claude-corporate-skills",
-  "path": "06-legal-compliance/legal-risk-assessment",
-  "commit": "78dbc7c",
-  "url": "https://github.com/w95/awesome-claude-corporate-skills/tree/HEAD/06-legal-compliance/legal-risk-assessment",
-  "license": "MIT",
+  "repo": "anthropics/knowledge-work-plugins",
+  "path": "legal/skills/legal-risk-assessment",
+  "commit": "11ac5ee",
+  "url": "https://github.com/anthropics/knowledge-work-plugins/tree/HEAD/legal/skills/legal-risk-assessment",
+  "license": "Apache-2.0",
   "licenseFile": "LICENSE",
-  "fetchedAt": "2026-09-10T14:11:39.835Z"
+  "fetchedAt": "2026-09-10T14:43:13.195Z"
 }

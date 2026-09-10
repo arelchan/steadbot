@@ -1,9 +1,9 @@
 {
-  "repo": "w95/awesome-claude-corporate-skills",
-  "path": "05-sales/draft-outreach",
-  "commit": "78dbc7c",
-  "url": "https://github.com/w95/awesome-claude-corporate-skills/tree/HEAD/05-sales/draft-outreach",
-  "license": "MIT",
+  "repo": "anthropics/knowledge-work-plugins",
+  "path": "sales/skills/draft-outreach",
+  "commit": "11ac5ee",
+  "url": "https://github.com/anthropics/knowledge-work-plugins/tree/HEAD/sales/skills/draft-outreach",
+  "license": "Apache-2.0",
   "licenseFile": "LICENSE",
-  "fetchedAt": "2026-09-10T14:11:39.897Z"
+  "fetchedAt": "2026-09-10T14:43:13.374Z"
 }

@@ -1,9 +1,9 @@
 {
-  "repo": "w95/awesome-claude-corporate-skills",
-  "path": "11-customer-success/ticket-triage",
-  "commit": "78dbc7c",
-  "url": "https://github.com/w95/awesome-claude-corporate-skills/tree/HEAD/11-customer-success/ticket-triage",
-  "license": "MIT",
+  "repo": "anthropics/knowledge-work-plugins",
+  "path": "customer-support/skills/ticket-triage",
+  "commit": "11ac5ee",
+  "url": "https://github.com/anthropics/knowledge-work-plugins/tree/HEAD/customer-support/skills/ticket-triage",
+  "license": "Apache-2.0",
   "licenseFile": "LICENSE",
-  "fetchedAt": "2026-09-10T14:11:39.918Z"
+  "fetchedAt": "2026-09-10T14:43:12.877Z"
 }

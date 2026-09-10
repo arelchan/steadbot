@@ -1,9 +1,9 @@
 {
-  "repo": "w95/awesome-claude-corporate-skills",
-  "path": "10-data-analytics/sql-queries",
-  "commit": "78dbc7c",
-  "url": "https://github.com/w95/awesome-claude-corporate-skills/tree/HEAD/10-data-analytics/sql-queries",
-  "license": "MIT",
+  "repo": "anthropics/knowledge-work-plugins",
+  "path": "data/skills/sql-queries",
+  "commit": "11ac5ee",
+  "url": "https://github.com/anthropics/knowledge-work-plugins/tree/HEAD/data/skills/sql-queries",
+  "license": "Apache-2.0",
   "licenseFile": "LICENSE",
-  "fetchedAt": "2026-09-10T14:11:40.013Z"
+  "fetchedAt": "2026-09-10T14:43:12.952Z"
 }

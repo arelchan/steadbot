@@ -1,5 +1,5 @@
 ---
-name: fsi-comps-analysis
+name: comps-analysis
 description: |
   Build institutional-grade comparable company analyses with operating metrics, valuation multiples, and statistical benchmarking in Excel/spreadsheet format.
 
@@ -74,6 +74,37 @@ Start with headers that force strategic thinking about what matters, input clean
 
 ---
 
+## ⚠️ CRITICAL: Formulas Over Hardcodes + Step-by-Step Verification
+
+**Environment — Office JS vs Python:**
+- **If running inside Excel (Office Add-in / Office JS):** Use Office JS directly (`Excel.run(async (context) => {...})`). Write formulas via `range.formulas = [["=E7/C7"]]`, not `range.values`. No separate recalc step — Excel handles it natively. Use `range.format.*` for colors/fonts.
+- **If generating a standalone .xlsx file:** Use Python/openpyxl. Write `cell.value = "=E7/C7"` (formula string).
+- Same principles either way — just translate the API calls.
+- **Office JS merged cell pitfall:** Do NOT call `.merge()` then set `.values` on the merged range (throws `InvalidArgument` — range still reports its pre-merge dimensions). Instead write the value to the top-left cell alone, then merge + format the full range:
+  ```js
+  ws.getRange("A1").values = [["TECHNOLOGY — COMPARABLE COMPANY ANALYSIS"]];
+  const hdr = ws.getRange("A1:H1");
+  hdr.merge();
+  hdr.format.fill.color = "#1F4E79";
+  hdr.format.font.color = "#FFFFFF";
+  hdr.format.font.bold = true;
+  ```
+
+**Formulas, not hardcodes:**
+- Every derived value (margin, multiple, statistic) MUST be an Excel formula referencing input cells — never a pre-computed number pasted in
+- When using Python/openpyxl to build the sheet: write `cell.value = "=E7/C7"` (formula string), NOT `cell.value = 0.687` (computed result)
+- The only hardcoded values should be raw input data (revenue, EBITDA, share price, etc.) — and every one of those gets a cell comment with its source
+- Why: the model must update automatically when an input changes. A hardcoded margin is a silent bug waiting to happen.
+
+**Verify step-by-step with the user:**
+- After setting up the structure → show the user the header layout before filling data
+- After entering raw inputs → show the user the input block and confirm sources/periods before building formulas
+- After building operating metrics formulas → show the calculated margins and sanity-check with the user before moving to valuation
+- After building valuation multiples → show the multiples and confirm they look reasonable before adding statistics
+- Do NOT build the entire sheet end-to-end and then present it — catch errors early by confirming each section
+
+---
+
 ## Section 1: Document Structure & Setup
 
 ### Header Block (Rows 1-3)
@@ -98,21 +129,23 @@ Row 3: As of [Period] | All figures in [USD Millions/Billions] except per-share 
 - **Font size**: 11pt for data cells, 12pt for headers
 - **Bold text**: Section headers, company names, statistic labels
 
-**Suggested Color & Shading:**
+**Default Color & Shading — Professional Blue/Grey Palette (minimal is better):**
+- **Keep it restrained** — only blues and greys. Do NOT introduce greens, oranges, reds, or multiple accent colors. A clean comps sheet uses 3-4 colors total.
 - **Section headers** (e.g., "OPERATING STATISTICS & FINANCIAL METRICS"):
-  - Dark blue background (#17365D or similar navy)
+  - Dark blue background (`#1F4E79` or `#17365D` navy)
   - White bold text
   - Full row shading across all columns
 - **Column headers** (e.g., "Company", "Revenue", "Margin"):
-  - Light blue/gray background (#D9E2F3 or similar pale blue)
+  - Light blue background (`#D9E1F2` or similar pale blue)
   - Black bold text
   - Centered alignment
 - **Data rows**:
   - White background for company data
-  - Black text for inputs and formulas
+  - Black text for formulas; blue text for hardcoded inputs
 - **Statistics rows** (Maximum, 75th Percentile, etc.):
-  - Light gray background (#F2F2F2)
+  - Light grey background (`#F2F2F2`)
   - Black text, left-aligned labels
+- **That's the whole palette**: dark blue + light blue + light grey + white. Nothing else unless the user's template says otherwise.
 
 **Suggested Formatting Conventions:**
 - **Decimal precision**:

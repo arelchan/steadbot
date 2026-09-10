@@ -1,258 +1,137 @@
 ---
 name: call-prep
-description: Prepare for a sales call with account context, attendee research, and suggested agenda. Works standalone with user input and web research, supercharged when you connect your CRM, email, chat, or transcripts. Trigger with "prep me for my call with [company]", "I'm meeting with [company] prep me", "call prep [company]", or "get me ready for [meeting]".
+description: "Prepare for a customer or prospect call using Common Room signals. Triggers on 'prep me for my call with [company]', 'prepare for a meeting with [company]', 'what should I know before talking to [company]', or any call preparation request."
 ---
 
 # Call Prep
 
-Get fully prepared for any sales call in minutes. This skill works with whatever context you provide, and gets significantly better when you connect your sales tools.
+Produce a complete, scannable call prep brief by combining account research, contact research, and signal synthesis from Common Room.
 
-## How It Works
+## Prep Process
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        CALL PREP                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  ALWAYS (works standalone)                                       │
-│  ✓ You tell me: company, meeting type, attendees                │
-│  ✓ Web search: recent news, funding, leadership changes         │
-│  ✓ Company research: what they do, size, industry               │
-│  ✓ Output: prep brief with agenda and questions                 │
-├─────────────────────────────────────────────────────────────────┤
-│  SUPERCHARGED (when you connect your tools)                      │
-│  + CRM: account history, contacts, opportunities, activities    │
-│  + Email: recent threads, open questions, commitments           │
-│  + Chat: internal discussions, colleague insights               │
-│  + Transcripts: prior call recordings, key moments              │
-│  + Calendar: auto-find meeting, pull attendees                  │
-└─────────────────────────────────────────────────────────────────┘
-```
+### Step 1: Identify the Account and Attendees
 
----
+Parse what the user has provided:
+- **Company name** — required; look up the account in Common Room
+- **Attendee names** — optional; if provided, research each one
 
-## Getting Started
+**Calendar lookup:** If a `~~calendar` connector is available, search for upcoming meetings with the named company to automatically surface attendee names, meeting time, and any meeting notes or agenda. Use this to fill gaps the user didn't provide.
 
-When you run this skill, I'll ask for what I need:
+If neither attendees nor a calendar match can be found, ask: "Who will be on the call from [Company]? I can research each attendee to make your prep more useful."
 
-**Required:**
-- Company or contact name
-- Meeting type (discovery, demo, negotiation, check-in, etc.)
+### Step 2: Run Account Research
 
-**Helpful if you have it:**
-- Who's attending (names and titles)
-- Any context you want me to know (paste prior notes, emails, etc.)
+Use the account-research skill process to build a full account snapshot. For call prep, prioritize:
+- Recent product signals (what are they doing in the product right now?)
+- Open opportunities or renewal timeline
+- Any risk signals (declining usage, support tickets, churned seats)
+- Key recent events (funding, executive change, new hire)
 
-If you've connected your CRM, email, or other tools, I'll pull context automatically and skip the questions.
+When reviewing activity history, prioritize Gong and call recording activities — these provide direct context about previous conversations. Do not filter out call recordings by activity origin.
 
----
+### Step 3: Run Contact Research for Each Attendee
 
-## Connectors (Optional)
+For each external attendee, use the contact-research skill process. For call prep, focus on:
+- Role and influence in the buying process
+- Their personal activity and engagement history
+- Any recent signals that suggest their current mood/priorities
+- Spark persona classification if available
 
-Connect your tools to supercharge this skill:
+### Step 4: Synthesize Talking Points and Objectives
 
-| Connector | What It Adds |
-|-----------|--------------|
-| **CRM** | Account details, contact history, open deals, recent activities |
-| **Email** | Recent threads with the company, open questions, attachments shared |
-| **Chat** | Internal chat discussions (e.g. Slack) about the account, colleague insights |
-| **Transcripts** | Prior call recordings, topics covered, competitor mentions |
-| **Calendar** | Auto-find the meeting, pull attendees and description |
+Based on the combined account and contact research:
+- Identify the **call objective** (e.g., discovery, demo, expansion conversation, renewal, QBR)
+- Generate **3–5 tailored talking points** grounded in specific signal data
+- Anticipate **2–3 likely objections or topics** the customer may raise
+- Suggest a **recommended outcome** for the call
 
-> **No connectors?** No problem. Just tell me about the meeting and paste any context you have. I'll research the rest.
+When the user's company context is available (see `references/my-company-context.md`), tailor talking points to the user's product and value proposition.
 
----
+### Step 5: Recency Check (Web Search)
+
+After gathering all Common Room data, run a quick recency check to catch anything that happened since the last CR data sync. This is supplementary — CR data drives the prep; web search only adds recency.
+
+**Company news:** Search `"[company name]" news` filtered to the last 14 days. Look for funding announcements, product launches, leadership changes, layoffs, partnerships, or press coverage.
+
+**Attendee presence:** For each external attendee, search `"[full name]" "[company name]"` — look for recent articles, LinkedIn posts, conference talks, podcasts, or published opinions.
+
+If a company news item is significant (e.g., just raised a round, announced a major hire), flag it in Signal Highlights. Otherwise, include findings briefly — don't let web search results overshadow CR signals.
 
 ## Output Format
 
-```markdown
-# Call Prep: [Company Name]
+The output adapts to how much data Common Room returned. Only include sections where you have real data. Never fill a section with invented details.
 
-**Meeting:** [Type] — [Date/Time if known]
-**Attendees:** [Names with titles]
-**Your Goal:** [What you want to accomplish]
+### When data is rich (multiple field groups returned, activity history, scores, signals):
 
----
+```
+## Call Prep: [Company] — [Date/Time if known]
 
-## Account Snapshot
-
-| Field | Value |
-|-------|-------|
-| **Company** | [Name] |
-| **Industry** | [Industry] |
-| **Size** | [Employees / Revenue if known] |
-| **Status** | [New prospect / Active opportunity / Customer] |
-| **Last Touch** | [Date and summary] |
+**Meeting Context**
+[Attendees, meeting type, and any known agenda]
 
 ---
 
-## Who You're Meeting
+### Company Snapshot
+[4–6 bullets: key account status, signals, and recent activity]
 
-### [Name] — [Title]
-- **Background:** [Career history, education if found]
-- **LinkedIn:** [URL]
-- **Role in Deal:** [Decision maker / Champion / Evaluator / etc.]
-- **Last Interaction:** [Summary if known]
-- **Talking Point:** [Something personal/professional to reference]
+---
+
+### Attendee Profiles
+
+**[Attendee Name] — [Title]**
+[3–4 bullets: role, recent activity, Spark persona if available, personal hook]
 
 [Repeat for each attendee]
 
 ---
 
-## Context & History
-
-**What's happened so far:**
-- [Key point from prior interactions]
-- [Open commitments or action items]
-- [Any concerns or objections raised]
-
-**Recent news about [Company]:**
-- [News item 1 — why it matters]
-- [News item 2 — why it matters]
+### Signal Highlights
+[Top 3 signals most relevant to this specific call]
 
 ---
 
-## Suggested Agenda
+### Talking Points
+1. [Point tied to a specific signal]
+2. [Point tied to a specific signal]
+3. [Point tied to a specific signal]
 
-1. **Open** — [Reference last conversation or trigger event]
-2. **[Topic 1]** — [Discovery question or value discussion]
-3. **[Topic 2]** — [Address known concern or explore priority]
-4. **[Topic 3]** — [Demo section / Proposal review / etc.]
-5. **Next Steps** — [Propose clear follow-up with timeline]
+### Likely Topics / Objections to Prepare For
+- [Topic or objection + suggested response]
+- [Topic or objection + suggested response]
 
----
-
-## Discovery Questions
-
-Ask these to fill gaps in your understanding:
-
-1. [Question about their current situation]
-2. [Question about pain points or priorities]
-3. [Question about decision process and timeline]
-4. [Question about success criteria]
-5. [Question about other stakeholders]
-
----
-
-## Potential Objections
-
-| Objection | Suggested Response |
-|-----------|-------------------|
-| [Likely objection based on context] | [How to address it] |
-| [Common objection for this stage] | [How to address it] |
-
----
-
-## Internal Notes
-
-[Any internal chat context (e.g. Slack), colleague insights, or competitive intel]
-
----
-
-## After the Call
-
-Run **call-follow-up** to:
-- Extract action items
-- Update your CRM
-- Draft follow-up email
+### Recommended Call Outcome
+[1–2 sentences: what success looks like for this meeting]
 ```
 
----
-
-## Execution Flow
-
-### Step 1: Gather Context
-
-**If connectors available:**
-```
-1. Calendar → Find upcoming meeting matching company name
-   - Pull: title, time, attendees, description, attachments
-
-2. CRM → Query account
-   - Pull: account details, all contacts, open opportunities
-   - Pull: last 10 activities, any account notes
-
-3. Email → Search recent threads
-   - Query: emails with company domain (last 30 days)
-   - Extract: key topics, open questions, commitments
-
-4. Chat → Search internal discussions
-   - Query: company name mentions (last 30 days)
-   - Extract: colleague insights, competitive intel
-
-5. Transcripts → Find prior calls
-   - Pull: call recordings with this account
-   - Extract: key moments, objections raised, topics covered
-```
-
-**If no connectors:**
-```
-1. Ask user:
-   - "What company are you meeting with?"
-   - "What type of meeting is this?"
-   - "Who's attending? (names and titles if you know)"
-   - "Any context you want me to know? (paste notes, emails, etc.)"
-
-2. Accept whatever they provide and work with it
-```
-
-### Step 2: Research Supplement
-
-**Always run (web search):**
-```
-1. "[Company] news" — last 30 days
-2. "[Company] funding" — recent announcements
-3. "[Company] leadership" — executive changes
-4. "[Company] + [industry] trends" — relevant context
-5. Attendee LinkedIn profiles — background research
-```
-
-### Step 3: Synthesize & Generate
+### When data is sparse (few fields returned, no activity, null sparkSummary):
 
 ```
-1. Combine all sources into unified context
-2. Identify gaps in understanding → generate discovery questions
-3. Anticipate objections based on stage and history
-4. Create suggested agenda tailored to meeting type
-5. Output formatted prep brief
+## Call Prep: [Company] — [Date/Time if known]
+
+**Data available:** [List exactly what Common Room returned — e.g., "Name, title, email, two tags. No activity history, no scores, no Spark data."]
+
+### What I Found
+[Only the fields actually returned, presented as-is]
+
+### Web Search Results
+[Findings from web search on the company and attendees — or "No significant results"]
+
+### Suggested Next Steps
+- I can pull [specific field groups] from Common Room if available
+- I can run deeper web searches on [specific topics]
+- You may want to check Common Room directly for [what's missing]
 ```
 
----
+Do not generate a full call prep brief from sparse data. A short honest output is always better than a long fabricated one.
 
-## Meeting Type Variations
+## Quality Standards
 
-### Discovery Call
-- Focus on: Understanding their world, pain points, priorities
-- Agenda emphasis: Questions > Talking
-- Key output: Qualification signals, next step proposal
+- Ground every talking point in a real signal — no generic filler
+- Keep the brief tight — it should be readable in 5 minutes or less
+- Flag unknowns explicitly — if attendee research is thin, say so
+- Time-box the research — don't over-research at the expense of speed
+- **Never invent deal context** — no fabricated proposals, competitor comparisons, pricing, trial terms, or objections not returned by a tool call
 
-### Demo / Presentation
-- Focus on: Their specific use case, tailored examples
-- Agenda emphasis: Show relevant features, get feedback
-- Key output: Technical requirements, decision timeline
+## Reference Files
 
-### Negotiation / Proposal Review
-- Focus on: Addressing concerns, justifying value
-- Agenda emphasis: Handle objections, close gaps
-- Key output: Path to agreement, clear next steps
-
-### Check-in / QBR
-- Focus on: Value delivered, expansion opportunities
-- Agenda emphasis: Review wins, surface new needs
-- Key output: Renewal confidence, upsell pipeline
-
----
-
-## Tips for Better Prep
-
-1. **More context = better prep** — Paste emails, notes, anything you have
-2. **Name the attendees** — Even just titles help me research
-3. **State your goal** — "I want to get them to agree to a pilot"
-4. **Flag concerns** — "They mentioned budget is tight"
-
----
-
-## Related Skills
-
-- **account-research** — Deep dive on a company before first contact
-- **call-follow-up** — Process call notes and execute post-call workflow
-- **draft-outreach** — Write personalized outreach after research
+- **`references/call-types-guide.md`** — guidance for different call types (discovery, expansion, renewal, QBR) and how to tailor prep accordingly

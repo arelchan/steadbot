@@ -1,9 +1,9 @@
 {
-  "repo": "w95/awesome-claude-corporate-skills",
-  "path": "05-sales/call-prep",
-  "commit": "78dbc7c",
-  "url": "https://github.com/w95/awesome-claude-corporate-skills/tree/HEAD/05-sales/call-prep",
-  "license": "MIT",
+  "repo": "anthropics/knowledge-work-plugins",
+  "path": "partner-built/common-room/skills/call-prep",
+  "commit": "11ac5ee",
+  "url": "https://github.com/anthropics/knowledge-work-plugins/tree/HEAD/partner-built/common-room/skills/call-prep",
+  "license": "Apache-2.0",
   "licenseFile": "LICENSE",
-  "fetchedAt": "2026-09-10T14:11:39.891Z"
+  "fetchedAt": "2026-09-10T14:43:13.355Z"
 }
