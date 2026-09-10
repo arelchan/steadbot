@@ -1019,6 +1019,16 @@ textarea.ident-desc:focus { outline: 0; border-color: var(--accent-hair); backgr
 .bubble a:hover { border-bottom-color: var(--accent); }
 .bubble .ic, .md .ic { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: var(--tint-2); padding: 1px 5px; border-radius: 4px; }
 .bubble .md-q, .md .md-q { margin: 4px 0; padding: 2px 10px; border-left: 2px solid var(--hair); color: var(--text-2); }
+.bubble .md-q > div + div, .md .md-q > div + div { margin-top: 2px; }
+/* headings keep their level; a chat bubble is small, so the steps are small too */
+.md-h.h1 { font-size: 15px; }
+.md-h.h2 { font-size: 14px; }
+.md-h.h3, .md-h.h4, .md-h.h5, .md-h.h6 { font-size: inherit; }
+.md-list .md-list { margin-top: 2px; margin-bottom: 2px; }
+li.md-task { list-style: none; margin-left: -1.1em; display: flex; gap: 6px; align-items: baseline; }
+li.md-task.done { color: var(--text-2); }
+.md-box { flex: none; width: 12px; height: 12px; margin-top: 1px; border: 1px solid var(--hair); border-radius: 3px; font-size: 9px; line-height: 11px; text-align: center; color: var(--accent); }
+.bubble s, .md s { color: var(--text-2); }
 .bubble .md-hr, .md .md-hr { border: 0; border-top: 1px solid var(--hair); margin: 8px 0; }
 .bubble ol.md-list { margin: 3px 0 3px 1.3em; padding: 0; }
 .md-img { display: block; margin: 6px 0; border-bottom: 0 !important; }
