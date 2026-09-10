@@ -1173,7 +1173,7 @@ li.md-task.done { color: var(--text-2); }
 @media (max-width: 720px) { .pv-overlay { padding: 0; } .pv { border-radius: 0; } .pv-path, .pv-zoom { display: none; } }
 
 /* ---------- bot detail modal: identity + nav on the left, one section on the right ---------- */
-.modal.cfg { width: 860px; height: min(680px, calc(100vh - 48px)); padding: 0; display: grid; grid-template-columns: 208px 1fr; overflow: hidden; }
+.modal.cfg { width: min(1080px, calc(100vw - 32px)); height: min(740px, calc(100vh - 48px)); padding: 0; display: grid; grid-template-columns: 208px 1fr; overflow: hidden; }
 .cfg-side { background: var(--panel-2); border-right: 1px solid var(--hair-2); padding: 26px 14px 18px; display: flex; flex-direction: column; gap: 22px; min-height: 0; }
 .cfg-who { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 0 8px; }
 .cfg-who .avatar { width: 56px; height: 56px; margin-bottom: 8px; }
@@ -1563,8 +1563,7 @@ li.md-task.done { color: var(--text-2); }
 .mem-empty { height: 100%; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-size: 13px; }
 .mem-empty .k { font-size: 11px; letter-spacing: 0.06em; }
 .mem-split.solo { grid-template-columns: minmax(300px, 640px); }
-/* inside a bot's panel: the same view fills the dialog's content area edge to edge — and the dialog grows to hold a list beside a reading pane */
-.modal.cfg.wide { width: min(1180px, calc(100vw - 32px)); height: min(760px, calc(100vh - 48px)); }
+/* inside a bot's panel: the same view fills the dialog's content area edge to edge */
 .cfg-content.flush { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
 .memv.embedded { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .memv.embedded .mem-bar { padding: 14px 30px 10px; }

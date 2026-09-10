@@ -58,10 +58,10 @@ function similar(a: string, b: string) {
 }
 
 /**
- * Standalone it is the 记忆 page; inside a bot's panel it is that panel's 记忆 tab, opened on the bot's own
- * kind with the bot preselected — same view, no leaving the dialog.
+ * A bot panel's 记忆 tab. Opened on the bot's own kind with the bot preselected; the two shared tabs show the
+ * same thing from every bot's panel, which is the point — the user is one person.
  */
-export function MemoryView({ embedded, focus }: { embedded?: boolean; focus?: { tab: MemoryTab; botId?: string } } = {}) {
+export function MemoryView({ focus }: { focus?: { tab: MemoryTab; botId?: string } } = {}) {
   const t = useT();
   const bots = useStore((s) => s.bots);
   const [tab, setTab] = useState<MemoryTab>(focus?.tab ?? 'profile');
@@ -70,12 +70,7 @@ export function MemoryView({ embedded, focus }: { embedded?: boolean; focus?: { 
   const botName = (id: string) => (id === 'chen' ? t('mem.you') : bots.find((b) => b.id === id)?.name ?? id);
   const filterBot = bot ? bots.find((b) => b.id === bot) : undefined;
   return (
-    <section className={cx('memv', embedded ? 'embedded' : 'col thread')}>
-      {!embedded && (
-        <header className="hd">
-          <div className="who"><span className="n">{t('profile.title')}</span></div>
-        </header>
-      )}
+    <section className="memv embedded">
       <div className="mem-bar">
         <div className="mem-tabs">
           {TABS.map((k) => (

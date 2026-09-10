@@ -45,7 +45,7 @@ export function BotConfigModal({ bot, tab: initial = 'growth', onClose }: { bot:
 
   return createPortal(
     <div className="overlay" onClick={onClose}>
-      <div className={cx('modal cfg', tab === 'memory' && 'wide')} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label={bot.name}>
+      <div className="modal cfg" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label={bot.name}>
         <aside className="cfg-side">
           <div className="cfg-who">
             <Avatar bot={bot} size="lg" />
@@ -65,7 +65,7 @@ export function BotConfigModal({ bot, tab: initial = 'growth', onClose }: { bot:
         <section className="cfg-main">
           <button className="cfg-close" onClick={onClose} title={t('common.closeEsc')}>×</button>
           <div className={cx('cfg-content', tab === 'memory' && 'flush')}>
-            {tab === 'memory' && <MemoryView embedded focus={{ tab: 'skill', botId: bot.id }} />}
+            {tab === 'memory' && <MemoryView focus={{ tab: 'skill', botId: bot.id }} />}
             {tab === 'growth' && <Growth bot={bot} />}
             {tab === 'instructions' && <Instructions bot={bot} />}
             {tab === 'skills' && <Skills bot={bot} />}

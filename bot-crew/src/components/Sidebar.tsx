@@ -138,9 +138,6 @@ export function Sidebar() {
           <span>{t('side.inbox')}</span>
           {totalWaiting > 0 ? <span className="badge">{totalWaiting}</span> : <span className="quiet" style={{ color: 'var(--muted)', fontSize: 11 }}>{t('side.clear')}</span>}
         </button>
-        <button className={cx('filter', s.selection === 'profile' && 'active')} onClick={() => select('profile')}>
-          <span>{t('profile.title')}</span>
-        </button>
 
         {rows.map((r) => (r.kind === 'bot' ? renderBotRow(r.bot) : renderMatterRow(r.matter)))}
       </div>
