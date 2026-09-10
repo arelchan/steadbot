@@ -26,7 +26,7 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
 
 ## 路线一：具体怎么做
 0. \`harvest(action=info, target=飞书)\`：看这个 IM 要哪几项、机器人该叫什么、要填给对方的信息（企业微信、WhatsApp 的回调 URL、公网 IP）。
-1. \`computer(open)\`，\`browser_navigate\` 到后台（地址在 info 里）。**需要登录时不要让用户去开电脑**：页面上是二维码就 \`ask_login(kind=qr, url=当前网址一段, selector=二维码元素)\`，把实时的码发到对话里让他手机扫；是账号密码就 \`ask_login(kind=password, passwordSelector=…)\`，他填在卡上、系统直接打进页面。发完这一轮就结束，登录成功系统会叫你回来。
+1. \`computer(open)\`，\`browser_navigate\` 到后台（地址在 info 里）。**需要登录时不要让用户去开电脑**：页面上是二维码就 \`ask_login(kind=qr, url=当前网址一段, selector=二维码元素)\`，把实时的码发到对话里让他手机扫；是账号密码就 \`ask_login(kind=password, passwordSelector=…)\`，他填在卡上、系统直接打进页面。发完这一轮就结束，登录成功系统会叫你回来。卡上的码是实时的（每几秒重取一次当前页面），不会因为过期而扫不上；只有极少数页面裁不出码（比如画在跨域 iframe 里），这时才退回去请用户打开电脑屏幕自己扫。
 2. 按平台步骤在页面上操作：建应用 / 机器人（名字用你的名字），加机器人能力，开权限，订事件，发布。每步看结果里带的快照，只点自己标签里的东西。
 3. 到凭据页：密钥被遮着就先点「查看 / 显示」，然后 \`harvest(take, target=飞书, field=App ID, url=当前网址一段)\`，再 \`harvest(take, field=App Secret, …)\`。同类格式的值不止一个时加 near（旁边的标签文字）。收齐系统自动接入，告诉你那边的名字。
 4. **验收（必做，不做不算接完）**：\`channel_check(arm, channel=飞书)\` 拿一个暗号 → 回电脑打开这个 IM 的**网页版**（用户已经登录的那个，不是开放平台后台），搜自己的机器人名字，以用户的身份把暗号发给自己 → \`channel_check(status)\`。ok 才算真的通了；这条测试消息不会进对话。
