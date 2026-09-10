@@ -240,6 +240,8 @@ async function main() {
       }
     }
   };
+  // 助理是产品自带的：第一次启动就把它建出来，置顶。头像在下面那个循环里一起生成。
+  if (active) ensureSteward(store);
   for (const b of store.data.bots) {
     // A build interrupted by a restart is gone; don't leave the UI saying building… forever.
     if (b.building?.length) store.patchBot(b.id, { building: [] });
@@ -1131,12 +1133,7 @@ async function main() {
           // The product's own bot for "where do the bots live": make sure it exists, then say the first sentence for the user.
           const { bot, created } = ensureSteward(store);
           const threadId = botThread(bot.id);
-          if (created) {
-            store.addMessage({ threadId, author: 'system', botId: bot.id, text: '产品自带的管家。负责把 bot 们安顿到一台不关机的机器上，之后照看它。', ts: Date.now() - 1, status: 'born' });
-            store.grow(bot.id, 'born', '由你创建', bot.createdAt);
-            store.grow(bot.id, 'skill', `沉淀技能【${STEWARD_SKILL_NAME}】`);
-            void ensureAvatar(bot);
-          }
+          if (created) void ensureAvatar(bot);
           reply({ type: 'steward', botId: bot.id });
           router.onUserMessage(threadId, STEWARD_FIRST_QUERY[msg.intent], 'app');
           break;
@@ -1379,6 +1376,9 @@ async function main() {
           break;
         }
         case 'delete_bot': {
+          // 助理是产品自带的：删不掉。删了下次启动又会生成一个空的，那比留着更莫名其妙。
+          // 改名、取消置顶、关通知、清聊天记录都行。
+          if (store.bot(msg.id)?.kind === 'steward') throw new Error('助理是产品自带的，删不掉');
           const bot = store.deleteBot(msg.id);
           if (!bot) break;
           await bots.retire(bot.id);
