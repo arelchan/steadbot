@@ -147,7 +147,7 @@ function LoginCard({ card, messageId }: { card: Extract<Card, { type: 'login' }>
         <div className="c-head">
           <div>
             <div className="c-title">{card.title}</div>
-            <div className="c-sub">{t('card.loginDone')}</div>
+            <div className="c-sub">{card.note ?? t('card.loginDone')}</div>
           </div>
           <span className="cn-mark" aria-hidden>✓</span>
         </div>

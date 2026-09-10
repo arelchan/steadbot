@@ -126,14 +126,16 @@ export class LoginDesk {
       return;
     }
     if (!ask.done) {
-      this.markDone(ask);
+      this.markDone(ask, '等超时了');
       this.asks.delete(ask.id);
       this.tellBot(ask.botId, '【系统】登录卡等了十分钟没有等到登录成功。看一眼页面现在是什么样子，再决定是重新发一张卡还是换条路。');
     }
   }
 
-  private markDone(ask: LoginAsk) {
+  private markDone(ask: LoginAsk, why?: string) {
     const m = this.store.data.messages.findLast((x) => x.card?.type === 'login' && x.card.askId === ask.id);
-    if (m?.card?.type === 'login') this.store.patchMessage(m.id, { card: { ...m.card, done: true } });
+    // The card outlives the thing it points at: once the ask is gone the image endpoint has nothing to serve, so
+    // the card has to stop being a live code and say what happened instead.
+    if (m?.card?.type === 'login') this.store.patchMessage(m.id, { card: { ...m.card, done: true, note: why } });
   }
 }

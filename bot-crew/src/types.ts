@@ -339,6 +339,8 @@ export type Card =
       title: string;
       fields?: { key: string; label: string; secret?: boolean }[];
       done?: boolean;
+      /** 结束的原因，正常登录成功时没有 */
+      note?: string;
     }
   | {
       /** 凭据卡：用户在这里填授权码 / token，直接进连接的环境变量，不经过对话 */

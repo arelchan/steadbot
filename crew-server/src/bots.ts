@@ -102,7 +102,7 @@ interface BotRuntime {
 }
 
 /** DeepSeek-style tool-call markup that came out as text: the model meant to call a tool and called nothing. */
-const TOOL_MARKUP = /<[｜|]DSML[｜|]|<[｜|]tool[▁_ ]?calls?[▁_ ]?(begin|end)?[｜|]>|<tool_calls?>|<\/tool_calls?>|<[｜|]tool[▁_]sep[｜|]>/;
+const TOOL_MARKUP = /<[｜|]DSML[｜|]|<[｜|]tool[▁_ ]?calls?[▁_ ]?(begin|end)?[｜|]>|<tool_calls?>|<\/tool_calls?>|<[｜|]tool[▁_]sep[｜|]>|<invoke\s+name=|<invoke|<function_calls>/;
 
 /** A burst of messages within this window becomes one turn; the window never stretches past the cap. */
 const GATHER_MS = 1200;

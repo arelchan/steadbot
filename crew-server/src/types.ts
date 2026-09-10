@@ -267,7 +267,7 @@ export type Card =
   | { type: 'options'; pendingId: string; options: { id: string; label: string; hint: string; price?: string }[] }
   | { type: 'blocked'; pendingId: string; title: string; sub: string }
   /** 登录卡：bot 在电脑上撞到登录墙，把它搬到对话里。qr = 实时二维码，用户手机扫；password = 用户填，服务端直接打进页面，不存、不给模型看。 */
-  | { type: 'login'; askId: string; kind: 'qr' | 'password'; title: string; fields?: { key: string; label: string; secret?: boolean }[]; done?: boolean }
+  | { type: 'login'; askId: string; kind: 'qr' | 'password'; title: string; fields?: { key: string; label: string; secret?: boolean }[]; done?: boolean; note?: string }
   | { type: 'secrets'; integrationId: string; title: string; fields: { key: string; label: string; hint?: string; secret?: boolean }[]; help?: { url?: string; urlLabel?: string; steps?: string[] }; done?: boolean }
   /** 机器卡：管家发的。connect = 用户填 IP / 账号 / 密码，本机连上并存进凭据；run = 管家在那台机器上执行的一条命令及其输出；move = 把 bot 们搬到那台机器。密码只到服务端，bot 看不到。 */
   | {
