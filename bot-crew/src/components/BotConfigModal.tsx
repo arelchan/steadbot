@@ -9,7 +9,7 @@ import { Sk } from './Skeleton';
 import { Markdown } from './Markdown';
 import { Pick } from './Field';
 import { ConfirmDialog } from './ConfirmDialog';
-import { cx, fullDate, fmtTime, msgTime, shortDay } from '../utils';
+import { cx, fullDate, fmtTime, msgTime } from '../utils';
 import { useT, tn, t as tr } from '../i18n';
 
 /** Library category names live in the catalogs, keyed by the category id the backend uses. */

@@ -35,7 +35,6 @@ export function RuntimeView() {
 
 /** Everything about where the bots live: the same cards whether shown as a page or inside 设置 › 云电脑. */
 export function RuntimeBody() {
-  const t = useT();
   const rt = useStore((s) => s.runtime);
   const online = useStore((s) => s.online);
   const target = getRuntime();
