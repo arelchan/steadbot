@@ -30,6 +30,7 @@ export const zh: Record<string, string> = {
   'side.new': '新建',
   'side.newBot': '新建 bot',
   'side.newGroup': '新建群聊',
+  'side.week': '周',
   'side.inbox': '全部 · 等你处理',
   'side.clear': '清了',
   'side.pinned': '已置顶',
@@ -58,6 +59,17 @@ export const zh: Record<string, string> = {
   'inbox.openThread': '打开对话',
   'inbox.stuckPrefix': '卡住了 · ',
   'inbox.quietlyDone': '它们默默做完的',
+
+  'week.today': '今天',
+  'week.prev': '上一周',
+  'week.next': '下一周',
+  'week.standing': '常驻',
+  'wait.min.one': '等了 {n} 分',
+  'wait.min.other': '等了 {n} 分',
+  'wait.hour.one': '等了 {n} 小时',
+  'wait.hour.other': '等了 {n} 小时',
+  'wait.day.one': '等了 {n} 天',
+  'wait.day.other': '等了 {n} 天',
 
   /* ---- 会话 ---- */
   'thread.identity': 'Bot 身份',

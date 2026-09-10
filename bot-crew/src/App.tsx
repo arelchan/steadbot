@@ -5,6 +5,7 @@ import { agent, isLive } from './services/agent';
 import { Sidebar } from './components/Sidebar';
 import { Thread } from './components/Thread';
 import { Inbox } from './components/Inbox';
+import { Week } from './components/Week';
 import { Draft } from './components/Draft';
 import { RuntimeView } from './components/RuntimeView';
 import { Toasts } from './components/Toasts';
@@ -36,7 +37,7 @@ export default function App() {
   return (
     <div className="app no-right" style={{ '--w-sidebar': `${layout.sidebar}px`, '--w-side': `${layout.side}px`, '--w-right': `${layout.right}px` } as React.CSSProperties}>
       <Sidebar />
-      {selection === 'inbox' ? <Inbox /> : selection === 'profile' ? <Inbox /> : selection === 'draft-bot' ? <Draft /> : selection === 'runtime' ? <RuntimeView /> : <Thread threadId={selection as ThreadId} />}
+      {selection === 'week' ? <Week /> : selection === 'inbox' ? <Inbox /> : selection === 'profile' ? <Inbox /> : selection === 'draft-bot' ? <Draft /> : selection === 'runtime' ? <RuntimeView /> : <Thread threadId={selection as ThreadId} />}
       <OfflineBar show={isLive && online === false} />
       <Toasts />
       <PreviewModal />
