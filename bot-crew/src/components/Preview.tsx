@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { FileRef } from '../types';
 import { CodeBlock, MermaidView, renderText } from './Markdown';
@@ -160,7 +161,7 @@ function PreviewBody({ item }: { item: PreviewItem }) {
     );
   }
 
-  return (
+  return createPortal(
     <div className="pv-overlay" onClick={closePreview}>
       <div className="pv" role="dialog" aria-modal aria-label={title} onClick={(e) => e.stopPropagation()}>
         <header className="pv-hd">
@@ -206,6 +207,8 @@ function PreviewBody({ item }: { item: PreviewItem }) {
         </div>
       </div>
     </div>
+    ,
+    document.body,
   );
 }
 

@@ -18,7 +18,7 @@ import { KIND_LABEL, Library, LIBRARY_CATEGORIES } from './library.ts';
 import { buildLabel, runBuild, runMemory } from './builder.ts';
 import { ConnectorManager, POPULAR_TOOLKITS, isChinesePlatform } from './connectors.ts';
 import { AgentRunner, McpManager, seedIntegrations } from './integrations.ts';
-import { ChannelManager, CHANNEL_KEYS, CHANNEL_PATTERNS, CHANNEL_PUBLIC_KEYS, IMS, IM_NAME, connectCard, missingChannelCreds, saveBotChannelCreds, wecomCallback, type Im } from './channels.ts';
+import { ChannelManager, CHANNEL_KEYS, CHANNEL_PATTERNS, CHANNEL_PUBLIC_KEYS, IMS, IM_NAME, connectCard, missingChannelCreds, saveBotChannelCreds, wecomCallback, whatsappCallback, type Im } from './channels.ts';
 import { secretsChanged } from './secrets.ts';
 import { DesktopManager } from './desktop.ts';
 import { Upgrader } from './upgrade.ts';
@@ -45,7 +45,7 @@ import { botThread, matterThread, parseThread, type Bot, type FileRef, type Inte
 
 
 /** An IM by any name a bot might use for it. */
-const IM_ALIAS: Record<string, Im | 'app'> = { 飞书: 'feishu', feishu: 'feishu', lark: 'feishu', telegram: 'telegram', 电报: 'telegram', tg: 'telegram', slack: 'slack', 企业微信: 'wechat', 企微: 'wechat', 微信: 'wechat', wechat: 'wechat', wecom: 'wechat', app: 'app' };
+const IM_ALIAS: Record<string, Im | 'app'> = { 飞书: 'feishu', feishu: 'feishu', lark: 'feishu', telegram: 'telegram', 电报: 'telegram', tg: 'telegram', slack: 'slack', 企业微信: 'wechat', 企微: 'wechat', 微信: 'wechat', wechat: 'wechat', wecom: 'wechat', discord: 'discord', dc: 'discord', whatsapp: 'whatsapp', wa: 'whatsapp', app: 'app' };
 const imFromName = (s: string): Im | 'app' | undefined => IM_ALIAS[s.trim().toLowerCase()] ?? IM_ALIAS[s.trim()];
 
 let ipCache: { at: number; ip: string } | undefined;
@@ -415,6 +415,7 @@ async function main() {
           const lines = card.fields.map((f) => `- ${f.label}（key ${f.key}）${f.hint ? `，${f.hint}` : ''}：${missing.has(f.key) ? '还没有' : '已收到'}`);
           const extra: string[] = [`机器人名字用「${bot.name}」，头像用它的头像。`];
           if (im === 'wechat') extra.push(`回调 URL：${wecomCallback(botId)}`, `本机公网 IP（填「企业可信 IP」）：${await publicIp()}`);
+          if (im === 'whatsapp') extra.push(`Webhook 回调 URL：${whatsappCallback(botId)}`, '校验串（Verify token）自己起一个，Meta 后台和这里填同一个', '要用系统用户的永久令牌，页面上那个临时令牌 24 小时就过期');
           if (im === 'feishu') extra.push('事件订阅选「长连接」，不需要公网地址；应用要「创建版本并发布」才生效。');
           if (im === 'slack') extra.push('Socket Mode 开着就行，不需要公网地址。');
           extra.push(`平台后台：${card.help?.url ?? ''}`, ...(card.help?.steps ?? []).map((x, i) => `${i + 1}. ${x}`));
@@ -825,7 +826,7 @@ async function main() {
       {
         // A still of the computer's screen, for the card (desktop.ts). 404 when the computer is off.
         if (url.pathname === '/screen.jpg') {
-          const p = desktops.snapshot(Math.min(1280, Math.max(160, Number(url.searchParams.get('w') ?? 640))));
+          const p = desktops.snapshot(Math.min(1440, Math.max(160, Number(url.searchParams.get("w") ?? 640))));
           if (!p) {
             res.writeHead(404, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
             res.end('{"error":"off"}');

@@ -9,6 +9,8 @@ import { TelegramBridge } from './bridges/telegram.ts';
 import { FeishuBridge } from './bridges/feishu.ts';
 import { SlackBridge } from './bridges/slack.ts';
 import { WecomBridge } from './bridges/wecom.ts';
+import { DiscordBridge } from './bridges/discord.ts';
+import { WhatsappBridge } from './bridges/whatsapp.ts';
 import { botThread, matterThread, parseThread, type Bot, type Card, type Channel, type ImLink, type Matter, type Message, type Pending, type ThreadId } from './types.ts';
 
 /*
@@ -19,8 +21,8 @@ import { botThread, matterThread, parseThread, type Bot, type Card, type Channel
  */
 
 export type Im = Exclude<Channel, 'app'>;
-export const IMS: Im[] = ['feishu', 'telegram', 'slack', 'wechat'];
-export const IM_NAME: Record<Channel, string> = { app: 'App', feishu: '飞书', telegram: 'Telegram', slack: 'Slack', wechat: '企业微信' };
+export const IMS: Im[] = ['telegram', 'discord', 'whatsapp', 'slack', 'feishu', 'wechat'];
+export const IM_NAME: Record<Channel, string> = { app: 'App', feishu: '飞书', telegram: 'Telegram', slack: 'Slack', wechat: '企业微信', discord: 'Discord', whatsapp: 'WhatsApp' };
 
 /** Which credential fields each IM needs; the keys are what the credentials card submits. */
 export const CHANNEL_KEYS: Record<Im, string[]> = {
@@ -28,6 +30,8 @@ export const CHANNEL_KEYS: Record<Im, string[]> = {
   feishu: ['feishuAppId', 'feishuAppSecret'],
   slack: ['slackBotToken', 'slackAppToken'],
   wechat: ['wecomCorpId', 'wecomAgentId', 'wecomSecret', 'wecomToken', 'wecomAesKey'],
+  discord: ['discordToken'],
+  whatsapp: ['waPhoneId', 'waToken', 'waVerifyToken'],
 };
 
 /** What each credential looks like, so a value read off a page can be checked before it is trusted. */
@@ -40,11 +44,15 @@ export const CHANNEL_PATTERNS: Record<string, RegExp> = {
   wecomCorpId: /\bww[a-z0-9]{16}\b/g,
   wecomAgentId: /\b1\d{6}\b/g,
   wecomSecret: /\b[A-Za-z0-9_-]{43}\b/g,
-  wecomToken: /\b[A-Za-z0-9]{3,32}\b/g,
+  wecomToken: /\b[A-Za-z0-9]{16,32}\b/g,
   wecomAesKey: /\b[A-Za-z0-9]{43}\b/g,
+  // three dot-separated base64url parts, the middle one the bot's own id
+  discordToken: /\b[A-Za-z0-9_-]{20,30}\.[A-Za-z0-9_-]{6,7}\.[A-Za-z0-9_-]{27,50}\b/g,
+  waPhoneId: /\b\d{15,16}\b/g,
+  waToken: /\bEA[A-Za-z0-9]{50,}\b/g,
 };
 /** Credentials that are identifiers, not secrets: fine to read back to the bot in full. */
-export const CHANNEL_PUBLIC_KEYS = new Set(['feishuAppId', 'wecomCorpId', 'wecomAgentId']);
+export const CHANNEL_PUBLIC_KEYS = new Set(['feishuAppId', 'wecomCorpId', 'wecomAgentId', 'waPhoneId', 'waVerifyToken']);
 
 /** A bot's IM row in the App before it is connected. */
 export const CHANNEL_HOWTO: Record<Im, string> = {
@@ -52,15 +60,20 @@ export const CHANNEL_HOWTO: Record<Im, string> = {
   telegram: '还没接。接上后它在 Telegram 里是一个独立的机器人：可以私聊，也能拉进群',
   slack: '还没接。接上后它在 Slack 里是一个独立的机器人：可以私聊，也能邀请进频道',
   wechat: '还没接。接上后它在企业微信里是一个独立的应用，可以私聊（企业微信的应用进不了群）',
+  discord: '还没接。接上后它在 Discord 里是一个独立的机器人：可以私聊，也能拉进服务器的频道',
+  whatsapp: '还没接。接上后它有自己的 WhatsApp 号码，可以私聊（WhatsApp 的商业接口没有群）',
 };
 const CHANNEL_LIVE: Record<Im, string> = {
   feishu: '已接入 · 私聊它，或把它和别的 bot 拉进同一个群',
   telegram: '已接入 · 私聊它，或把它拉进群',
   slack: '已接入 · 私聊它，或邀请它进频道',
   wechat: '已接入 · 在企业微信里找到这个应用私聊',
+  discord: '已接入 · 私聊它，或把它邀请进服务器',
+  whatsapp: '已接入 · 给它的号码发消息（对方先说话，24 小时内可以来回）',
 };
 
 export const wecomCallback = (botId: string) => `${config.publicUrl}/wecom/callback/${botId}`;
+export const whatsappCallback = (botId: string) => `${config.publicUrl}/whatsapp/callback/${botId}`;
 
 /** The credentials card for connecting one bot to one IM: what to fill and where to get it. */
 export function connectCard(bot: Bot, channel: Im): Extract<Card, { type: 'secrets' }> {
@@ -115,6 +128,43 @@ export function connectCard(bot: Bot, channel: Im): Extract<Card, { type: 'secre
             'OAuth & Permissions 的 Bot Token Scopes 加上 chat:write、im:history、channels:history、groups:history、app_mentions:read、channels:read、groups:read、users:read',
             'Socket Mode 开启并生成 App-Level Token（connections:write）；Event Subscriptions 订阅 message.im、message.channels、message.groups、app_mention、member_joined_channel、member_left_channel',
             'Install to Workspace 拿到 Bot Token，两个 token 填到这里',
+          ],
+        },
+      };
+    case 'discord':
+      return {
+        type: 'secrets',
+        integrationId: 'ch-discord',
+        title: `把「${n}」接到 Discord`,
+        fields: [{ key: 'discordToken', label: 'Bot Token' }],
+        help: {
+          url: 'https://discord.com/developers/applications',
+          urlLabel: '打开 Discord 开发者后台',
+          steps: [
+            `New Application，名字「${n}」；Bot 页 Reset Token 拿到 Bot Token 填到这里`,
+            'Bot 页把 Message Content Intent 打开（不开就收不到消息内容）',
+            'OAuth2 → URL Generator：勾 bot，权限勾 Send Messages、Read Message History，用生成的链接把它邀请进你的服务器',
+          ],
+        },
+      };
+    case 'whatsapp':
+      return {
+        type: 'secrets',
+        integrationId: 'ch-whatsapp',
+        title: `把「${n}」接到 WhatsApp`,
+        fields: [
+          { key: 'waPhoneId', label: 'Phone number ID', hint: '一串数字', secret: false },
+          { key: 'waToken', label: '访问令牌', hint: 'EAA… 开头，用系统用户的永久令牌' },
+          { key: 'waVerifyToken', label: 'Webhook 校验串', hint: '自己起一个，两边填一样的', secret: false },
+        ],
+        help: {
+          url: 'https://developers.facebook.com/apps',
+          urlLabel: '打开 Meta 开发者后台',
+          steps: [
+            '创建 Business 类型应用，加 WhatsApp 产品；API Setup 页有测试号码和 Phone number ID',
+            '业务管理后台建一个系统用户，给它 whatsapp_business_messaging 权限，生成永久访问令牌（页面上那个临时令牌 24 小时就过期）',
+            `Webhook 的回调地址填 ${whatsappCallback(bot.id)}，校验串填你在这张卡上填的那一个，订阅 messages 字段`,
+            '正式对外用还要在 Meta 完成商业验证并绑定自己的号码；测试号码只能发给白名单里的号码',
           ],
         },
       };
@@ -333,6 +383,12 @@ export class ChannelManager implements Hub {
       case 'wechat':
         br = new WecomBridge(botId, { corpId: c.wecomCorpId, agentId: c.wecomAgentId, secret: c.wecomSecret, token: c.wecomToken, aesKey: c.wecomAesKey }, this);
         break;
+      case 'discord':
+        br = new DiscordBridge(botId, c.discordToken, this);
+        break;
+      case 'whatsapp':
+        br = new WhatsappBridge(botId, { phoneId: c.waPhoneId, token: c.waToken, verifyToken: c.waVerifyToken }, this);
+        break;
     }
     try {
       const { account } = await br.start();
@@ -432,13 +488,17 @@ export class ChannelManager implements Hub {
     this.store.patchBot(botId, patch, { growth: false });
   }
 
-  /** 企业微信 pushes to <publicUrl>/wecom/callback/<botId>; the old single path still works while only one bot is on it. */
+  /**
+   * The two IMs that push instead of holding a connection: 企业微信 at <publicUrl>/wecom/callback/<botId> and
+   * WhatsApp at /whatsapp/callback/<botId>. The path without a bot id still works while only one bot is on it.
+   */
   handleHttp(req: IncomingMessage, res: ServerResponse): Promise<boolean> | false {
     const path = new URL(req.url ?? '/', 'http://localhost').pathname;
-    const m = /^\/wecom\/callback(?:\/([^/]+))?$/.exec(path);
+    const m = /^\/(wecom|whatsapp)\/callback(?:\/([^/]+))?$/.exec(path);
     if (!m) return false;
-    const all = Array.from(this.bridges.values()).filter((b): b is WecomBridge => b instanceof WecomBridge);
-    const br = m[1] ? all.find((b) => b.botId === m[1]) : all.length === 1 ? all[0] : undefined;
+    const kind = m[1] === 'wecom' ? WecomBridge : WhatsappBridge;
+    const all = Array.from(this.bridges.values()).filter((b): b is WecomBridge | WhatsappBridge => b instanceof kind);
+    const br = m[2] ? all.find((b) => b.botId === m[2]) : all.length === 1 ? all[0] : undefined;
     if (!br) return false;
     return br.handleHttp(req, res);
   }

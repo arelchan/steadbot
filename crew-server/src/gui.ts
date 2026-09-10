@@ -27,7 +27,13 @@ import { imageContent } from './vision.ts';
  * screenshot as `computer_call_output` and acknowledging `pending_safety_checks`. Nothing else here changes.
  */
 
-const MAX_W = 1280;
+// Screenshots go to the model at the screen's own width (desktop.ts: 1440), so nothing is resampled — small UI
+// text is where a GUI model actually fails. Larger screens (a Retina Mac) still come down to this. Measured on
+// gpt-6-astra: 1280×800 = 1217 prompt tokens, 1440×900 = 1583, about half a cent more per step.
+const MAX_W = 1440;
+/** A person's hand on the same screen: the pointer sits somewhere our own last action did not put it. */
+const HUMAN_STILL_MS = 4000;
+const HUMAN_WAIT_MAX_MS = 120_000;
 const STEP_PAUSE_MS = 800;
 /** Fraction of pixels that has to differ before the screen counts as having changed. */
 const CHANGED_RATIO = 0.002;
@@ -102,6 +108,8 @@ const macMod = (k: string) => (k === 'command' || k === 'meta' || k === 'super' 
 /** A driver for one screen. The methods are the action set, one to one. */
 interface Driver {
   shot(dir: string, name: string): Promise<Shot>;
+  /** Where the pointer is right now. Undefined when the platform cannot say — then nobody is presumed present. */
+  pointer(): Promise<{ x: number; y: number } | undefined>;
   move(x: number, y: number): Promise<void>;
   click(x: number, y: number, button: MouseButton): Promise<void>;
   doubleClick(x: number, y: number): Promise<void>;
@@ -123,6 +131,16 @@ function xDriver(display: string): Driver {
       const [w, h] = (await exec('identify', ['-format', '%w %h', file])).trim().split(' ').map(Number);
       const geom = (await exec('xdotool', ['getdisplaygeometry'], env)).trim().split(' ').map(Number);
       return { file, w, h, scale: geom[0] && w ? geom[0] / w : 1 };
+    },
+    async pointer() {
+      try {
+        const out = await exec('xdotool', ['getmouselocation', '--shell'], env, 5000);
+        const x = Number(/X=(\d+)/.exec(out)?.[1]);
+        const y = Number(/Y=(\d+)/.exec(out)?.[1]);
+        return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+      } catch {
+        return undefined;
+      }
     },
     async move(x, y) {
       await move(x, y);
@@ -173,6 +191,14 @@ function macDriver(): Driver {
       await exec('sips', ['-Z', String(MAX_W), file]);
       const [w, h] = (await exec('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', file])).match(/pixel(?:Width|Height):\s*(\d+)/g)!.map((s) => Number(s.replace(/\D/g, '')));
       return { file, w, h, scale: points / w };
+    },
+    async pointer() {
+      try {
+        const [x, y] = (await exec('cliclick', ['p'], undefined, 5000)).trim().split(',').map(Number);
+        return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+      } catch {
+        return undefined;
+      }
     },
     async move(x, y) {
       await cc([`m:${Math.round(x)},${Math.round(y)}`]);
@@ -304,9 +330,21 @@ async function operateNow(hands: Hands, goal: string, opts: { display?: string; 
   let unparsed = 0;
   let stuck = 0;
   let lastAction = '';
+  /** where our own last action left the pointer, so someone else moving it is visible */
+  let mine: { x: number; y: number } | undefined;
   /** what the previous action did to the screen, told to the model instead of left for it to guess */
   let effect = '';
   for (let i = 1; i <= maxSteps; i++) {
+    // One screen, shared with the person watching it. If they take the mouse, the model's next click would land
+    // somewhere else and its typing would go to whatever window they focused — so wait for the hand to come off,
+    // then look again. Waiting is not a step, and it does not count towards "the screen stopped changing".
+    const waited = await yieldToHuman(driver, mine);
+    if (waited) {
+      log.push(`（有人在用这台电脑，等了 ${Math.round(waited / 1000)} 秒他停下来才接着做）`);
+      prevShot = undefined;
+      stuck = 0;
+      effect = '刚才有人自己动了这台电脑，画面可能已经不是你上一步留下的样子了，先看清楚当前截图再决定下一步。';
+    }
     const shot = await driver.shot(dir, `step-${String(i).padStart(2, '0')}`);
     lastShot = shot.file;
     const changed = prevShot ? await screenChanged(prevShot.file, shot.file) : undefined;
@@ -363,6 +401,7 @@ async function operateNow(hands: Hands, goal: string, opts: { display?: string; 
     prevShot = shot;
     try {
       await perform(driver, action, shot.scale);
+      mine = await driver.pointer();
     } catch (e) {
       log.push(`（执行失败：${(e as Error).message}）`);
       history.push(`   执行失败：${(e as Error).message.slice(0, 120)}`);
@@ -373,6 +412,28 @@ async function operateNow(hands: Hands, goal: string, opts: { display?: string; 
   }
   const shot = await driver.shot(dir, 'step-end').catch(() => undefined);
   return finish(false, `${maxSteps} 步内没有做完`, maxSteps, shot?.file ?? lastShot, log, dir);
+}
+
+/**
+ * Wait while a person is using the screen. `mine` is where our own last action left the pointer: anything else
+ * means a hand is on it. Returns how long we waited (0 when nobody was there), so the caller can tell the model
+ * that the screen may have moved under it.
+ */
+async function yieldToHuman(d: Driver, mine: { x: number; y: number } | undefined): Promise<number> {
+  if (!mine) return 0;
+  const start = Date.now();
+  let at = await d.pointer();
+  if (!at || (at.x === mine.x && at.y === mine.y)) return 0;
+  let stillSince = Date.now();
+  while (Date.now() - start < HUMAN_WAIT_MAX_MS) {
+    await new Promise((r) => setTimeout(r, 1000));
+    const now = await d.pointer();
+    if (!now) break;
+    if (now.x !== at?.x || now.y !== at?.y) stillSince = Date.now();
+    at = now;
+    if (Date.now() - stillSince >= HUMAN_STILL_MS) break;
+  }
+  return Date.now() - start;
 }
 
 /**

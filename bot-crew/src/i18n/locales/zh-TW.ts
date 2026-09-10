@@ -614,6 +614,8 @@ export const zhTW: Record<string, string> = {
   'channel.wechat': '微信',
   'channel.slack': 'Slack',
   'channel.telegram': 'Telegram',
+  'channel.discord': 'Discord',
+  'channel.whatsapp': 'WhatsApp',
   'lib.dev': '開發',
   'lib.docs': '文件辦公',
   'lib.writing': '寫作溝通',

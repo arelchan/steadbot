@@ -1,4 +1,4 @@
-export type Channel = 'app' | 'feishu' | 'wechat' | 'slack' | 'telegram';
+export type Channel = 'app' | 'feishu' | 'wechat' | 'slack' | 'telegram' | 'discord' | 'whatsapp';
 export type Autonomy = 'tell' | 'prepare' | 'do';
 
 export const CHANNEL_LABEL: Record<Channel, string> = {
@@ -7,6 +7,8 @@ export const CHANNEL_LABEL: Record<Channel, string> = {
   wechat: '微信',
   slack: 'Slack',
   telegram: 'Telegram',
+  discord: 'Discord',
+  whatsapp: 'WhatsApp',
 };
 
 export const AUTONOMY_LABEL: Record<Autonomy, string> = {

@@ -1,6 +1,7 @@
 import * as Lark from '@larksuiteoapi/node-sdk';
 import type { Bridge, Hub } from './types.ts';
 import type { Pending } from '../types.ts';
+import { toPlain } from './format.ts';
 
 /**
  * One bot's own Feishu app, over the SDK's long connection (no public URL). Its private chat is the bot's
@@ -9,8 +10,8 @@ import type { Pending } from '../types.ts';
  */
 export class FeishuBridge implements Bridge {
   readonly channel = 'feishu' as const;
-  private client: Lark.Client;
-  private ws: Lark.WSClient;
+  private client!: Lark.Client;
+  private ws!: Lark.WSClient;
   private name: string | undefined;
 
   constructor(
@@ -18,13 +19,31 @@ export class FeishuBridge implements Bridge {
     private appId: string,
     private appSecret: string,
     private hub: Hub,
-  ) {
-    this.client = new Lark.Client({ appId, appSecret, appType: Lark.AppType.SelfBuild, domain: Lark.Domain.Feishu });
-    this.ws = new Lark.WSClient({ appId, appSecret, domain: Lark.Domain.Feishu, loggerLevel: Lark.LoggerLevel.warn });
-  }
+  ) {}
 
   private async sendText(chatId: string, text: string) {
-    await this.client.im.message.create({ params: { receive_id_type: 'chat_id' }, data: { receive_id: chatId, msg_type: 'text', content: JSON.stringify({ text }) } });
+    // A Feishu text message renders nothing, so markdown markers would be read out as characters.
+    await this.client.im.message.create({ params: { receive_id_type: 'chat_id' }, data: { receive_id: chatId, msg_type: 'text', content: JSON.stringify({ text: toPlain(text) }) } });
+  }
+
+  /**
+   * 飞书 and Lark are the same product on two clouds, and an app belongs to exactly one of them: the same
+   * credentials that work on open.feishu.cn are rejected on open.larksuite.com. The App ID looks identical either
+   * way, so instead of asking anyone which one they are on, try the domestic one and fall back to the global one.
+   */
+  private async pickDomain() {
+    let last: Error | undefined;
+    for (const domain of [Lark.Domain.Feishu, Lark.Domain.Lark]) {
+      this.client = new Lark.Client({ appId: this.appId, appSecret: this.appSecret, domain, appType: Lark.AppType.SelfBuild });
+      try {
+        await this.checkCredentials();
+        this.ws = new Lark.WSClient({ appId: this.appId, appSecret: this.appSecret, domain, loggerLevel: Lark.LoggerLevel.warn });
+        return;
+      } catch (e) {
+        last = e as Error;
+      }
+    }
+    throw last ?? new Error('连不上飞书/Lark');
   }
 
   /** Fail fast on bad credentials: the long connection would otherwise retry quietly forever. */
@@ -66,7 +85,7 @@ export class FeishuBridge implements Bridge {
   }
 
   async start() {
-    await this.checkCredentials();
+    await this.pickDomain();
     await this.whoAmI();
     const dispatcher = new Lark.EventDispatcher({}).register({
       'im.message.receive_v1': async (data) => {

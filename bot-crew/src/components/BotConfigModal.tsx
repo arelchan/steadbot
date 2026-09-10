@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, patchBot, patchSkill, mountLibrarySkill, select, uid, addIntegration, removeIntegration, testIntegration } from '../store';
 import { LIBRARY_CATEGORY_IDS, botThread, type Bot, type Channel, type GrowthEvent, type GrowthKind, type Integration, type Routine, type SkillDoc } from '../types';
@@ -41,7 +42,7 @@ export function BotConfigModal({ bot, onClose }: { bot: Bot; onClose: () => void
     integrations: integrations.filter((i) => !i.owner && ((bot.integrationIds ?? []).includes(i.id) || (i.channel && bot.channels.includes(i.channel)))).length,
   };
 
-  return (
+  return createPortal(
     <div className="overlay" onClick={onClose}>
       <div className="modal cfg" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label={bot.name}>
         <aside className="cfg-side">
@@ -73,6 +74,8 @@ export function BotConfigModal({ bot, onClose }: { bot: Bot; onClose: () => void
         </section>
       </div>
     </div>
+    ,
+    document.body,
   );
 }
 

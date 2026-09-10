@@ -1,6 +1,7 @@
 import { App } from '@slack/bolt';
 import type { Bridge, Hub } from './types.ts';
 import type { Pending } from '../types.ts';
+import { toSlack } from './format.ts';
 
 /**
  * One bot's own Slack app over Socket Mode (bot token xoxb-… + app-level token xapp-…; no public URL). Its DM is
@@ -76,7 +77,7 @@ export class SlackBridge implements Bridge {
 
   async send(ch: string, text: string, pending?: Pending) {
     if (!pending) {
-      if (text.trim()) await this.app.client.chat.postMessage({ channel: ch, text });
+      if (text.trim()) await this.app.client.chat.postMessage({ channel: ch, text: toSlack(text) });
       return;
     }
     await this.app.client.chat.postMessage({

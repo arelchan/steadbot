@@ -1,5 +1,6 @@
 import type { Bridge, Hub } from './types.ts';
 import type { Pending } from '../types.ts';
+import { toTelegramHtml } from './format.ts';
 
 interface TgChat {
   id: number;
@@ -114,6 +115,7 @@ export class TelegramBridge implements Bridge {
       : undefined;
     const body = text.trim() || pending?.title || '';
     if (!body) return;
-    await this.api('sendMessage', { chat_id: Number(chatId), text: body, reply_markup: keyboard });
+    // HTML, not Markdown: Telegram's Markdown parser rejects the whole message over one stray character.
+    await this.api('sendMessage', { chat_id: Number(chatId), text: toTelegramHtml(body), parse_mode: 'HTML', reply_markup: keyboard });
   }
 }

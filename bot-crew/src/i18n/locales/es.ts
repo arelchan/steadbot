@@ -614,6 +614,8 @@ export const es: Record<string, string> = {
   'channel.wechat': 'WeChat',
   'channel.slack': 'Slack',
   'channel.telegram': 'Telegram',
+  'channel.discord': 'Discord',
+  'channel.whatsapp': 'WhatsApp',
   'lib.dev': 'Desarrollo',
   'lib.docs': 'Documentos y oficina',
   'lib.writing': 'Escritura y comunicación',

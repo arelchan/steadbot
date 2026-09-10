@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect } from 'react';
 import { cx } from '../utils';
 import { useT } from '../i18n';
@@ -27,7 +28,7 @@ export function ConfirmDialog({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onCancel, onConfirm]);
-  return (
+  return createPortal(
     <div className="overlay" onClick={onCancel}>
       <div className="modal confirm" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal>
         <h2>{title}</h2>
@@ -38,5 +39,7 @@ export function ConfirmDialog({
         </div>
       </div>
     </div>
+    ,
+    document.body,
   );
 }

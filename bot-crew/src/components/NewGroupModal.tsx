@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useState } from 'react';
 import { useStore, addMatter, select } from '../store';
 import { matterThread } from '../types';
@@ -37,7 +38,7 @@ export function NewGroupModal({ onClose }: { onClose: () => void }) {
     onClose();
   };
 
-  return (
+  return createPortal(
     <div className="overlay" onClick={onClose}>
       <div className="modal grp" onClick={(e) => e.stopPropagation()}>
         <h2>{t('group.new')}</h2>
@@ -69,5 +70,7 @@ export function NewGroupModal({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </div>
+    ,
+    document.body,
   );
 }

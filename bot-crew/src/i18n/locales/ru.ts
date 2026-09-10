@@ -658,6 +658,8 @@ export const ru: Record<string, string> = {
   'channel.wechat': 'WeChat',
   'channel.slack': 'Slack',
   'channel.telegram': 'Telegram',
+  'channel.discord': 'Discord',
+  'channel.whatsapp': 'WhatsApp',
   'lib.dev': 'Разработка',
   'lib.docs': 'Документы и офис',
   'lib.writing': 'Тексты и коммуникации',

@@ -614,6 +614,8 @@ export const ko: Record<string, string> = {
   'channel.wechat': 'WeChat',
   'channel.slack': 'Slack',
   'channel.telegram': 'Telegram',
+  'channel.discord': 'Discord',
+  'channel.whatsapp': 'WhatsApp',
   'lib.dev': '개발',
   'lib.docs': '문서·오피스',
   'lib.writing': '글쓰기·커뮤니케이션',

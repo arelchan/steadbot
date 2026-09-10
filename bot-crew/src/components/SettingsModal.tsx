@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, setSettings } from '../store';
 import type { UpgradeStatus, UsageReport } from '../types';
@@ -27,7 +28,7 @@ export function SettingsModal({ tab: initial = 'general', onClose }: { tab?: Tab
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  return (
+  return createPortal(
     <div className="overlay" onClick={onClose}>
       <div className="modal cfg" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label={t('set.title')}>
         <aside className="cfg-side">
@@ -55,6 +56,8 @@ export function SettingsModal({ tab: initial = 'general', onClose }: { tab?: Tab
         </div>
       </div>
     </div>
+    ,
+    document.body,
   );
 }
 

@@ -7,23 +7,25 @@ import type { SkillStore } from './skills.ts';
 export const BUILTIN_SKILLS: { name: string; description: string; body: string }[] = [
   {
     name: 'IM 渠道接入',
-    description: '把自己接进 Telegram / 飞书 / Slack / 企业微信：首选用电脑自己去平台后台建机器人、harvest 收凭据；电脑不可用才发卡引导用户。',
+    description: '把自己接进 Telegram / Discord / WhatsApp / Slack / 飞书 / 企业微信：首选用电脑自己去平台后台建机器人、harvest 收凭据；电脑不可用才发卡引导用户。',
     body: `## 目的
 把你自己接进用户常用的 IM。接好后，用户在 IM 里说的话进入同一个你、同一份对话和事项；你的回复和拍板卡片回到 IM。
+
+现在支持：Telegram、Discord、WhatsApp、Slack、飞书 / Lark、企业微信。前四个在全球更常见，飞书和企业微信主要在国内。用户没指定就问他平时用哪个，别替他挑。
 
 ## 何时使用
 用户说「我想在微信/飞书/Telegram 里用你」「把你接到群里」「怎么在飞书里找到你」；或者你自己判断该住进某个 IM。
 
 ## 模型：一个 bot 就是 IM 里的一个机器人
-你在飞书 / Telegram / Slack / 企业微信里是**独立的机器人**，有自己的名字和头像、自己的凭据。用户私聊那个机器人就是在和你说话；把几个机器人拉进同一个群，你们就在群里一起干活（@谁谁回，群在这里对应一个「群聊」）。没有「先接渠道再绑会话」这回事，也没有 /bind 命令。
+你在 Telegram / Discord / WhatsApp / Slack / 飞书 / 企业微信里是**独立的机器人**，有自己的名字和头像、自己的凭据。用户私聊那个机器人就是在和你说话；把几个机器人拉进同一个群，你们就在群里一起干活（@谁谁回，群在这里对应一个「群聊」）。没有「先接渠道再绑会话」这回事，也没有 /bind 命令。
 
 ## 两条路线，先走第一条
-**路线一：你自己接自己。** 用电脑（computer(open)）打开对方平台的后台，自己建机器人、开权限、订事件，凭据用 harvest 直接收进配置，全程用户只需要在登录那一步帮一下（在屏幕上登录）。这是默认路线：飞书、Telegram、Slack、企业微信都这样接。
+**路线一：你自己接自己。** 用电脑（computer(open)）打开对方平台的后台，自己建机器人、开权限、订事件，凭据用 harvest 直接收进配置，全程用户只需要在登录那一步帮一下（在屏幕上登录）。这是默认路线：所有平台都这样接。
 **路线二：引导用户。** 电脑不可用（bot 在用户自己的机器上跑、或电脑开不起来）、或平台后台在虚拟机里登不上（要手机扫码且用户不在），才走这条：build(aspect=channel, action=add, value="飞书") 发系统标准凭据卡，用户按卡上的步骤建机器人、填凭据。
 两条路线里凭据都不经过对话：不问用户要 token / Secret，不让他贴在对话里，不让他改配置文件，你也不自己去改配置。
 
 ## 路线一：具体怎么做
-0. \`harvest(action=info, target=飞书)\`：看这个 IM 要哪几项、机器人该叫什么、要填给对方的信息（企业微信的回调 URL、公网 IP）。
+0. \`harvest(action=info, target=飞书)\`：看这个 IM 要哪几项、机器人该叫什么、要填给对方的信息（企业微信、WhatsApp 的回调 URL、公网 IP）。
 1. \`computer(open)\`，\`browser_navigate\` 到后台（地址在 info 里）。需要登录：把自己的标签拉到前台（browser_tabs list → select），告诉用户「屏幕在你那边，登录一下就行」，等他登好。
 2. 按平台步骤在页面上操作：建应用 / 机器人（名字用你的名字），加机器人能力，开权限，订事件，发布。每步看结果里带的快照，只点自己标签里的东西。
 3. 到凭据页：密钥被遮着就先点「查看 / 显示」，然后 \`harvest(take, target=飞书, field=App ID, url=当前网址一段)\`，再 \`harvest(take, field=App Secret, …)\`。同类格式的值不止一个时加 near（旁边的标签文字）。收齐系统自动接入，告诉你那边的名字。
@@ -42,6 +44,9 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
   - 飞书不能主动私聊一个从没跟你说过话的人，所以「接好后主动打招呼」这件事要反过来做：验收时是**你以用户的身份**在网页版里给机器人发第一条，之后你才能回他。
 - **Slack**：api.slack.com/apps → Create New App → From an app manifest 最省事：一次把 scopes（chat:write、im:history、channels:history、groups:history、app_mentions:read、channels:read、groups:read、users:read）、Socket Mode、事件（message.im、message.channels、message.groups、app_mention、member_joined_channel、member_left_channel）都写进去 → Basic Information 里生成 App-Level Token（connections:write）→ harvest(field=App-Level Token) → Install to Workspace → OAuth & Permissions 里 harvest(field=Bot Token)。不需要公网地址。
 - **企业微信**：管理后台 → 我的企业：harvest(field=企业 ID) → 应用管理 → 自建应用（名字用你的名字）→ 详情页 harvest(field=AgentId)、点「查看」后 harvest(field=Secret) → 接收消息 → 设置 API 接收：回调 URL 填 info 给的地址，Token 和 EncodingAESKey 点随机生成后各 harvest 一次 → 企业可信 IP 填 info 给的公网 IP → 保存（系统接上后它才能验证通过，顺序：先收齐让系统接上，再点保存）。企业微信的应用进不了群，只能私聊。
+- **Discord**：discord.com/developers/applications → New Application（名字用你的名字）→ Bot 页 Reset Token 后 harvest(field=Bot Token) → **Bot 页把 Message Content Intent 打开**（不开就只收得到 @ 你的消息内容，其余是空的）→ OAuth2 → URL Generator 勾 bot + Send Messages + Read Message History，生成邀请链接让用户点一下把你请进他的服务器。不需要公网地址。私聊要求你和对方在同一个服务器里。
+- **WhatsApp**：只走官方的 Cloud API（第三方协议会封号）。developers.facebook.com/apps → 建 Business 应用 → 加 WhatsApp 产品 → API Setup 页有测试号码和 Phone number ID（harvest(field=Phone number ID)）→ **令牌要用系统用户的永久令牌**（业务管理后台建系统用户，给 whatsapp_business_messaging 权限；页面上现成的那个 24 小时就过期）→ Webhook 填 harvest(info) 给的回调地址和校验串，订阅 messages 字段。两条硬规矩要提前告诉用户：**必须是对方先给你发消息**，而且**只有 24 小时窗口内你才能自由回复**，超时只能发预先审核过的模板；测试号码只能发给白名单里的号码，对外用要在 Meta 做完商业验证并绑自己的号码。WhatsApp 的接口没有群，只能私聊。
+- **飞书国际版（Lark）**：和飞书是同一套东西的两朵云，后台在 open.larksuite.com。凭据形态一样，系统会自动判断该连哪一朵，你照飞书的步骤走即可。
 - **个人微信**：没有官方接口，只有第三方协议，有封号风险，本产品不接。用户问就直说，推荐企业微信或飞书。
 
 ## 路线二：引导用户
