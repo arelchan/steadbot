@@ -38,6 +38,7 @@ import { harvestExtension } from './extensions/harvest.ts';
 import { operateExtension } from './extensions/operate.ts';
 import type { Hands } from './gui.ts';
 import { redactSecrets } from './secrets.ts';
+import { checkFormats } from './format-check.ts';
 import type { ConnectorManager } from './connectors.ts';
 import type { BotCtx, CurrentTurn } from './extensions/ctx.ts';
 import { identityExtension } from './extensions/identity.ts';
@@ -94,6 +95,8 @@ interface BotRuntime {
   cutShort?: boolean;
   /** already told the model once this turn that it wrote tool-call markup as prose */
   markupNudged?: boolean;
+  /** already handed one message back this turn over a format that does not parse (format-check.ts) */
+  formatNudged?: boolean;
 }
 
 /** DeepSeek-style tool-call markup that came out as text: the model meant to call a tool and called nothing. */
@@ -356,6 +359,7 @@ export class BotManager extends EventEmitter {
         if (rt) {
           rt.running = true;
           rt.markupNudged = false;
+          rt.formatNudged = false;
           for (const w of rt.startWaiters.splice(0)) w();
         }
         break;
@@ -400,6 +404,20 @@ export class BotManager extends EventEmitter {
             rt.markupNudged = true;
             void this.send(botId, { threadId, kind: 'system', text: '【系统】你上一条把工具调用写成了正文（<｜DSML｜… 这类标记），没有任何工具被真正调用，用户也没看到它。请用真正的工具调用重做刚才那一步；不需要工具就用正常文字回复。', depth: (cur?.depth ?? 0) + 1 });
           }
+          break;
+        }
+        // Formats that either parse or don't (a mermaid diagram, a ```json block, a fence that never closed): the
+        // reader would be the one to discover it. Hold the message once and let the model say it again properly.
+        const wrong = checkFormats(text);
+        if (wrong.length && rt && !rt.formatNudged) {
+          rt.formatNudged = true;
+          console.warn(`[crew] bot ${botId}: format check failed — ${wrong.map((w) => w.where).join(', ')}`);
+          void this.send(botId, {
+            threadId,
+            kind: 'system',
+            text: `【系统】你上一条没有发出去，用户还没看到：${wrong.map((w) => `${w.where}：${w.note}`).join('；')}。把整条重发一遍，改对这几处，其余内容照旧。`,
+            depth: (cur?.depth ?? 0) + 1,
+          });
           break;
         }
         if (rt) rt.textCount += 1;
