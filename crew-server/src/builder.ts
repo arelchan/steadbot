@@ -2,7 +2,7 @@ import type { Api, Model } from '@earendil-works/pi-ai';
 import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import type { CrewStore } from './store.ts';
 import type { SkillStore } from './skills.ts';
-import { ensure } from './tools.ts';
+import { ready as depsReady } from './deps.ts';
 import type { BuildSpec, MemorySpec } from './extensions/crew-tools.ts';
 import type { MemoryStore } from './memory.ts';
 import type { BuildJob } from './types.ts';
@@ -147,8 +147,8 @@ export async function runBuild(d: Deps, botId: string, job: BuildJob, spec: Buil
     // install it now rather than at the worst possible moment.
     const req = d.skills.requiresOf(name);
     if (req && (req.pip?.length || req.npm?.length || req.bin?.length)) {
-      const ready = await ensure(req, `skill:${name}`).catch((e: Error) => ({ ok: false, note: e.message }) as { ok: boolean; note?: string });
-      if (!ready.ok) console.warn(`[crew] 技能「${name}」的依赖没齐：${ready.note ?? ''}`);
+      const r = await depsReady(req, `skill:${name}`).catch((e: Error) => ({ ok: false, note: e.message }) as { ok: boolean; note?: string });
+      if (!r.ok) console.warn(`[crew] 技能「${name}」的依赖：${r.note ?? ''}`);
     }
     const cur = store.bot(botId);
     if (cur && !cur.skills.includes(name)) store.patchBot(botId, { skills: [...cur.skills, name] }, { growth: false });

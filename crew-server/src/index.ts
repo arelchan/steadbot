@@ -22,7 +22,8 @@ import { ChannelManager, CHANNEL_KEYS, CHANNEL_PATTERNS, CHANNEL_PUBLIC_KEYS, IM
 import { secretsChanged } from './secrets.ts';
 import { DesktopManager } from './desktop.ts';
 import { Upgrader } from './upgrade.ts';
-import { describe, ensure, restoreAll } from './tools.ts';
+import { restoreAll } from './tools.ts';
+import { initDeps, kick as kickDeps, reconcile as reconcileDeps, ready as depsReady } from './deps.ts';
 import { fetchAssets } from './assets.ts';
 import { versionLine } from './version.ts';
 import { usageReport } from './usage.ts';
@@ -69,8 +70,13 @@ async function main() {
   const broker = new PendingBroker(store, config.askTimeoutMs);
   const skills = new SkillStore(join(config.piAgentDir, 'skills'));
   const library = new Library(config.libraryDir);
-  // Packages a bot installed for a skill live on the data volume, not in the image: put back whatever this machine lost.
-  void restoreAll().catch((e: Error) => console.warn('[crew] tools restore failed:', e.message));
+  // Packages a bot installed for a skill live on the data volume, not in the image: put back whatever this machine
+  // lost, then converge to what the manuals and connections that are here actually need (deps.ts). Both run in the
+  // background: a machine that just arrived is missing everything, and nothing should wait for that.
+  initDeps({ skills: () => skills, integrations: () => store.data.integrations });
+  void restoreAll()
+    .catch((e: Error) => console.warn('[crew] tools restore failed:', e.message))
+    .then(() => reconcileDeps('启动'));
   const mcp = new McpManager(store);
   const runner = new AgentRunner();
   const connectors = new ConnectorManager(store);
@@ -529,9 +535,10 @@ async function main() {
         const already = !added.length && before.includes(e.title);
         // A manual whose tools are not here is worse than no manual: the bot follows it and hits the wall halfway.
         const req = skills.requiresOf(e.title);
-        const ready = req ? await ensure(req, e.slug) : undefined;
+        const r = req ? await depsReady(req, e.slug) : undefined;
         const head = already ? `「${e.title}」已经在你的技能里了，直接照着做。` : `已挂上「${e.title}」，按手册的步骤做。`;
-        return { kind, text: ready?.ok === false ? `${head}\n注意：${ready.note}。手册里用到这部分的步骤在这台机器上跑不了，换个做法，或者告诉用户差什么。` : head };
+        if (r?.ok === false && r.pending) return { kind, text: `${head}\n${r.note}。先做别的，或者过一会儿再用到那一步。` };
+        return { kind, text: r?.ok === false ? `${head}\n注意：${r.note}。手册里用到这部分的步骤在这台机器上跑不了，换个做法，或者告诉用户差什么。` : head };
       }
 
       if (kind === 'assets') {
@@ -560,8 +567,8 @@ async function main() {
       // The server itself is a package: install it into the product's prefix so it does not download on every start
       // and does not vanish when the container is rebuilt.
       if (m.npm || m.pip) {
-        const r = await ensure({ npm: m.npm ? [m.npm] : [], pip: m.pip ? [m.pip] : [] }, e.slug);
-        if (!r.ok) return { kind, text: `装不了「${e.title}」：${r.note ?? ''}。告诉用户这台机器上装不上，或者换一条路。` };
+        const r = await depsReady({ npm: m.npm ? [m.npm] : [], pip: m.pip ? [m.pip] : [] }, e.slug);
+        if (!r.ok) return { kind, text: r.pending ? `「${e.title}」的服务端${r.note}，接好了我会告诉你；先做别的。` : `装不了「${e.title}」：${r.note ?? ''}。告诉用户这台机器上装不上，或者换一条路。` };
       }
       const env = Object.fromEntries((m.env ?? []).map((f) => [f.key, '']));
       const added = await bots.ops!.addMcp({ name: e.title, command: m.command, args: m.args, url: m.url, env: (m.env ?? []).length ? env : undefined, headers: m.headers });
@@ -601,6 +608,9 @@ async function main() {
     },
     async addMcp(i) {
       const integ = store.addIntegration({ kind: 'mcp', name: i.name, transport: i.url ? 'http' : 'stdio', command: i.command, args: i.args, url: i.url, env: i.env, headers: i.headers, status: 'connecting' });
+      // `npx -y some-server` is a package like any other: recorded now, it is installed into the product's prefix
+      // instead of being fetched on every start, and it comes back by itself on the next machine.
+      kickDeps(`连接 ${i.name}`);
       const done = await mcp.connect(integ.id);
       return { id: integ.id, status: done?.status ?? 'error', note: done?.note, tools: done?.tools?.length };
     },
@@ -810,23 +820,6 @@ async function main() {
           }
           return true;
         }
-      }
-      if (url.pathname === '/machine/readiness' || (url.pathname === '/machine/ensure' && req.method === 'POST')) {
-        // 「这台机器」: which manuals' tools are installed here, which are not; POST installs what is missing.
-        const rows: { skill: string; requires: string[]; ready: boolean; note: string }[] = [];
-        for (const d of skills.list()) {
-          const need = skills.requiresOf(d.name);
-          if (!need) continue;
-          if (url.pathname === '/machine/ensure') {
-            const state = await describe(need);
-            if (state !== '就位') await ensure(need, d.name).catch(() => undefined);
-          }
-          const state = await describe(need);
-          rows.push({ skill: d.name, requires: [...(need.pip ?? []).map((x) => `pip ${x}`), ...(need.npm ?? []).map((x) => `npm ${x}`), ...(need.bin ?? [])], ready: state === '就位', note: state });
-        }
-        res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
-        res.end(JSON.stringify({ rows, desktops: active ? desktops.capable : undefined }));
-        return true;
       }
       if (url.pathname === '/usage') {
         res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
@@ -1277,7 +1270,12 @@ async function main() {
     setInterval(() => void refreshMachineBuild(), 60_000).unref();
   }
 
-  skills.on('change', (skill) => server.broadcast({ type: 'skill', skill }));
+  skills.on('change', (skill) => {
+    server.broadcast({ type: 'skill', skill });
+    // A manual just landed (seeded, mirrored from the pool, or written by a bot): whatever it says to run gets
+    // installed now, in the background, rather than at the worst possible moment halfway through a deliverable.
+    kickDeps(`技能 ${skill.name}`);
+  });
 
   const shutdown = async () => {
     runtime.release();

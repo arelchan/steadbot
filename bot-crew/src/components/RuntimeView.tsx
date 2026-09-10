@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import type { RuntimeInfo } from '../types';
 import { agent } from '../services/agent';
-import { getRuntime, setRuntime, parsePairingCode, probeRuntime, oneShot, localWsUrl, localHttpBase, httpBase, authHeaders } from '../services/runtime';
+import { getRuntime, setRuntime, parsePairingCode, probeRuntime, oneShot, localWsUrl, localHttpBase } from '../services/runtime';
 import { ConfirmDialog } from './ConfirmDialog';
 import { cloudAvailable, provisionCloudHome, cloudHomeStatus, destroyCloudHome } from '../services/cloud';
 import { cx } from '../utils';
@@ -44,7 +44,6 @@ export function RuntimeBody() {
   return (
     <>
       <CurrentCard rt={rt} online={online} remote={remote} name={remote ? target.name : undefined} />
-      {rt?.mode === 'active' && <MachineReadiness />}
       {rt?.mode === 'moved' && <MovedNotice rt={rt} />}
       {!remote && rt?.mode !== 'moved' && cloudAvailable && <HostedCard />}
       {!remote && rt?.mode !== 'moved' && <MoveOutCard />}
@@ -52,64 +51,6 @@ export function RuntimeBody() {
       {!remote && cloudAvailable && <CloudLeftover />}
       <div className="rt-fine">{t('rt.fine')}</div>
     </>
-  );
-}
-
-interface ReadyRow {
-  skill: string;
-  requires: string[];
-  ready: boolean;
-  note: string;
-}
-
-/**
- * 「这台机器」: for every manual whose tools have to be installed here, whether they are. One button installs what is
- * missing; the rows are the same ones the bots read in their own skill list.
- */
-function MachineReadiness() {
-  const t = useT();
-  const [rows, setRows] = useState<ReadyRow[] | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
-  const base = httpBase || window.location.origin;
-  const load = (method: 'GET' | 'POST') =>
-    fetch(`${base}/machine/${method === 'POST' ? 'ensure' : 'readiness'}`, { method, headers: authHeaders() })
-      .then((r) => (r.ok ? (r.json() as Promise<{ rows: ReadyRow[] }>) : Promise.reject(new Error(String(r.status)))))
-      .then((d) => setRows(d.rows))
-      .catch(() => setRows((cur) => cur ?? []));
-  useEffect(() => {
-    void load('GET');
-  }, [base]);
-  if (!rows) return null;
-  const missing = rows.filter((r) => !r.ready);
-  const fill = async () => {
-    setBusy(true);
-    await load('POST');
-    setBusy(false);
-  };
-  return (
-    <div className="rt-card rt-ready-card">
-      <div className="rt-ready-hd">
-        <div className="rt-title">{t('rt.machine')}</div>
-        {missing.length > 0 && (
-          <button className="btn sm" disabled={busy} onClick={() => void fill()}>
-            {busy ? t('rt.filling') : t('rt.fill')}
-          </button>
-        )}
-      </div>
-      {rows.length === 0 ? (
-        <div className="quiet">{t('rt.noNeeds')}</div>
-      ) : (
-        <ul className="rt-ready">
-          {rows.map((r) => (
-            <li key={r.skill} className={cx(!r.ready && 'missing')}>
-              <span className="rt-ready-skill">{r.skill}</span>
-              <span className="quiet rt-ready-req">{r.requires.join(' · ')}</span>
-              <span className={cx('rt-ready-st', r.ready ? 'ok' : 'no')}>{r.ready ? t('rt.ready') : `${t('rt.missing')} ${r.note.replace(/^缺\s*/, '')}`}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
 

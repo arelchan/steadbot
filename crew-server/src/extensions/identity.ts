@@ -2,7 +2,7 @@ import type { InlineExtension } from '@earendil-works/pi-coding-agent';
 import type { BotCtx } from './ctx.ts';
 import type { SkillStore } from '../skills.ts';
 import type { CrewOps } from './crew-tools.ts';
-import { describe } from '../tools.ts';
+import { line as depsLine } from '../deps.ts';
 
 const AUTONOMY_RULES = {
   tell: '自主度「只告诉我」：你只调查、比较、准备方案并告诉用户，任何有副作用的动作（付款、下单、对外发消息、改别人的日程）都不做，用 ask_user 让用户自己去办或决定。',
@@ -45,8 +45,10 @@ export function identityExtension(c: BotCtx, skills?: () => SkillStore, ops?: ()
       const gap = async (skill: string) => {
         const req = skills?.().requiresOf(skill);
         if (!req) return '';
-        const state = await describe(req).catch(() => '就位');
-        return state === '就位' ? '' : `（这台机器${state}，用到这部分要换办法）`;
+        const state = await depsLine(req).catch(() => '就位');
+        if (state === '就位') return '';
+        // Still installing is not the same as missing: the first is a wait, the second is a different plan.
+        return state.startsWith('正在装') ? `（${state}，用到这部分先等一下）` : `（这台机器${state}，用到这部分要换办法）`;
       };
       /**
        * What the library has for what is being asked right now. The bot cannot search for something it does not

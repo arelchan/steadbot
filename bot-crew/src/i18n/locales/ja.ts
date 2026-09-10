@@ -365,12 +365,6 @@ export const ja: Record<string, string> = {
   'about.unavailable': '利用不可',
 
   'rt.title': 'bot はどのマシンで働いているか',
-  'rt.machine': 'このマシン',
-  'rt.ready': '準備済み',
-  'rt.fill': 'インストール',
-  'rt.filling': 'インストール中…',
-  'rt.noNeeds': 'インストールするものはありません',
-  'rt.missing': '不足',
   'rt.sub': '会話・記憶・スキルはすべてそのマシンにあります。マシンが動いていれば bot も働いています。',
   'rt.fine': '引っ越しでは会話・タスク・記憶・スキル・接続・鍵をそのまま持っていきます。こちらには動かない複製だけが残ります。',
   'rt.myServer': '自分のサーバー',

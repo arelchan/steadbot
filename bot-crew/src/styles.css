@@ -1447,13 +1447,3 @@ textarea.ident-desc:focus { outline: 0; border-color: var(--accent-hair); backgr
 /* task origin (routine / colleague / IM) */
 .task-org { font-size: 10px; padding: 0 6px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; opacity: 0.8; }
 
-/* 「这台机器」 readiness */
-.rt-ready-card { display: block; }
-.rt-ready-hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.rt-ready { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.rt-ready li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; font-size: 12px; align-items: baseline; }
-.rt-ready-skill { font-weight: 500; }
-.rt-ready-req { grid-column: 1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rt-ready-st { grid-column: 2; grid-row: 1 / span 2; font-size: 11px; white-space: nowrap; }
-.rt-ready-st.ok { color: var(--ok, #3a9d5d); }
-.rt-ready-st.no { color: var(--warn, #c8842a); }

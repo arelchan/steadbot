@@ -381,12 +381,6 @@ export const zh: Record<string, string> = {
 
   /* ---- bot 在哪台机器 ---- */
   'rt.title': 'bot 们在哪台机器上干活',
-  'rt.machine': '这台机器',
-  'rt.ready': '就位',
-  'rt.fill': '补齐',
-  'rt.filling': '补装中…',
-  'rt.noNeeds': '没有要装的',
-  'rt.missing': '缺',
   'rt.sub': '它们的聊天记录、记忆和技能都在那台机器上。机器开着，它们就在办事。',
   'rt.fine': '搬家会把这台机器上的一切原样带走：聊天记录、事项、记忆、技能、连接和密钥。搬走后这台机器上只留一份不再运行的副本。',
   'rt.myServer': '我的服务器',

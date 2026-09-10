@@ -365,12 +365,6 @@ export const es: Record<string, string> = {
   'about.unavailable': 'no disponible',
 
   'rt.title': 'En qué máquina trabajan los bots',
-  'rt.machine': 'Esta máquina',
-  'rt.ready': 'Listo',
-  'rt.fill': 'Instalar',
-  'rt.filling': 'Instalando…',
-  'rt.noNeeds': 'Nada que instalar',
-  'rt.missing': 'Falta',
   'rt.sub': 'Sus conversaciones, su memoria y sus habilidades viven en esa máquina. Mientras esté encendida, están trabajando.',
   'rt.fine': 'La mudanza se lo lleva todo tal cual: conversaciones, tareas, memoria, habilidades, conexiones y claves. Aquí solo queda una copia que ya no se ejecuta.',
   'rt.myServer': 'mi servidor',

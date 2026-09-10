@@ -365,12 +365,6 @@ export const pt: Record<string, string> = {
   'about.unavailable': 'indisponível',
 
   'rt.title': 'Em que máquina os bots trabalham',
-  'rt.machine': 'Esta máquina',
-  'rt.ready': 'Pronto',
-  'rt.fill': 'Instalar',
-  'rt.filling': 'Instalando…',
-  'rt.noNeeds': 'Nada a instalar',
-  'rt.missing': 'Falta',
   'rt.sub': 'As conversas, a memória e as habilidades deles ficam nessa máquina. Enquanto ela estiver ligada, eles estão trabalhando.',
   'rt.fine': 'A mudança leva tudo como está: conversas, tarefas, memória, habilidades, conexões e chaves. Aqui fica só uma cópia que não roda mais.',
   'rt.myServer': 'meu servidor',

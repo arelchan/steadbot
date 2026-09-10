@@ -365,12 +365,6 @@ export const en: Record<string, string> = {
   'about.unavailable': 'unavailable',
 
   'rt.title': 'Which machine the bots work on',
-  'rt.machine': 'This machine',
-  'rt.ready': 'Ready',
-  'rt.fill': 'Install',
-  'rt.filling': 'Installing…',
-  'rt.noNeeds': 'Nothing to install',
-  'rt.missing': 'Missing',
   'rt.sub': 'Their chats, memory and skills all live on that machine. While it is on, they are working.',
   'rt.fine': 'Moving takes everything as it is: chats, tasks, memory, skills, connections and keys. What stays behind is a copy that no longer runs.',
   'rt.myServer': 'my server',

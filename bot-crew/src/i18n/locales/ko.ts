@@ -365,12 +365,6 @@ export const ko: Record<string, string> = {
   'about.unavailable': '사용 불가',
 
   'rt.title': 'bot이 어느 머신에서 일하는지',
-  'rt.machine': '이 머신',
-  'rt.ready': '준비됨',
-  'rt.fill': '설치',
-  'rt.filling': '설치 중…',
-  'rt.noNeeds': '설치할 것이 없음',
-  'rt.missing': '누락',
   'rt.sub': '대화·기억·기술이 모두 그 머신에 있습니다. 머신이 켜져 있으면 bot도 일합니다.',
   'rt.fine': '이사하면 대화·할 일·기억·기술·연결·키를 그대로 가져갑니다. 이쪽에는 더 이상 돌지 않는 사본만 남습니다.',
   'rt.myServer': '내 서버',
