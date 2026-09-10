@@ -21,6 +21,7 @@ export interface Routine {
   prompt?: string;
   schedule: string;
   enabled: boolean;
+  /** 处理到哪个时间点了：新建或改了时间表时置为当下，所以一条下午建的「每天 09:00」等明天，不会立刻补跑 */
   lastRun?: number;
   /** 最近几次跑的时间，新的在前，最多十条 */
   runs?: number[];

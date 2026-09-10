@@ -187,9 +187,14 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
                     })
                   : undefined;
                 const existing = b.routines.find((r) => r.title === v.title);
+                // `lastRun` starts at now: a schedule whose time already passed today should wait for tomorrow.
                 patch.routines = existing
-                  ? b.routines.map((r) => (r.title === v.title ? { ...r, schedule: v.schedule!, prompt: v.prompt ?? r.prompt, enabled: v.enabled ?? r.enabled, channels: channels ?? r.channels } : r))
-                  : [...b.routines, { id: Math.random().toString(36).slice(2, 10), title: v.title, schedule: v.schedule, ...(v.prompt ? { prompt: v.prompt } : {}), enabled: v.enabled ?? true, ...(channels ? { channels } : {}) }];
+                  ? b.routines.map((r) =>
+                      r.title === v.title
+                        ? { ...r, schedule: v.schedule!, prompt: v.prompt ?? r.prompt, enabled: v.enabled ?? r.enabled, channels: channels ?? r.channels, lastRun: v.schedule === r.schedule ? r.lastRun : Date.now() }
+                        : r,
+                    )
+                  : [...b.routines, { id: Math.random().toString(36).slice(2, 10), title: v.title, schedule: v.schedule, ...(v.prompt ? { prompt: v.prompt } : {}), enabled: v.enabled ?? true, lastRun: Date.now(), ...(channels ? { channels } : {}) }];
               }
               break;
             }

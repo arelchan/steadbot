@@ -127,7 +127,6 @@ export function Sidebar() {
               </button>
               <button className="menu-item" onClick={() => { setMenu(false); setNewGroup(true); }}>
                 <span className="mi-t">{t('side.newGroup')}</span>
-                <span className="mi-s">{t('side.newGroupSub')}</span>
               </button>
             </div>
           )}

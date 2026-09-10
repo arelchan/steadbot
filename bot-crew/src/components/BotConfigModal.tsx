@@ -8,7 +8,8 @@ import { Avatar } from './Avatar';
 import { Sk } from './Skeleton';
 import { Markdown } from './Markdown';
 import { Pick } from './Field';
-import { cx, fullDate, fmtTime, shortDay } from '../utils';
+import { ConfirmDialog } from './ConfirmDialog';
+import { cx, fullDate, fmtTime, msgTime, shortDay } from '../utils';
 import { useT, tn, t as tr } from '../i18n';
 
 /** Library category names live in the catalogs, keyed by the category id the backend uses. */
@@ -393,21 +394,24 @@ export function sayWhen(schedule: string): string {
   return tr('cfg.rtSay.minutes', { n: String(w.every) });
 }
 
+const ALL_CHANNELS: Channel[] = ['app', 'feishu', 'wechat', 'slack', 'telegram', 'discord', 'whatsapp'];
+
 function Routines({ bot }: { bot: Bot }) {
   const t = useT();
   const [openId, setOpenId] = useState<string | undefined>();
-  const open = bot.routines.find((r) => r.id === openId);
-  const add = () => {
-    const r: Routine = { id: uid(), title: '', schedule: writeWhen(DEFAULT_WHEN), enabled: true };
-    patchBot(bot.id, { routines: [...bot.routines, r] });
-    setOpenId(r.id);
-  };
-  // An untouched new routine leaves nothing behind.
-  const back = () => {
-    if (open && !open.title.trim() && !open.prompt?.trim()) patchBot(bot.id, { routines: bot.routines.filter((x) => x.id !== open.id) });
-    setOpenId(undefined);
-  };
-  if (open) return <RoutineDetail bot={bot} r={open} onBack={back} />;
+  // A new routine is a draft on this page until 创建; nothing reaches the bot before that.
+  const [draft, setDraft] = useState<Routine | undefined>();
+  const open = draft ?? bot.routines.find((r) => r.id === openId);
+  if (open)
+    return (
+      <RoutineDetail
+        bot={bot}
+        r={open}
+        isNew={!!draft}
+        onBack={() => { setDraft(undefined); setOpenId(undefined); }}
+        onSaved={(id) => { setDraft(undefined); setOpenId(id); }}
+      />
+    );
   return (
     <>
       <Head title={t('cfg.routines')} />
@@ -424,24 +428,43 @@ function Routines({ bot }: { bot: Bot }) {
           </li>
         ))}
       </ul>
-      <button className="rt-new" onClick={add}>+ {t('cfg.rtNew')}</button>
+      <button className="rt-new" onClick={() => setDraft({ id: uid(), title: '', schedule: writeWhen(DEFAULT_WHEN), enabled: true })}>+ {t('cfg.rtNew')}</button>
     </>
   );
 }
 
-function RoutineDetail({ bot, r, onBack }: { bot: Bot; r: Routine; onBack: () => void }) {
+function RoutineDetail({ bot, r, isNew, onBack, onSaved }: { bot: Bot; r: Routine; isNew: boolean; onBack: () => void; onSaved: (id: string) => void }) {
   const t = useT();
+  const [d, setD] = useState<Routine>(r);
   const [ran, setRan] = useState(false);
-  const w = readWhen(r.schedule);
-  const set = (patch: Partial<Routine>) => patchBot(bot.id, { routines: bot.routines.map((x) => (x.id === r.id ? { ...x, ...patch } : x)) });
+  const [saved, setSaved] = useState(false);
+  const [ask, setAsk] = useState<'delete' | 'drop' | undefined>();
+  useEffect(() => setD(r), [r.id]);
+  const w = readWhen(d.schedule);
+  const set = (patch: Partial<Routine>) => setD({ ...d, ...patch });
   const setWhen = (next: Partial<When>) => set({ schedule: writeWhen({ ...w, ...next }) });
-  // Where a routine's result goes; only worth showing once the bot is somewhere other than here.
-  const where: Channel[] = ['app', ...(['feishu', 'wechat', 'slack', 'telegram', 'discord', 'whatsapp'] as Channel[]).filter((ch) => bot.im?.[ch]?.status === 'ok')];
+  const dirty = JSON.stringify(d) !== JSON.stringify(r);
+  const ok = !!d.title.trim();
+
+  // Where the result lands. Every channel is offered; one the bot is not on yet is dimmed and says so when picked.
+  const live = (ch: Channel) => ch === 'app' || bot.im?.[ch]?.status === 'ok';
+  const here = ALL_CHANNELS.filter(live);
+  const sel = d.channels ?? here;
   const pick = (ch: Channel) => {
-    const on = r.channels ?? where;
-    const next = on.includes(ch) ? on.filter((x) => x !== ch) : where.filter((x) => on.includes(x) || x === ch);
-    if (!next.length) return;
-    set({ channels: next.length === where.length ? undefined : next });
+    const next = sel.includes(ch) ? sel.filter((x) => x !== ch) : ALL_CHANNELS.filter((x) => sel.includes(x) || x === ch);
+    if (next.length) set({ channels: next });
+  };
+  const asleep = sel.filter((ch) => !live(ch));
+
+  const save = () => {
+    // A routine set to 每天 09:00 at four in the afternoon must not fire the moment it is saved: mark it as
+    // already handled up to now, both when it is created and whenever its schedule moves.
+    const fresh = isNew || d.schedule !== r.schedule;
+    const clean: Routine = { ...d, title: d.title.trim(), prompt: d.prompt?.trim() || undefined, lastRun: fresh ? Date.now() : r.lastRun };
+    patchBot(bot.id, { routines: isNew ? [...bot.routines, clean] : bot.routines.map((x) => (x.id === clean.id ? clean : x)) });
+    onSaved(clean.id);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
   const run = () => {
     agent.runRoutine(bot.id, r.id);
@@ -451,29 +474,25 @@ function RoutineDetail({ bot, r, onBack }: { bot: Bot; r: Routine; onBack: () =>
   return (
     <div className="rt-detail">
       <div className="sd-top">
-        <button className="back" onClick={onBack}>‹ {t('cfg.routines')}</button>
+        <button className="back" onClick={() => (dirty ? setAsk('drop') : onBack())}>‹ {t('cfg.routines')}</button>
         <span className="sd-actions">
-          <button className="link quiet-link" onClick={() => { patchBot(bot.id, { routines: bot.routines.filter((x) => x.id !== r.id) }); onBack(); }}>{t('common.delete')}</button>
-          <button className="btn sm" onClick={run} disabled={ran}>{ran ? t('cfg.rtRan') : t('cfg.rtTest')}</button>
+          {!isNew && <button className="link quiet-link" onClick={() => setAsk('delete')}>{t('common.delete')}</button>}
+          {!isNew && <button className="btn sm" onClick={run} disabled={ran}>{ran ? t('cfg.rtRan') : t('cfg.rtTest')}</button>}
           <span className="rt-en">
-            <button className={cx('tgl', r.enabled && 'on')} onClick={() => set({ enabled: !r.enabled })} role="switch" aria-checked={r.enabled}><i /></button>
-            {t(r.enabled ? 'ws.routineOn' : 'ws.routineOff')}
+            <button className={cx('tgl', d.enabled && 'on')} onClick={() => set({ enabled: !d.enabled })} role="switch" aria-checked={d.enabled}><i /></button>
+            {t(d.enabled ? 'ws.routineOn' : 'ws.routineOff')}
           </span>
         </span>
       </div>
 
-      <label className="fld">
-        <span>{t('cfg.rtName')}</span>
-        <input className="fld-in" autoFocus={!r.title} value={r.title} onChange={(e) => set({ title: e.target.value })} />
-      </label>
+      <div className="rt-form">
+        <label htmlFor="rt-name">{t('cfg.rtName')}</label>
+        <input id="rt-name" className="fld-in" autoFocus={isNew} value={d.title} onChange={(e) => set({ title: e.target.value })} />
 
-      <label className="fld">
-        <span>{t('cfg.rtPrompt')}</span>
-        <textarea className="fld-in" rows={3} value={r.prompt ?? ''} onChange={(e) => set({ prompt: e.target.value })} spellCheck={false} />
-      </label>
+        <label htmlFor="rt-prompt" className="top">{t('cfg.rtPrompt')}</label>
+        <textarea id="rt-prompt" className="fld-in" rows={3} value={d.prompt ?? ''} onChange={(e) => set({ prompt: e.target.value })} spellCheck={false} />
 
-      <div className="fld">
-        <span>{t('cfg.rtWhenLabel')}</span>
+        <label>{t('cfg.rtWhenLabel')}</label>
         <div className="rt-when">
           <Pick value={w.freq} onChange={(v) => setWhen({ freq: v as Freq })}>
             {FREQS.map((f) => (
@@ -490,37 +509,57 @@ function RoutineDetail({ bot, r, onBack }: { bot: Bot; r: Routine; onBack: () =>
           {(w.freq === 'daily' || w.freq === 'weekdays' || w.freq === 'weekly') && (
             <input className="fld-in time" type="time" value={w.at} onChange={(e) => setWhen({ at: e.target.value || '09:00' })} />
           )}
-          {w.freq === 'minutes' && (
-            <input className="fld-in num" type="number" min={1} max={720} value={w.every} onChange={(e) => setWhen({ every: Number(e.target.value) || 1 })} />
-          )}
+          {w.freq === 'minutes' && <input className="fld-in num" type="number" min={1} max={720} value={w.every} onChange={(e) => setWhen({ every: Number(e.target.value) || 1 })} />}
         </div>
-      </div>
 
-      <div className="fld">
-        <span>{t('cfg.rtTo')}</span>
-        <div className="rt-ch">
-          {where.map((ch) => (
-            <button key={ch} className={cx('chip', (r.channels ?? where).includes(ch) && 'accent')} onClick={() => pick(ch)}>
-              {tr(`channel.${ch}`)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="fld">
-        <span>{t('cfg.rtHistory')}</span>
-        {r.runs?.length ? (
-          <ul className="rt-runs">
-            {r.runs.map((ts) => (
-              <li key={ts}>
-                <b>{shortDay(ts)}</b> {fmtTime(ts)}
-              </li>
+        <label className="top">{t('cfg.rtTo')}</label>
+        <div>
+          <div className="rt-ch">
+            {ALL_CHANNELS.map((ch) => (
+              <button key={ch} className={cx('chip', sel.includes(ch) && 'accent', !live(ch) && 'dim')} onClick={() => pick(ch)}>
+                {tr(`channel.${ch}`)}
+              </button>
             ))}
-          </ul>
-        ) : (
-          <div className="quiet">{t('common.none')}</div>
-        )}
+          </div>
+          {asleep.length > 0 && <div className="rt-note">{t('cfg.rtToOff', { ims: asleep.map((ch) => tr(`channel.${ch}`)).join(tr('common.listSep')) })}</div>}
+        </div>
+
+        {r.runs?.length ? (
+          <>
+            <label className="top">{t('cfg.rtHistory')}</label>
+            <ul className="rt-runs">
+              {r.runs.map((ts) => (
+                <li key={ts}>{msgTime(ts)}</li>
+              ))}
+            </ul>
+          </>
+        ) : null}
       </div>
+
+      <div className="rt-save">
+        <button className="btn sm primary" onClick={save} disabled={!ok || (!isNew && !dirty)}>{isNew ? t('cfg.rtCreate') : t('common.save')}</button>
+        {(isNew || dirty) && <button className="link quiet-link" onClick={onBack}>{t('common.cancel')}</button>}
+        {saved && <span className="rt-saved">{t('cfg.rtSaved')}</span>}
+      </div>
+
+      {ask === 'delete' && (
+        <ConfirmDialog
+          title={t('cfg.rtDelete', { name: r.title.trim() || t('cfg.rtUntitled') })}
+          confirmLabel={t('common.delete')}
+          danger
+          onCancel={() => setAsk(undefined)}
+          onConfirm={() => { patchBot(bot.id, { routines: bot.routines.filter((x) => x.id !== r.id) }); onBack(); }}
+        />
+      )}
+      {ask === 'drop' && (
+        <ConfirmDialog
+          title={t('cfg.rtDrop')}
+          confirmLabel={t('cfg.rtDropOk')}
+          danger
+          onCancel={() => setAsk(undefined)}
+          onConfirm={onBack}
+        />
+      )}
     </div>
   );
 }
