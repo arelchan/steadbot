@@ -2,7 +2,6 @@ import type { InlineExtension } from '@earendil-works/pi-coding-agent';
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import type { BotCtx } from './ctx.ts';
-import type { CrewOps } from './crew-tools.ts';
 import * as everos from '../everos.ts';
 import { botThread } from '../types.ts';
 
@@ -14,7 +13,7 @@ import { botThread } from '../types.ts';
  * do not drift apart. `recall` is the bot going back through what it and the crew have actually done;
  * the turn already arrives with the relevant few (identity.ts), so this is for what that missed.
  */
-export function rememberExtension(c: BotCtx, ops: () => CrewOps): InlineExtension {
+export function rememberExtension(c: BotCtx): InlineExtension {
   return {
     name: 'crew-remember',
     factory: (pi) => {
@@ -22,7 +21,7 @@ export function rememberExtension(c: BotCtx, ops: () => CrewOps): InlineExtensio
         name: 'remember',
         label: '记忆',
         description:
-          '记住或忘掉关于用户的长期事实：偏好、习惯、约束、称呼、常用的人和地方。action=add（默认）记一条，action=forget 忘掉与 fact 相符的那条。用户是同一个人，记下的事实全体 bot 都会读——没有只属于你的那份。后台异步归并进记忆（去重、合并、新旧冲突以新的为准），调用后立刻返回，不影响当前对话。只管关于用户的事——你自己的人设、工作方式用 build。',
+          '记住或忘掉关于用户的长期事实：偏好、习惯、约束、称呼、常用的人和地方。action=add（默认）记一条，action=forget 声明某条不再成立。用户是同一个人，记下的事实全体 bot 都会读——没有只属于你的那份。它作为用户说的一句话进记忆引擎，由引擎归并进画像，调用后立刻返回。只管关于用户的事——你自己的人设、工作方式用 build。',
         promptSnippet: '异步记住 / 忘掉关于用户的稳定事实（全员共用）',
         promptGuidelines: [
           '只记稳定、以后还会用到的事实，不记一次性任务的细节。同一事实不用担心重复，后台会归并。',
@@ -35,13 +34,13 @@ export function rememberExtension(c: BotCtx, ops: () => CrewOps): InlineExtensio
         }),
         async execute(_id, p) {
           const action = p.action ?? 'add';
-          const job = await ops().remember(c.botId, { action, fact: p.fact, scope: 'shared' });
-          // Say it to the engine too, as the user saying it. Forgetting is not mirrored: the engine's own
-          // record of a conversation that happened is not something a later opinion should rewrite.
-          if (action === 'add') void everos.statedFact(c.current()?.threadId ?? botThread(c.botId), p.fact);
+          // Said to the engine as the user saying it; a "forget" is a correction, since a conversation that happened
+          // is not unsaid — the engine resolves conflicts in favour of the newer statement.
+          const thread = c.current()?.threadId ?? botThread(c.botId);
+          void (action === 'add' ? everos.statedFact(thread, p.fact) : everos.correct(p.fact));
           return {
-            content: [{ type: 'text', text: action === 'add' ? '记下了，后台归并进记忆。继续。' : '好，后台从记忆里去掉。继续。' }],
-            details: { jobId: job.id, action, fact: p.fact },
+            content: [{ type: 'text', text: everos.alive() ? (action === 'add' ? '记下了。继续。' : '好，记为不再成立。继续。') : '记忆引擎没在跑，这条没处落；先继续。' }],
+            details: { action, fact: p.fact },
           };
         },
       });

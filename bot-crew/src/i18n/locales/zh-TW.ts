@@ -344,8 +344,6 @@ export const zhTW: Record<string, string> = {
   'about.unavailable': '不可用',
 
   'rt.title': 'bot 在哪台機器上幹活',
-  'rt.sub': '它們的對話紀錄、記憶和技能都在那台機器上。機器開著，它們就在辦事。',
-  'rt.fine': '搬家會把這台機器上的一切原樣帶走：對話紀錄、事項、記憶、技能、連線和金鑰。搬走後這台機器只留一份不再執行的副本。',
   'rt.myServer': '我的伺服器',
   'rt.thisComputer': '這台電腦',
   'rt.offline': '沒連上',

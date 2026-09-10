@@ -1,8 +1,8 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
-import { useStore, patchBot, patchSkill, mountLibrarySkill, select, uid, addIntegration, removeIntegration, testIntegration, setSharedProfile } from '../store';
+import { useStore, patchBot, patchSkill, mountLibrarySkill, select, uid, addIntegration, removeIntegration, testIntegration, openMemory } from '../store';
 import { LIBRARY_CATEGORY_IDS, botThread, type Bot, type Channel, type GrowthEvent, type GrowthKind, type Integration, type Routine, type SkillDoc } from '../types';
-import { agent, memoryOverview, promoteSkill } from '../services/agent';
+import { agent } from '../services/agent';
 import { Avatar } from './Avatar';
 import { Sk } from './Skeleton';
 import { Markdown } from './Markdown';
@@ -12,7 +12,7 @@ import { useT, tn, t as tr } from '../i18n';
 /** Library category names live in the catalogs, keyed by the category id the backend uses. */
 const libCat = (c: string) => tr(`lib.${c}`);
 
-type Tab = 'growth' | 'instructions' | 'memory' | 'skills' | 'routines' | 'integrations';
+export type Tab = 'growth' | 'instructions' | 'memory' | 'skills' | 'routines' | 'integrations';
 
 const TABS: { id: Tab; key: string }[] = [
   { id: 'growth', key: 'cfg.growth' },
@@ -53,7 +53,7 @@ export function BotConfigModal({ bot, onClose }: { bot: Bot; onClose: () => void
           </div>
           <nav className="cfg-nav">
             {TABS.map((x) => (
-              <button key={x.id} className={cx('cfg-tab', tab === x.id && 'on')} onClick={() => setTab(x.id)}>
+              <button key={x.id} className={cx('cfg-tab', tab === x.id && 'on')} onClick={() => (x.id === 'memory' ? (openMemory('skill', bot.id), onClose()) : setTab(x.id))}>
                 <span>{t(x.key)}</span>
                 {counts[x.id] ? <span className="cfg-n">{counts[x.id]}</span> : null}
               </button>
@@ -65,7 +65,6 @@ export function BotConfigModal({ bot, onClose }: { bot: Bot; onClose: () => void
           <div className="cfg-content">
             {tab === 'growth' && <Growth bot={bot} />}
             {tab === 'instructions' && <Instructions bot={bot} />}
-            {tab === 'memory' && <Memory bot={bot} />}
             {tab === 'skills' && <Skills bot={bot} />}
             {tab === 'routines' && <Routines bot={bot} />}
             {tab === 'integrations' && <Integrations bot={bot} />}
@@ -167,75 +166,6 @@ function Instructions({ bot }: { bot: Bot }) {
       ) : (
         <textarea key="soul" className="cfg-role sys" rows={14} placeholder={t('cfg.soulPlaceholder')} value={bot.soul} onChange={(e) => patchBot(bot.id, { soul: e.target.value })} spellCheck={false} />
       )}
-    </>
-  );
-}
-
-/* ---------------- 记忆 ---------------- */
-
-/**
- * Two tracks, the way the engine keeps them. About the user there is one shared picture — the user is one
- * person — split by where it came from: what the engine worked out (read-only) and what the user told the
- * bots (editable right here; it is shared, so there is no other page to go to). The bot's own craft is what
- * it worked out from its own trouble; it stays its own until the user hands a line to the whole crew.
- */
-function Memory({ bot }: { bot: Bot }) {
-  const t = useT();
-  const shared = useStore((s) => s.sharedProfile);
-  const [draft, setDraft] = useState('');
-  const [mem, setMem] = useState<{ alive: boolean; profile: string[]; skills: { name: string; text: string; at: string }[] }>({ alive: false, profile: [], skills: [] });
-  const [sent, setSent] = useState<string[]>([]);
-  useEffect(() => {
-    let live = true;
-    void memoryOverview(bot.id).then((m) => { if (live) setMem(m); });
-    return () => { live = false; };
-  }, [bot.id]);
-  return (
-    <>
-      <Head title={t('cfg.memory')} />
-      <h4>{t('cfg.memSeen')}</h4>
-      <ul className="mem readonly">
-        {mem.profile.map((v, i) => <li key={i}><span>{v}</span></li>)}
-        {mem.profile.length === 0 && <li className="quiet">{t('common.none')}</li>}
-      </ul>
-      <h4>{t('cfg.memTold')}</h4>
-      <ul className="mem">
-        {shared.map((v, i) => (
-          <li key={i}>
-            <span>{v}</span>
-            <button className="del" title={t('cfg.memDelete')} onClick={() => setSharedProfile(shared.filter((_, j) => j !== i))}>✕</button>
-          </li>
-        ))}
-        {shared.length === 0 && <li className="quiet">{t('common.none')}</li>}
-      </ul>
-      <input
-        className="mem-add"
-        placeholder={t('cfg.memAdd')}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && draft.trim()) {
-            setSharedProfile([...shared, draft.trim()]);
-            setDraft('');
-          }
-        }}
-      />
-      <h4>{t('cfg.memCraft')}</h4>
-      <ul className="mem readonly">
-        {mem.skills.map((k) => (
-          <li key={k.name}>
-            <span><b className="memk">{k.name}</b><span className="memt">{k.text}</span></span>
-            <button
-              className="link"
-              disabled={sent.includes(k.name)}
-              onClick={() => { setSent((p) => [...p, k.name]); void promoteSkill(bot.id, k.name); }}
-            >
-              {sent.includes(k.name) ? t('cfg.memShared') : t('cfg.memPromote')}
-            </button>
-          </li>
-        ))}
-        {mem.skills.length === 0 && <li className="quiet">{t('common.none')}</li>}
-      </ul>
     </>
   );
 }
@@ -456,11 +386,6 @@ function Routines({ bot }: { bot: Bot }) {
         ))}
         {bot.routines.length === 0 && <li className="quiet">{t('common.none')}</li>}
       </ul>
-      <div className="rt-add">
-        <input className="mem-add" placeholder={t('cfg.rtDo')} value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input className="mem-add" placeholder={t('cfg.rtWhen')} value={schedule} onChange={(e) => setSchedule(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
-        <button className="btn sm" onClick={add} disabled={!title.trim() || !schedule.trim()}>{t('cfg.rtAdd')}</button>
-      </div>
     </>
   );
 }

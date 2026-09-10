@@ -12,7 +12,8 @@
  * the agent track — which is why a bot's own id is what we later read back as `agent_id`.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import YAML from 'yaml';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { config } from './config.ts';
@@ -499,8 +500,205 @@ export async function skillsOf(botId: string): Promise<{ name: string; text: str
   }));
 }
 
-/** What the settings panel shows: one shared profile, and what this bot has worked out for itself. */
-export async function overview(botId?: string): Promise<{ alive: boolean; profile: string[]; skills: { name: string; text: string; at: string }[] }> {
-  if (!up) return { alive: false, profile: [], skills: [] };
-  return { alive: true, profile: profileCache, skills: botId ? await skillsOf(botId) : [] };
+
+// ── the profile as a document ─────────────────────────────────────────────────
+//
+// md is the engine's truth and it watches the files: editing `user.md` *is* editing memory, and the
+// index follows. Nothing else in the product touches these files (the read tools refuse them).
+
+const profilePath = () => join(memoryRoot(), APP, SPACE, 'users', HUMAN, 'user.md');
+
+export interface ProfileEntry {
+  category?: string;
+  description: string;
+  evidence?: string;
 }
+export interface TraitEntry {
+  trait?: string;
+  description: string;
+  basis?: string;
+  evidence?: string;
+}
+export interface ProfileDoc {
+  summary: string;
+  explicit: ProfileEntry[];
+  traits: TraitEntry[];
+  /** the engine's own stamp: the newest conversation that fed this synthesis */
+  at: number;
+}
+
+function readProfileFile(): { fm: Record<string, unknown>; body: string } | undefined {
+  const f = profilePath();
+  if (!existsSync(f)) return undefined;
+  const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(readFileSync(f, 'utf8'));
+  if (!m) return undefined;
+  try {
+    return { fm: (YAML.parse(m[1]) as Record<string, unknown>) ?? {}, body: m[2] };
+  } catch {
+    return undefined;
+  }
+}
+
+const str = (v: unknown) => (typeof v === 'string' ? v : '');
+
+export function profileDoc(): ProfileDoc | undefined {
+  const r = readProfileFile();
+  if (!r) return undefined;
+  const ex = Array.isArray(r.fm.explicit_info) ? (r.fm.explicit_info as Record<string, unknown>[]) : [];
+  const tr = Array.isArray(r.fm.implicit_traits) ? (r.fm.implicit_traits as Record<string, unknown>[]) : [];
+  return {
+    summary: str(r.fm.summary),
+    explicit: ex.map((e) => ({ category: str(e.category) || undefined, description: str(e.description), evidence: str(e.evidence) || undefined })),
+    traits: tr.map((e) => ({ trait: str(e.trait) || undefined, description: str(e.description), basis: str(e.basis) || undefined, evidence: str(e.evidence) || undefined })),
+    at: Number(r.fm.profile_timestamp_ms ?? 0) || 0,
+  };
+}
+
+/**
+ * Change or drop one line of the profile. Two things happen, because the engine re-synthesises this
+ * document from its clusters and would otherwise say the same thing again next time: the file is
+ * rewritten now (the watcher re-indexes it), and the correction is said to the engine as the user
+ * saying it, so the next synthesis has the counter-evidence.
+ */
+export async function editProfile(kind: 'explicit' | 'trait', index: number, text: string | null): Promise<boolean> {
+  const r = readProfileFile();
+  if (!r) return false;
+  const key = kind === 'explicit' ? 'explicit_info' : 'implicit_traits';
+  const list = Array.isArray(r.fm[key]) ? ([...(r.fm[key] as Record<string, unknown>[])] as Record<string, unknown>[]) : [];
+  const cur = list[index];
+  if (!cur) return false;
+  const old = str(cur.description);
+  const next = text?.trim() ?? '';
+  if (next) list[index] = { ...cur, description: next };
+  else list.splice(index, 1);
+  r.fm[key] = list;
+  writeFileSync(profilePath(), `---\n${YAML.stringify(r.fm)}---\n${r.body}`);
+  void statedFact('user_edits', next ? `（更正）「${old}」这条不准确，应该是：${next}` : `（更正）「${old}」这条不对，作废。`);
+  void flush('user_edits');
+  return true;
+}
+
+/** A fact the user typed in by hand. It goes through the engine like anything else the user says. */
+export async function addFact(text: string): Promise<boolean> {
+  if (!up || !text.trim()) return false;
+  await statedFact('user_edits', text.trim());
+  await flush('user_edits');
+  return true;
+}
+
+/** "This is wrong" on a memory that is not editable as a line (an episode): said back as a correction. */
+export async function correct(text: string): Promise<boolean> {
+  if (!up || !text.trim()) return false;
+  await statedFact('user_edits', `（更正）${text.trim()}`);
+  void flush('user_edits');
+  return true;
+}
+
+// ── listings for the memory page ──────────────────────────────────────────────
+
+export interface EpisodeItem {
+  id: string;
+  subject: string;
+  summary: string;
+  content: string;
+  at: string;
+  senders: string[];
+  session: string;
+}
+interface RawEpisode {
+  id?: string;
+  subject?: string;
+  summary?: string;
+  episode?: string;
+  timestamp?: string;
+  sender_ids?: string[];
+  session_id?: string;
+}
+const toEpisode = (e: RawEpisode): EpisodeItem => ({
+  id: e.id ?? '',
+  subject: e.subject ?? '',
+  summary: e.summary ?? '',
+  content: e.episode ?? '',
+  at: e.timestamp ?? '',
+  senders: e.sender_ids ?? [],
+  session: e.session_id ?? '',
+});
+
+/** Newest first; or, with a query, what the engine's hybrid search finds. */
+export async function episodes(query: string, page = 1, size = 30): Promise<{ items: EpisodeItem[]; total: number }> {
+  if (!up) return { items: [], total: 0 };
+  const q = query.trim();
+  if (q) {
+    const d = await call<{ episodes?: RawEpisode[] }>('search', { ...readUser(), query: trim(q, 300), top_k: 30, method: 'hybrid' }, 30_000);
+    const items = (d?.episodes ?? []).map(toEpisode);
+    return { items, total: items.length };
+  }
+  const d = await call<{ episodes?: RawEpisode[]; total_count?: number }>('get', { ...readUser(), memory_type: 'episode', page, page_size: Math.min(100, size), sort_by: 'timestamp', sort_order: 'desc' }, 15_000);
+  return { items: (d?.episodes ?? []).map(toEpisode), total: d?.total_count ?? 0 };
+}
+
+export interface CaseItem {
+  id: string;
+  botId: string;
+  intent: string;
+  approach: string;
+  insight: string;
+  quality: number;
+  at: string;
+  session: string;
+}
+export interface SkillItem {
+  id: string;
+  botId: string;
+  name: string;
+  description: string;
+  content: string;
+  confidence: number;
+  maturity: number;
+  sources: string[];
+}
+
+/** Every bot's cases (or one bot's), newest first. One call per bot: the engine partitions by owner. */
+export async function cases(botIds: string[]): Promise<CaseItem[]> {
+  if (!up) return [];
+  const per = await Promise.all(
+    botIds.map(async (botId) => {
+      const d = await call<{ agent_cases?: Record<string, unknown>[] }>('get', { ...readBot(botId), memory_type: 'agent_case', page: 1, page_size: 100, sort_by: 'timestamp', sort_order: 'desc' }, 15_000);
+      return (d?.agent_cases ?? []).map((k) => ({
+        id: str(k.id),
+        botId,
+        intent: str(k.task_intent),
+        approach: str(k.approach),
+        insight: str(k.key_insight),
+        quality: Number(k.quality_score ?? 0) || 0,
+        at: str(k.timestamp),
+        session: str(k.session_id),
+      }));
+    }),
+  );
+  return per.flat().sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+
+export async function skills(botIds: string[]): Promise<SkillItem[]> {
+  if (!up) return [];
+  const per = await Promise.all(
+    botIds.map(async (botId) => {
+      const d = await call<{ agent_skills?: Record<string, unknown>[] }>('get', { ...readBot(botId), memory_type: 'agent_skill', page: 1, page_size: 100, sort_by: 'updated_at', sort_order: 'desc' }, 15_000);
+      return (d?.agent_skills ?? []).map((k) => ({
+        id: str(k.id),
+        botId,
+        name: str(k.name),
+        description: str(k.description),
+        content: str(k.content),
+        confidence: Number(k.confidence ?? 0) || 0,
+        maturity: Number(k.maturity_score ?? 0) || 0,
+        sources: Array.isArray(k.source_case_ids) ? (k.source_case_ids as string[]) : [],
+      }));
+    }),
+  );
+  return per.flat();
+}
+
+/** The team's shared ways of working (owner `crew`), for the same page. */
+export const crewSkills = () => skills([CREW]);
+export const CREW_ID = CREW;

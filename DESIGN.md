@@ -192,6 +192,8 @@
 
 **不做**：不做图数据库；不自己写抽取 prompt；不默认开 per-bot 的用户轨（`project_id=bot_xxx` 留着，默认关）；不做记忆的可视化编辑器（两份 md 就是编辑器）；不让 bot 直接读记忆库文件——它只能 `recall`，而 recall 只答它自己那份。
 
-**已知的坑**：情节叙事目前是英文（everalgo 的抽取 prompt 只挂了 en 那套，zh 那套没接上；画像倒是中文），注入时说明一句「记录是英文的，照常说中文」；agent case 的门槛很高（≥3 轮工具调用、最后一条必须是 bot 自己的收尾、且被模型判定「出过岔子并被纠正」才留），所以 agent 轨天生稀疏——这是对的，只从麻烦里学；LanceDB 会因遗留 FTS 索引和未回收版本膨胀（量过 26MB 记忆撑到 344GB），要定期 `optimize`。
+**记忆页**：一个「记忆」页、四个同级 tab——Profile / Episode / Agent case / Agent skill，引擎原名。前两个关于用户、全员一份；后两个按 bot 归属，卡片带 bot 头像、可按 bot 筛，bot 面板里的「记忆」只是跳到这里并预选它的入口。按真实尺度做成「列表 + 阅读栏」：Episode 正文中位三千字符、Agent skill 一千多字符五六步、Agent case 十来步，卡片两行截断、右栏整篇。Profile 是一份 10–25 条的文档、不随对话量涨，整份铺开不分页；每条可就地改、可删、可加——改和删是改引擎的 `user.md`（它的 watcher 重建索引）再把一句更正当用户的话写回去，加就是用户说了一句话。没有单独的「备注」类型，原来的两份纯文本清单在引擎起来后一次性喂进去、文件删掉。引擎会把同一件事抽出好几条几乎一样的画像，页面标「重复」让人一次删干净。atomic fact、foresight 不出现在界面上。
+
+**已知的坑**：情节叙事目前是英文（everalgo 的抽取 prompt 只挂了 en 那套，zh 那套没接上；画像倒是中文），注入时说明一句「记录是英文的，照常说中文」；agent case 的门槛很高（≥3 轮工具调用、最后一条必须是 bot 自己的收尾、且被模型判定「出过岔子并被纠正」才留），所以 agent 轨天生稀疏——这是对的，只从麻烦里学；LanceDB 会因遗留 FTS 索引和未回收版本膨胀（量过 26MB 记忆撑到 344GB），要定期 `optimize`；搬家只带 md 是可行的——引擎每 30 秒扫一遍目录会把新文件排进队列——但重建等于把每一条重新嵌入一遍，85 份 md 要跑几分钟到几十分钟，期间召回是空的。
 
 **在哪**：`crew-server/src/everos.ts`（唯一出入口：作用域、预算、降级、sidecar 生命周期）；`bots.ts`（一轮的消息怎么攒、什么时候发）；`extensions/identity.ts`（三段注入）；`extensions/remember.ts`（`remember` 双写 + `recall` 工具）；`builder.ts` `pickupSkills`（做法转 build）；`index.ts`（拉起、`/memory/overview`、`/memory/promote`、退出前 flush）；`Dockerfile`（uv + 固定版本的 everos）。

@@ -5,8 +5,7 @@ import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import type { CrewStore } from './store.ts';
 import type { SkillStore } from './skills.ts';
 import { ready as depsReady } from './deps.ts';
-import type { BuildSpec, MemorySpec } from './extensions/crew-tools.ts';
-import type { MemoryStore } from './memory.ts';
+import type { BuildSpec } from './extensions/crew-tools.ts';
 import type { BuildJob } from './types.ts';
 import { botThread } from './types.ts';
 
@@ -19,53 +18,6 @@ interface Deps {
   onSkillWritten?: (botId: string) => Promise<void>;
   /** what this bot has just equipped from the pool — the header of a manual it writes now */
   needs?: (botId: string) => { slugs: string[]; line: string } | undefined;
-}
-
-/**
- * Fold one fact into (or out of) a memory list in the background. With a model: dedupe, merge,
- * newest wins on conflict, lines stay short. Without one, or on any failure: plain add / remove, so
- * nothing the bot wanted to remember is ever lost.
- */
-export async function runMemory(d: Deps & { memory: MemoryStore }, botId: string, job: BuildJob, spec: MemorySpec): Promise<void> {
-  const store = d.store;
-  const clearJob = () => {
-    const b = store.bot(botId);
-    if (b) store.patchBot(botId, { building: (b.building ?? []).filter((j) => j.id !== job.id) });
-  };
-  const plain = () => (spec.action === 'forget' ? void d.memory.forget(botId, spec.fact, spec.scope) : d.memory.remember(botId, spec.fact, spec.scope));
-  try {
-    const current = spec.scope === 'shared' ? d.memory.readShared() : d.memory.readPrivate(botId);
-    if (!d.runtime || !d.model || d.model.provider === 'faux' || (spec.action === 'add' && current.length === 0)) {
-      plain();
-      return;
-    }
-    const res = await d.runtime.completeSimple(
-      d.model,
-      {
-        systemPrompt:
-          spec.action === 'add'
-            ? '你在维护一个 bot 关于用户的记忆列表。给你现有列表和一条新事实：把新事实并进去——已有同义的就合并成一条，和旧的冲突以新的为准并删掉旧的，其余原样保留；每条 <=40 字，完整短句。输出严格 JSON：{"lines":["…"]}，顺序保持原有顺序，新条放末尾。只输出 JSON。'
-            : '你在维护一个 bot 关于用户的记忆列表。给你现有列表和一条要忘掉的事实：删掉与之相符（同义或包含）的条目，其余原样保留，不改一个字。输出严格 JSON：{"lines":["…"]}。只输出 JSON。',
-        messages: [{ role: 'user', content: `现有列表：\n${current.map((l, i) => `${i + 1}. ${l}`).join('\n')}\n\n${spec.action === 'add' ? '新事实' : '要忘掉'}：${spec.fact}`, timestamp: Date.now() }],
-      },
-      { maxTokens: 3000 },
-    );
-    const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').replace(/```(?:json)?/g, '');
-    const s = raw.indexOf('{');
-    const e = raw.lastIndexOf('}');
-    if (s < 0 || e < 0) throw new Error('no JSON');
-    const parsed = JSON.parse(raw.slice(s, e + 1)) as { lines?: unknown };
-    if (!Array.isArray(parsed.lines) || !parsed.lines.every((l) => typeof l === 'string')) throw new Error('bad lines');
-    const lines = parsed.lines as string[];
-    // Sanity: an add never shrinks the list by more than one merged line; a forget never grows it.
-    if (spec.action === 'add' ? lines.length < current.length - 1 || lines.length > current.length + 1 : lines.length > current.length) throw new Error('implausible result');
-    d.memory.replace(botId, lines, spec.scope);
-  } catch (e) {
-    console.warn('[crew] memory consolidation fell back to a plain write:', (e as Error).message);
-    plain();
-  } finally {
-    clearJob();
-  }
 }
 
 export const buildLabel = (spec: BuildSpec) => (spec.aspect === 'soul' ? '人设' : spec.aspect === 'instructions' ? '工作方式' : `技能「${spec.skill}」`);
