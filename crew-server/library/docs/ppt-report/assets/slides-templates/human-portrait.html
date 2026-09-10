@@ -1,0 +1,201 @@
+<!--
+  TEMPLATE · human-portrait（人物画像 / 拟人化能力图 / 部位热力图）
+  =================================================================
+  把「对象画像 / 能力拟人 / 风险热图」等需要"中央人体 + 周边标签 + 部位锚点"
+  的页型，做成 **一次成、数据驱动** 的页面。
+
+  ⭐ 与旧版的根本区别：你不再手画剪影、不再手摆引线像素坐标。
+     剪影 path、部位坐标、可见色点、引线连接，全部内置在 assets/scripts/silhouette.js
+     里由 renderHumanPortrait() 算出。你只写一段 labels 数据（见下方 <script>）。
+
+  典型场景：
+    1. 用户画像（头=职业 · 胸=动机 · 腿=地域 · 肩=使用 · 手=设备）
+    2. 能力地图（头=推理 · 眼=视觉 · 耳=语音 · 手=工具 · 腿=Agent）
+    3. 职业风险热图（色点颜色深浅 = 被 AI 取代风险）
+
+  ── 使用三步（一次成）──────────────────────────────────────────
+  1. 把本片段拷成 src/slides/slide-N.html，把 sX 改成页号（如 s3）、initSlideX 改成 initSlide3。
+     （占位符用 sX 不用 sN —— 因 className 含子串 sN，全局替换 sN 会误伤 JS。）
+     片段尾部的「样式块」和「脚本块」会被 build.py 自动抽取注入，
+     不用再手动拆到 styles/ 与 scripts/ 目录（旧版痛点已根治）。
+  2. 改下方脚本里的 labels 数据：每个标签 {part, num, title, big, meta, color, side}。
+     part 取自身体部位名（见下表），side 取 left / right。
+  3. python3 build.py → 打开预览。剪影 / 色点 / 引线自动到位。
+
+  ── 部位名（part 字段可选值，已内置坐标，无需校准）────────────────
+  man   : head 头 · mouth 嘴喉 · heart 胸/心 · shoulder 肩 ·
+          leftHand 左手 · rightHand 右手/提包 · legs 腿 · feet 脚
+  woman : head 头 · leftEye/rightEye 眼 · leftEar/rightEar 耳 ·
+          heart 胸/心 · leftHand/rightHand 手 · base 半身底
+
+  ── 设计铁律（少而硬）────────────────────────────────────────────
+  · 标签 ≤ 6 个，左右各 ≤ 3 个（5 个=左 3 右 2 最舒服）。多了视觉过载。
+  · 每个标签必须绑定一个 part → 色点画在身体对应部位、引线连过去。
+  · 底部一句话总结：含 1-3 个加粗关键数字，告诉读者"所以呢"。
+  · 一份 deck ≥ 2 张人像页时，kind 交替 man / woman，避免重复。
+-->
+<div class="slide" id="sX">
+  <div class="slide-label">{副标题英文} · {大类名}</div>
+  <div class="slide-title">{标题} — <span>{核心观点}</span></div>
+  <div class="slide-subtitle">
+    {一句简介 · 标签数 · 数据来源}
+  </div>
+
+  <div class="hp-board">
+    <!-- 引线层(overlay) + 剪影层(host) + 标签 全部由 renderHumanPortrait() 注入。
+         这三个空容器是它要找的钩子，保持原样即可。 -->
+    <div class="hp-figure">
+      <svg class="hp-leaders" xmlns="http://www.w3.org/2000/svg"></svg>
+      <svg class="hp-svg silhouette-host" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <!-- 底部一句话总结 -->
+    <div class="hp-foot">
+      <span class="hp-foot-tag">画像总结</span>
+      <span class="hp-foot-text">
+        {一句话 · 让读者带走的核心判断 · 含 <strong>关键数字加粗</strong>}
+      </span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* 本页脚本：build.py 会自动把它抽到 JS 区。只改 labels 数据即可。 */
+function initSlideX() {
+  renderHumanPortrait('#sX', {
+    kind: 'man',                       // 'man'（西装提包） | 'woman'（长发职业）
+    labels: [
+      { part: 'head',      num: '01', title: '职业 · 知识工作者', big: '68%',
+        meta: '软件 / 咨询 / 金融 / 教育 / 研究', color: '#3b82f6', side: 'left' },
+      { part: 'heart',     num: '02', title: '动机 · 工作生产力', big: '$22',
+        meta: '月付意愿 · 71% 因"提效"付费',     color: '#10b981', side: 'left' },
+      { part: 'legs',      num: '03', title: '地域 · 北美 + 欧洲', big: '62%',
+        meta: '美国 38% · 欧洲 24% · 亚太 22%',  color: '#8b5cf6', side: 'left' },
+      { part: 'shoulder',  num: '04', title: '使用 · 编程 / 写作 / 分析', big: '8.4×',
+        meta: '日均对话数 · Top 3 场景占 73%',   color: '#f59e0b', side: 'right' },
+      { part: 'rightHand', num: '05', title: '设备 · Web + iOS 双主力', big: '53%',
+        meta: '桌面 Web 32% · iOS 12% · Android', color: '#ec4899', side: 'right' },
+    ],
+  });
+}
+</script>
+
+<style>
+/* human-portrait 模板样式 — build.py 自动抽取注入。把 #sX 改成 #s+页号（如 #s3）。 */
+
+#sX .hp-board {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 8px;
+}
+
+/* 3 列 × N 行：中央剪影固定宽，左右 1fr 各放标签。
+   行数 = --hp-rows（由 renderHumanPortrait 按左右最多标签数设定）。 */
+#sX .hp-figure {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 360px 1fr;
+  grid-template-rows: repeat(var(--hp-rows, 3), 1fr);
+  gap: 0;
+  min-height: 0;
+  position: relative;
+}
+
+/* 引线 overlay：覆盖整个 figure，viewBox 由 JS 按当前 px 设定 */
+#sX .hp-leaders {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 中央剪影：占中列全部行，overflow visible 让边缘色点/光晕不被裁 */
+#sX .hp-svg {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  width: 100%;
+  height: 100%;
+  align-self: center;
+  justify-self: center;
+  max-height: 560px;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+}
+
+/* 标签卡（由 JS 注入，--hp-c = 该标签主色，与色点 / 引线同色呼应） */
+#sX .hp-tag {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--hp-c, var(--accent));
+  border-radius: 10px;
+  padding: 14px 18px;
+  box-shadow: var(--shadow-card);
+  align-self: center;
+  max-width: 290px;
+  z-index: 3;
+}
+#sX .hp-tag-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+#sX .hp-tag-h {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+#sX .hp-tag-num-big {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
+  margin: 4px 0 6px;
+  letter-spacing: -0.02em;
+  color: var(--hp-c, var(--accent));
+}
+#sX .hp-tag-meta {
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.55;
+}
+
+#sX .hp-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 12px;
+}
+#sX .hp-foot-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent2);
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+}
+#sX .hp-foot-text {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.7;
+}
+#sX .hp-foot-text strong {
+  color: var(--text);
+  font-weight: 700;
+}
+</style>

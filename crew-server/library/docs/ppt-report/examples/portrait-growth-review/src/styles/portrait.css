@@ -1,0 +1,257 @@
+/* ══════════════════════════════════════════════════════════
+   PORTRAIT — 竖屏低密度设计系统（手机 / 小红书 / 公众号 / 朋友圈）
+   全部 scope 在 [data-format="portrait"] 下 → 横屏(landscape)完全不受影响。
+
+   设计哲学（最重要）：
+   · 低「内容密度」、不低「有效信息密度」—— 一屏一个核心观点 + 一个视觉锚，
+     元素 ≤ 5，大字号、大留白；但每个元素都有信号、不放水。
+   · 字号按「手机上读着舒服」来定（设计稿 1080 宽，手机缩到 ~0.36 → 设计 px ≈ 2.5×横屏）。
+   · 画幅尺寸由 <body> 上的内联变量按场景预设给定（见 presets.json），这里只给 3:4 默认兜底。
+
+   配套：references/portrait.md（规范 + 场景预设 + 工作流）；竖屏模板在 slides-templates/portrait/。
+══════════════════════════════════════════════════════════ */
+
+/* ── 画幅：默认 3:4（1080×1440）；presets 在 body 上覆盖 --design-w/h ── */
+[data-format="portrait"] {
+  --design-w: 1080px;
+  --design-h: 1440px;
+  --nav-reserve: 0px;          /* 竖屏导出图/长图不要 nav 占位；网页预览另给浮层 nav */
+
+  /* 竖屏字号系统（远大于横屏，保证手机可读） */
+  --fs-eyebrow:  26px;   /* 顶部小标签 */
+  --fs-display: 210px;   /* 巨型数字/单字（big-number 卡） */
+  --fs-display2:120px;   /* 次级巨数 */
+  --fs-h1:       76px;   /* 卡片主标题 */
+  --fs-h2:       46px;   /* 次标题 / 列表项标题 */
+  --fs-lead:     34px;   /* 引导句 / 副标题 */
+  --fs-body:     30px;   /* 正文 */
+  --fs-caption:  24px;   /* 注释 */
+  --fs-mini:     20px;   /* 极小辅助 */
+
+  --p-pad: 84px;         /* 卡片内边距 */
+  --p-gap: 40px;         /* 主要块间距 */
+  --p-radius: 28px;
+}
+
+/* ── 画布留白：竖屏不预留底部 nav（网页 nav 改浮层） ── */
+[data-format="portrait"] .stage { bottom: 0; }
+
+/* ── 卡片：纵向三段（顶 eyebrow / 中 hero / 底 footer），默认上下铺开 ── */
+[data-format="portrait"] .slide {
+  padding: var(--p-pad);
+  justify-content: flex-start;
+  gap: var(--p-gap);
+}
+/* 干净背景：竖屏关掉网格底纹（手机卡片要干净） */
+[data-format="portrait"] .slide::before { display: none; }
+/* 居中型卡片：内容垂直居中（big-number / quote 用） */
+[data-format="portrait"] .slide.center { justify-content: center; }
+[data-format="portrait"] .slide.between { justify-content: space-between; }
+
+/* ══ 通用元件 ══ */
+
+/* 顶部小标签（eyebrow） */
+[data-format="portrait"] .p-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--fs-eyebrow);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--accent2);
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+[data-format="portrait"] .p-eyebrow::before {
+  content: '';
+  width: 44px; height: 4px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+}
+
+/* 巨型展示数字 / 单字 */
+[data-format="portrait"] .p-display {
+  font-family: var(--font-display, var(--font-mono));
+  font-size: var(--fs-display);
+  font-weight: 900;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  color: var(--accent);
+}
+[data-format="portrait"] .p-display.sm { font-size: var(--fs-display2); }
+[data-format="portrait"] .p-display .unit { font-size: 0.36em; font-weight: 800; color: var(--text2); margin-left: 8px; }
+
+/* 大标题 / 次标题 / 引导句 / 正文 */
+[data-format="portrait"] .p-h1 {
+  font-size: var(--fs-h1);
+  font-weight: 850;
+  line-height: 1.16;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+[data-format="portrait"] .p-h1 span,
+[data-format="portrait"] .p-h1 em { color: var(--accent); font-style: normal; }
+[data-format="portrait"] .p-h2 {
+  font-size: var(--fs-h2);
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text);
+}
+[data-format="portrait"] .p-lead {
+  font-size: var(--fs-lead);
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text2);
+  max-width: 18em;
+}
+[data-format="portrait"] .p-lead strong { color: var(--accent); font-weight: 800; }
+[data-format="portrait"] .p-body {
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text2);
+}
+[data-format="portrait"] .p-caption {
+  font-size: var(--fs-caption);
+  color: var(--text3);
+  line-height: 1.5;
+}
+
+/* 金句 / 大结论（居中超大句子） */
+[data-format="portrait"] .p-quote {
+  font-size: 60px;
+  font-weight: 850;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+[data-format="portrait"] .p-quote .hl {
+  color: var(--accent);
+  box-shadow: inset 0 -0.28em 0 color-mix(in srgb, var(--accent) 16%, transparent);
+}
+[data-format="portrait"] .p-quote-mark {
+  font-size: 160px; line-height: 0.6; color: var(--accent);
+  opacity: 0.18; font-family: Georgia, serif; font-weight: 700;
+}
+
+/* 列表（3~5 项，每项一行，低密度） */
+[data-format="portrait"] .p-list { display: flex; flex-direction: column; gap: 24px; }
+[data-format="portrait"] .p-list-item {
+  display: flex; align-items: flex-start; gap: 26px;
+  padding: 30px 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--accent);
+  border-radius: 20px;
+  box-shadow: var(--shadow-card);
+}
+[data-format="portrait"] .p-list-num {
+  font-family: var(--font-mono);
+  font-size: 40px; font-weight: 900; line-height: 1;
+  color: var(--accent); flex-shrink: 0; min-width: 1.4em;
+}
+[data-format="portrait"] .p-list-tx { display: flex; flex-direction: column; gap: 8px; }
+[data-format="portrait"] .p-list-h { font-size: var(--fs-h2); font-weight: 800; color: var(--text); line-height: 1.2; }
+[data-format="portrait"] .p-list-sub { font-size: var(--fs-body); color: var(--text2); line-height: 1.45; }
+[data-format="portrait"] .p-list-big { margin-left: auto; font-family: var(--font-mono); font-size: 52px; font-weight: 900; color: var(--accent); line-height: 1; align-self: center; }
+
+/* 时间线（竖向里程碑，3~4 个节点，低密度） */
+[data-format="portrait"] .p-timeline { display: flex; flex-direction: column; gap: 0; }
+[data-format="portrait"] .p-tl-item {
+  display: grid; grid-template-columns: 130px 40px 1fr; align-items: start;
+  column-gap: 24px; padding-bottom: 44px; position: relative;
+}
+[data-format="portrait"] .p-tl-item:last-child { padding-bottom: 0; }
+/* 竖线连接（除最后一个节点） */
+[data-format="portrait"] .p-tl-item:not(:last-child)::before {
+  content: ''; position: absolute; left: 149px; top: 36px; bottom: 0;
+  width: 3px; background: var(--border);
+}
+[data-format="portrait"] .p-tl-date {
+  font-family: var(--font-mono); font-size: var(--fs-h2); font-weight: 800;
+  color: var(--accent); text-align: right; line-height: 1.1; padding-top: 2px;
+}
+[data-format="portrait"] .p-tl-dot {
+  width: 28px; height: 28px; border-radius: 50%; margin: 6px auto 0;
+  background: var(--accent); box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 14%, transparent);
+  position: relative; z-index: 1;
+}
+[data-format="portrait"] .p-tl-body { display: flex; flex-direction: column; gap: 8px; }
+[data-format="portrait"] .p-tl-h { font-size: var(--fs-h2); font-weight: 800; color: var(--text); line-height: 1.2; }
+[data-format="portrait"] .p-tl-sub { font-size: var(--fs-body); color: var(--text2); line-height: 1.45; }
+
+/* 对比卡（A vs B 两栏） */
+[data-format="portrait"] .p-vs { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+[data-format="portrait"] .p-vs-col { text-align: center; }
+[data-format="portrait"] .p-vs-col.win { border: 2px solid var(--accent); }
+[data-format="portrait"] .p-vs-label { font-size: var(--fs-h3); font-weight: 700; color: var(--text2); margin-bottom: 18px; }
+[data-format="portrait"] .p-vs-col.win .p-vs-label { color: var(--accent); }
+
+/* 图文卡顶部视觉区（替换成真实 <img> 或保留渐变装饰） */
+[data-format="portrait"] .p-hero-img {
+  width: 100%; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff; font-size: 200px; line-height: 1; overflow: hidden;
+}
+[data-format="portrait"] .p-hero-img img { width: 100%; height: 100%; object-fit: cover; }
+
+/* 软卡片容器（分组用） */
+[data-format="portrait"] .p-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--p-radius);
+  box-shadow: var(--shadow-card);
+  padding: 44px;
+}
+
+/* 标签 chip */
+[data-format="portrait"] .p-chip {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-size: var(--fs-caption); font-weight: 700;
+  padding: 12px 24px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+/* 图表区（单图表卡：图占满中部） */
+[data-format="portrait"] .p-chart {
+  flex: 1 1 auto; min-height: 0;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--p-radius);
+  box-shadow: var(--shadow-card);
+  padding: 36px 32px;
+  display: flex; flex-direction: column;
+}
+[data-format="portrait"] .p-chart-title { font-size: var(--fs-h2); font-weight: 800; color: var(--text); margin-bottom: 8px; }
+[data-format="portrait"] .p-chart-box { flex: 1 1 auto; min-height: 0; width: 100%; }
+
+/* 页脚（品牌 + 页码） */
+[data-format="portrait"] .p-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: var(--fs-mini);
+  color: var(--text3);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+[data-format="portrait"] .p-foot .brand { font-weight: 700; color: var(--text2); }
+
+/* 巨型背景幽灵字（封面装饰，可选） */
+[data-format="portrait"] .p-ghost {
+  position: absolute; right: -40px; bottom: -80px;
+  font-family: var(--font-display, var(--font-mono));
+  font-size: 560px; font-weight: 900; line-height: 0.8;
+  color: var(--accent); opacity: 0.05; pointer-events: none; user-select: none;
+  z-index: 0;
+}
+[data-format="portrait"] .slide > * { position: relative; z-index: 1; }
+
+/* spacer：把内容推开（三段布局） */
+[data-format="portrait"] .p-spacer { flex: 1 1 auto; min-height: 0; }
+
+/* ── 竖屏网页导航（浮层，不占画布；导出图时 JS 会隐藏）── */
+[data-format="portrait"] .nav { bottom: 20px; }
+
+/* ── 高亮强调色（沿用主题变量，正负警示）── */
+[data-format="portrait"] .pos { color: var(--accent3); font-weight: 800; }
+[data-format="portrait"] .neg { color: var(--danger);  font-weight: 800; }
+[data-format="portrait"] .warn{ color: var(--warn);    font-weight: 800; }

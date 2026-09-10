@@ -2570,6 +2570,143 @@
       ],
       "repo": "6missedcalls/video-editing-skill",
       "path": ""
+    },
+    {
+      "slug": "html-to-pptx",
+      "category": "docs",
+      "description": "把做好的 HTML 幻灯片转成真·可编辑 pptx：文字仍是原生文本框、字体按需嵌入、复杂装饰自动走截图兜底，带预检和逐页视觉自检。",
+      "tags": [
+        "PPT",
+        "pptx",
+        "HTML 转 PPT",
+        "可编辑",
+        "幻灯片",
+        "转换",
+        "演示"
+      ],
+      "repo": "Hasasasa/html-to-editable-pptx",
+      "path": "",
+      "exclude": [
+        "assets",
+        ".github"
+      ]
+    },
+    {
+      "slug": "ppt-agent",
+      "category": "docs",
+      "description": "做 PPT 的完整流程：调研 → 大纲 → 策划稿 → 设计稿，按顶级设计公司的做法一步步来，输出 HTML 演示稿（再配 html-to-pptx 出 pptx）。",
+      "tags": [
+        "PPT",
+        "演示",
+        "幻灯片",
+        "汇报",
+        "路演",
+        "设计",
+        "大纲"
+      ],
+      "repo": "Akxan/ppt-agent-skill",
+      "path": "",
+      "exclude": [
+        "ppt-output",
+        ".github"
+      ]
+    },
+    {
+      "slug": "slide-design",
+      "category": "docs",
+      "description": "先定风格再排版：按场景（学术、咨询、发布会…）推导一套配色字体与版式，出 1920×1080 的 HTML 稿，含真实图表和表格。",
+      "tags": [
+        "幻灯片",
+        "设计",
+        "风格",
+        "排版",
+        "deck",
+        "图表",
+        "模板"
+      ],
+      "repo": "SlideSpeak/slide-design-skill",
+      "path": "",
+      "exclude": [
+        ".github",
+        "meta-generator",
+        "assets"
+      ]
+    },
+    {
+      "slug": "ppt-report",
+      "category": "docs",
+      "description": "数据汇报稿：16:9 网页版 PPT，每页一个文件、数据与版式分离、ECharts 图表、可全屏播放和导出 PDF。",
+      "tags": [
+        "汇报",
+        "月报",
+        "季报",
+        "数据",
+        "ECharts",
+        "演示",
+        "PPT"
+      ],
+      "repo": "myunwang/ppt-report-skills",
+      "path": "",
+      "exclude": [
+        ".github"
+      ]
+    },
+    {
+      "slug": "slides-editable",
+      "category": "docs",
+      "description": "生成之后还能在浏览器里改的单文件 HTML 幻灯片：拖拽改版式、调顺序、本地保存导出。",
+      "tags": [
+        "幻灯片",
+        "HTML",
+        "可编辑",
+        "拖拽",
+        "单文件",
+        "演示"
+      ],
+      "repo": "archlizheng/frontend-slides-editable",
+      "path": "",
+      "exclude": [
+        "docs",
+        "examples",
+        ".github",
+        ".git"
+      ]
+    },
+    {
+      "slug": "beamer-academic",
+      "category": "docs",
+      "description": "论文转学术答辩 PPT：Beamer 排版，公式、图表、引用都按学术规范来。",
+      "tags": [
+        "答辩",
+        "学术",
+        "论文",
+        "Beamer",
+        "LaTeX",
+        "PPT",
+        "讲稿"
+      ],
+      "repo": "Faust-Donf/beamer-academic",
+      "path": "",
+      "exclude": [
+        ".github"
+      ]
+    },
+    {
+      "slug": "img2ppt",
+      "category": "docs",
+      "description": "拿一张排版稿图片还原成可编辑 PPTX：文字是原生文本、元素可拖动。",
+      "tags": [
+        "图片转PPT",
+        "还原",
+        "pptx",
+        "排版稿",
+        "可编辑"
+      ],
+      "repo": "TianLin0509/img2ppt-lite",
+      "path": "",
+      "exclude": [
+        ".github"
+      ]
     }
   ],
   "$comment2": "tools：池里不是手册的条目——MCP 服务、素材包。纯数据，不用同步，不落盘。走产品 OAuth 服务的平台（Gmail、Notion…）在 src/connectors.ts 的 TOOLKITS 里，不写在这。",
@@ -2794,6 +2931,36 @@
             "把 token 填在卡上"
           ]
         }
+      }
+    },
+    {
+      "slug": "powerpoint-mcp",
+      "kind": "mcp",
+      "category": "docs",
+      "title": "PowerPoint MCP",
+      "description": "直接操作 .pptx 的一组工具：建演示文稿、加页、写文本框、插图表表格、套模板、改主题色。基于 python-pptx，本机跑，不要密钥。手册那条路（pptx 技能）是自己写脚本，这条是调工具，改现成文件时更省事。",
+      "tags": [
+        "PPT",
+        "pptx",
+        "幻灯片",
+        "演示",
+        "PowerPoint",
+        "图表",
+        "模板",
+        "MCP"
+      ],
+      "source": "https://github.com/GongRzhe/Office-PowerPoint-MCP-Server",
+      "license": "MIT",
+      "mcp": {
+        "transport": "stdio",
+        "command": "uvx",
+        "args": [
+          "--from",
+          "office-powerpoint-mcp-server",
+          "ppt_mcp_server"
+        ],
+        "pip": "office-powerpoint-mcp-server",
+        "tools": "建/开/存演示文稿、加删页、文本框与占位符、图片、表格、图表、形状、主题与模板、批量替换文字。"
       }
     }
   ]

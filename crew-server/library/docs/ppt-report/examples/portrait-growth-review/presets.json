@@ -1,0 +1,102 @@
+{
+  "_comment": "竖屏场景规格表 —— 「场景 → 标准尺寸 / 页面模型 / 导出形态 / 密度」的映射。制作竖屏汇报时先问用户『这次发哪儿』，再按场景取这张表的规格精准生产。build/export 读 width/height 定画幅，读 pageModel/export 定形态。横屏(landscape)仍是默认，不在此表。",
+  "_density_principle": "全部场景密度=low：一屏一个核心观点 + 一个视觉锚，元素 ≤ 5，大字号、大留白。低『内容密度』、不低『有效信息密度』——每个元素都有信号、不放水。",
+
+  "presets": {
+    "xiaohongshu": {
+      "label": "小红书 · 图文（默认）",
+      "ratio": "3:4",
+      "width": 1242,
+      "height": 1656,
+      "pageModel": "cards",
+      "export": ["images", "web"],
+      "density": "low",
+      "note": "小红书 feed 原生 3:4，逐张卡片；第 1 张当封面钩子（大标题/反差数字），后续每张一个点。建议 4~9 张。"
+    },
+    "xiaohongshu-square": {
+      "label": "小红书 · 方图",
+      "ratio": "1:1",
+      "width": 1080,
+      "height": 1080,
+      "pageModel": "cards",
+      "export": ["images"],
+      "density": "low",
+      "note": "1:1 方图，更紧凑；适合单点强结论。"
+    },
+    "wechat-article-long": {
+      "label": "公众号 · 长图",
+      "ratio": "auto",
+      "width": 1080,
+      "height": null,
+      "pageModel": "long",
+      "export": ["longimage", "web"],
+      "density": "low",
+      "note": "所有卡片纵向拼成一张超长 PNG（宽 1080，高自适应），公众号正文里一张图读到底。"
+    },
+    "wechat-article-cards": {
+      "label": "公众号 · 图文卡",
+      "ratio": "3:4",
+      "width": 1080,
+      "height": 1440,
+      "pageModel": "cards",
+      "export": ["images"],
+      "density": "low",
+      "note": "公众号正文里逐张插图，每张一个要点。"
+    },
+    "moments": {
+      "label": "朋友圈",
+      "ratio": "4:5",
+      "width": 1080,
+      "height": 1350,
+      "pageModel": "cards",
+      "export": ["images"],
+      "density": "low",
+      "note": "朋友圈竖图 4:5（比 3:4 略高，单张信息更聚焦）。"
+    },
+    "phone-fullscreen": {
+      "label": "手机全屏汇报",
+      "ratio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "pageModel": "cards",
+      "export": ["web", "pdf"],
+      "density": "low",
+      "note": "老板手机竖握、全屏沉浸式翻页；网页上下滑/翻页 + 可导竖屏 PDF。"
+    },
+    "stories": {
+      "label": "Stories / 视频号封面",
+      "ratio": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "pageModel": "cards",
+      "export": ["images"],
+      "density": "low",
+      "note": "9:16 满屏，每张可单独发 Story 或当视频号封面。"
+    },
+    "portrait-pdf": {
+      "label": "竖屏 PDF（通用）",
+      "ratio": "3:4",
+      "width": 1080,
+      "height": 1440,
+      "pageModel": "cards",
+      "export": ["pdf", "web"],
+      "density": "low",
+      "note": "通用竖屏 PDF，3:4 适中、打印/传阅皆宜。"
+    }
+  },
+
+  "scenario_aliases": {
+    "小红书": "xiaohongshu",
+    "红书": "xiaohongshu",
+    "RED": "xiaohongshu",
+    "公众号": "wechat-article-long",
+    "微信公众号": "wechat-article-long",
+    "长图": "wechat-article-long",
+    "朋友圈": "moments",
+    "手机汇报": "phone-fullscreen",
+    "老板手机看": "phone-fullscreen",
+    "全屏": "phone-fullscreen",
+    "视频号": "stories",
+    "stories": "stories"
+  }
+}

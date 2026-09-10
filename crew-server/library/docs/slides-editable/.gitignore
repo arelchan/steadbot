@@ -1,0 +1,35 @@
+.DS_Store
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.idea/
+.vscode/
+.design/
+.claude-design-slide-previews/
+.work/
+.smoke-artifacts/
+node_modules/
+examples/generated/test-artifacts/
+
+# Local one-off deck generation experiments.
+The-Founders-Playbook-*-editable.html
+scripts/generate-founders-playbook-*.mjs
+
+# Local development design notes.
+docs/superpowers/
+docs/*-review.md
+
+# Vendor only the small source files needed for ported template generation.
+# Keep the upstream checkout metadata and gallery screenshots out of this skill.
+beautiful-html-templates/*
+!beautiful-html-templates/
+!beautiful-html-templates/LICENSE
+!beautiful-html-templates/index.json
+!beautiful-html-templates/templates/
+beautiful-html-templates/templates/*
+!beautiful-html-templates/templates/*/
+!beautiful-html-templates/templates/*/template.html
+!beautiful-html-templates/templates/*/template.json
+!beautiful-html-templates/templates/*/deck-stage.js
+!beautiful-html-templates/templates/*/styles.css

@@ -1,0 +1,23 @@
+<div class="slide between" id="s4">
+  <div>
+    <div class="p-eyebrow">DAU 月度趋势</div>
+    <div class="p-h1" style="margin-top:22px;">半年 <span>翻倍</span>的增长曲线</div>
+  </div>
+  <div class="p-chart">
+    <div class="p-chart-title">DAU（万）· 2026 H1</div>
+    <div class="p-chart-box" id="pchart-s4"></div>
+  </div>
+  <div class="p-lead">从 250 万到 <strong>500 万</strong>，6 个月翻倍，5 月起明显加速。</div>
+</div>
+<script>
+function initSlide4(){
+  var D=[{m:'1月',v:250},{m:'2月',v:280},{m:'3月',v:320},{m:'4月',v:370},{m:'5月',v:430},{m:'6月',v:500}];
+  initChart('pchart-s4', function(){ return {
+    grid:{left:8,right:18,top:18,bottom:8,containLabel:true},
+    xAxis:{type:'category',data:D.map(function(r){return r.m;}),axisLabel:{fontSize:22,color:_cssVar('--text2')},axisTick:{show:false}},
+    yAxis:{type:'value',axisLabel:{fontSize:22,color:_cssVar('--text3')},splitLine:{lineStyle:{color:_cssVar('--border')}}},
+    series:[{type:'line',smooth:0.4,symbol:'circle',symbolSize:12,data:D.map(function(r){return r.v;}),
+      lineStyle:{width:5,color:_cssVar('--accent')},itemStyle:{color:_cssVar('--accent')},areaStyle:{opacity:0.12,color:_cssVar('--accent')}}]
+  };});
+}
+</script>

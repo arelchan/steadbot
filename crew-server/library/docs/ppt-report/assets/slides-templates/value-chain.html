@@ -1,0 +1,285 @@
+<!--
+  TEMPLATE · value-chain（价值流横轴 · B 骨架）
+  =================================================================
+  适用：实体产业 / 重资产生意的「价值如何沿链条流动」——
+        商业航天 · 能源石化 · 汽车制造 · 消费品 / 食品 · 零售。
+        ⚠ 软件 / AI 分层栈请用 landscape-map；银行用客户矩阵；
+        创新药用研发管线。选骨架见 references/landscape-skeleton.md。
+
+  为什么实体产业不能套三层 tier：实体生意的核心不是「谁在哪一层」，而是
+  「资产沿 原料→生产→流通→服务 流动时，各段毛利 / 自营度 / 壁垒差异巨大」。
+  价值流横轴一眼说清「钱在链条哪一段被赚到、哪段自营哪段外采」。
+
+  ── 一次成：全静态，零 JS ────────────────────────────────────────
+  纯 CSS 横向 flex 流程，无图表库、无测量 JS。stage 卡等宽（flex:1）、等高
+  （align-items:stretch），▶ 箭头串联，整条流程在剩余空间垂直居中。
+
+  ── 结构 ────────────────────────────────────────────────────────
+  · vc-flow：5~6 个 stage 卡 + 之间 ▶ 箭头（横向价值链主轴）
+  · 每个 stage：序号 · 环节名 · 核心数字（毛利/自营度/规模）· 3 条关键活动 ·
+    自营 / 外采 徽章（own=自营深色 · buy=外采浅色 · mix=自营+外采）
+  · vc-foot：一句话价值判断（含加粗关键数字）
+
+  ── 数据规范 ────────────────────────────────────────────────────
+  · stage 数 5~6 个最佳（< 4 太单薄，> 7 太挤）；
+  · 每段一个核心数字 + 3 条 ≤ 6 字关键活动（别堆长句）；
+  · 颜色沿链条渐深（同色家族）表达「同一条价值流、越下游越聚集」，不要每段撞色。
+
+  使用：拷成 src/slides/slide-N.html，把 sX 改成页号（如 s4）；
+        内联 style 由 build.py 自动抽取；改环节 / 数字 / 要点 / 徽章即可。
+-->
+<div class="slide" id="sX">
+  <div class="slide-label">价值流 · VALUE CHAIN</div>
+  <div class="slide-title">商业航天<span>全链自营价值流</span></div>
+  <div class="slide-subtitle">
+    制造 → 发射 → 星座 → 地面 → 变现 · <strong>5 段全自营</strong>构筑垂直整合壁垒
+  </div>
+
+  <div class="vc-board">
+    <div class="vc-flow">
+
+      <div class="vc-stage" style="--vc-c:#3b82f6;">
+        <div class="vc-rail"></div>
+        <div class="vc-num">01</div>
+        <div class="vc-name">火箭制造</div>
+        <div class="vc-metric">90%</div>
+        <div class="vc-metric-label">垂直自营度</div>
+        <ul class="vc-points">
+          <li>回收复用</li>
+          <li>一级回收 70%</li>
+          <li>发动机自产</li>
+        </ul>
+        <div class="vc-badge own">自营</div>
+      </div>
+
+      <div class="vc-arrow">▶</div>
+
+      <div class="vc-stage" style="--vc-c:#6366f1;">
+        <div class="vc-rail"></div>
+        <div class="vc-num">02</div>
+        <div class="vc-name">发射服务</div>
+        <div class="vc-metric">$67M</div>
+        <div class="vc-metric-label">单次报价</div>
+        <ul class="vc-points">
+          <li>年 90+ 次</li>
+          <li>份额第一</li>
+          <li>整箭复用</li>
+        </ul>
+        <div class="vc-badge own">自营</div>
+      </div>
+
+      <div class="vc-arrow">▶</div>
+
+      <div class="vc-stage" style="--vc-c:#8b5cf6;">
+        <div class="vc-rail"></div>
+        <div class="vc-num">03</div>
+        <div class="vc-name">在轨星座</div>
+        <div class="vc-metric">6000+</div>
+        <div class="vc-metric-label">在轨卫星</div>
+        <ul class="vc-points">
+          <li>容量主导</li>
+          <li>激光组网</li>
+          <li>网络壁垒</li>
+        </ul>
+        <div class="vc-badge own">自营</div>
+      </div>
+
+      <div class="vc-arrow">▶</div>
+
+      <div class="vc-stage" style="--vc-c:#a855f7;">
+        <div class="vc-rail"></div>
+        <div class="vc-num">04</div>
+        <div class="vc-name">地面网络</div>
+        <div class="vc-metric">100+</div>
+        <div class="vc-metric-label">落地国家</div>
+        <ul class="vc-points">
+          <li>终端自产</li>
+          <li>芯片外采</li>
+          <li>全球落地</li>
+        </ul>
+        <div class="vc-badge mix">自营 + 外采</div>
+      </div>
+
+      <div class="vc-arrow">▶</div>
+
+      <div class="vc-stage" style="--vc-c:#ec4899;">
+        <div class="vc-rail"></div>
+        <div class="vc-num">05</div>
+        <div class="vc-name">连接变现</div>
+        <div class="vc-metric">$99</div>
+        <div class="vc-metric-label">月 ARPU</div>
+        <ul class="vc-points">
+          <li>用户 400 万+</li>
+          <li>高粘性</li>
+          <li>价值聚集</li>
+        </ul>
+        <div class="vc-badge own">自营</div>
+      </div>
+
+    </div>
+
+    <div class="vc-foot">
+      <span class="vc-foot-tag">价值判断</span>
+      <span class="vc-foot-text">
+        全链 <strong>5 段自营</strong>，价值在下游「<strong>连接变现</strong>」段聚集（ARPU $99 × 400 万用户）——
+        制造端的回收复用把成本壁垒一路传导到变现端，构成对手难复制的垂直整合护城河。
+      </span>
+    </div>
+  </div>
+</div>
+
+<style>
+/* value-chain 模板样式 — build.py 自动抽取注入。把 sX 改成页号。 */
+#sX .vc-board {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;     /* 流程整体在剩余空间垂直居中，不空撑 */
+  min-height: 0;
+  margin-top: 10px;
+  gap: 16px;
+}
+
+/* 横向价值链主轴：stage 卡等宽（flex:1）等高，▶ 箭头固定窄 */
+#sX .vc-flow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+#sX .vc-stage {
+  flex: 1 1 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 22px 20px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 6px 16px -8px rgba(15,23,42,0.08);
+  overflow: hidden;
+}
+/* 顶部彩条：沿链条渐变色，表达「同一条价值流、越下游越聚集」 */
+#sX .vc-rail {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: var(--vc-c);
+}
+#sX .vc-num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--vc-c);
+  letter-spacing: 0.08em;
+}
+#sX .vc-name {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+#sX .vc-metric {
+  font-family: var(--font-mono);
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--vc-c);
+  letter-spacing: -0.02em;
+  margin-top: 12px;
+}
+#sX .vc-metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.04em;
+}
+/* 关键活动列表：左侧小点用该段强调色 */
+#sX .vc-points {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+#sX .vc-points li {
+  position: relative;
+  padding-left: 14px;
+  font-size: 12.5px;
+  color: var(--text2);
+  line-height: 1.35;
+}
+#sX .vc-points li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 7px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--vc-c);
+}
+/* 徽章固定卡底：own=自营深色实心 · mix=自营+外采 · buy=外采浅色 */
+#sX .vc-badge {
+  margin-top: auto;
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+}
+#sX .vc-badge.own { color: #fff; background: var(--vc-c); }
+#sX .vc-badge.mix {
+  color: var(--vc-c);
+  background: color-mix(in srgb, var(--vc-c) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vc-c) 35%, transparent);
+}
+#sX .vc-badge.buy {
+  color: var(--text3);
+  background: color-mix(in srgb, var(--text, #0f172a) 6%, transparent);
+}
+
+/* ▶ 箭头：固定窄列，垂直居中 */
+#sX .vc-arrow {
+  flex: 0 0 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--text3);
+  opacity: 0.7;
+}
+
+#sX .vc-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent2);
+  border-radius: 8px;
+  padding: 13px 18px;
+}
+#sX .vc-foot-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent2);
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  padding-top: 2px;
+}
+#sX .vc-foot-text {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.7;
+}
+#sX .vc-foot-text strong { color: var(--text); font-weight: 700; }
+
+[data-theme="dark-tech"] #sX .vc-stage { background: rgba(255,255,255,0.025); }
+</style>

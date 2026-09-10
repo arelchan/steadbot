@@ -1,0 +1,405 @@
+<!--
+  TEMPLATE · landscape-map（产业图谱 / 竞品全景 / 分层架构 · 三层 tier 骨架）
+  =================================================================
+  适用：表达"一个领域 / 一个生态的分层栈"（艾瑞 / CB Insights 风）——
+        软件 / AI / SaaS / 云计算 这类「每层消费下层能力」的分层结构。
+        ⚠ 实体产业 / 银行 / 创新药 / 平台生态 ≠ 分层栈，先读
+        references/landscape-skeleton.md 选对骨架（价值流 / 客户矩阵 / 研发管线 /
+        生态网络都另有专用模板），别见"全景图"就套这个三层 tier。
+
+  ── 一次成的关键：全静态，零 JS 测量 ────────────────────────────
+  本模板 **不写任何"测量卡片尺寸反推布局"的 JS**（那条路——等宽 / 二分 / 动态
+  重分 span / tier 高度 / 异步 logo 重算——被十几轮验证为死结，已彻底移除）。
+  布局全部由 CSS 静态决定 + 数据规范保证不截断；JS 只做一件事：注入 logo。
+  这样每次生成都是确定的，不需要截图反复调。
+
+  ── 三条硬规则（照做就一次成）──────────────────────────────────
+  1. 每个 tier 的 --span 合计 == 12。.lm-cols 是 12 栅格，每张卡 style="--span:N"。
+     改 span 后逐 tier 求和验证（这是唯一需要心算的地方）。
+  2. chip 文案短词化（数据层根治截断，不靠渲染层"塞下超长文案"）：
+     · 每个 chip ≤ 4~5 字 / 一个英文术语；
+     · 「A / B」「A + B」合并项拆成多个独立 chip（ItemCF / UserCF → 两个）；
+     · 英文用业内简写（DSSM / MMoE / ANN）。
+  3. 公司 logo：chip 写 data-d="域名"，文字写公司名。下方内联脚本会依次试
+     本地缓存 → Clearbit → Google favicon，全失败回退首字母色块（在线/离线都不崩）。
+
+  整图按内容自然高度、在 slide 剩余空间垂直居中——咨询报告风：克制紧凑 + 居中 =
+  专业，不硬撑铺满（铺满反而廉价且易引入截断 / 重叠）。
+
+  ── 使用三步 ────────────────────────────────────────────────────
+  1. 拷成 src/slides/slide-N.html，把 sX 改成页号（如 s3）。片段尾部的内联
+     style / script 会被 build.py 自动抽取，不用手动拆文件。
+  2. 改 tier / 卡片 / chip 文案 + data-d 域名（每 tier span 合计 == 12）。
+  3. python3 build.py → 预览。logo 自动加载，全失败处回退首字母色块（正常）。
+
+  ── 脱敏铁律（产业 / 竞品 / 客户类页面必读）────────────────────────
+  别堆内部敏感数据（真实客户名单 / 内部 ARR / 未公开合作方）。正确做法：
+    · 用公开实体替代：格子放公开公司名（小米 / 商汤 / 寒武纪…），客观事实零敏感；
+    · 不像素临摹版权图：复刻的是「信息架构」（分层 / 分类 / logo 墙这种通用范式），
+      不是某张特定版权图的像素布局；
+    · logo 走公开服务（Clearbit / Google favicon），不嵌私有素材。
+  经验法则：先问"这条信息公开吗"。公开实体名 = 安全；内部数字 = 换区间 / 匿名化。
+  （下面整页即一份满配实战范例，可直接拷走改实体名复用。）
+-->
+<div class="slide" id="sX">
+  <div class="slide-label">产业图谱 · LANDSCAPE</div>
+  <div class="slide-title">中国 AI 产业<span>全景图谱</span></div>
+  <div class="slide-subtitle">
+    应用领域 → 通用技术 → 底层硬件 · 公开实体替代敏感数据
+  </div>
+
+  <div class="diagram-landscape">
+
+    <!-- ═══ TIER 1（5 格，合计 span = 2+2+2+2+4 = 12）═══ -->
+    <div class="lm-row tier-1">
+      <div class="lm-tag"><span class="lt-arrow">▶</span><span class="lt-name">应用<br>领域</span></div>
+      <div class="lm-cols">
+        <div class="lm-col" style="--span:2;">
+          <div class="lc-h">智能家居</div>
+          <div class="lc-body">
+            <span class="lm-item" data-d="mi.com">小米</span>
+            <span class="lm-item" data-d="haier.com">海尔</span>
+            <span class="lm-item" data-d="midea.com">美的</span>
+          </div>
+        </div>
+        <div class="lm-col" style="--span:2;">
+          <div class="lc-h">服务机器人</div>
+          <div class="lc-body">
+            <span class="lm-item" data-d="ubtrobot.com">优必选</span>
+            <span class="lm-item" data-d="keenon.com">擎朗</span>
+            <span class="lm-item" data-d="pudurobotics.com">普渡</span>
+          </div>
+        </div>
+        <div class="lm-col" style="--span:2;">
+          <div class="lc-h">移动设备 / UAV</div>
+          <div class="lc-body">
+            <span class="lm-item" data-d="dji.com">大疆</span>
+            <span class="lm-item" data-d="ehang.com">亿航</span>
+            <span class="lm-item" data-d="huawei.com">华为</span>
+          </div>
+        </div>
+        <div class="lm-col" style="--span:2;">
+          <div class="lc-h">智能驾驶</div>
+          <div class="lc-body">
+            <span class="lm-item" data-d="momenta.cn">魔门塔</span>
+            <span class="lm-item" data-d="pony.ai">小马</span>
+            <span class="lm-item" data-d="nio.com">蔚来</span>
+          </div>
+        </div>
+        <div class="lm-col nest" style="--span:4;">
+          <div class="lc-h">行业应用</div>
+          <div class="lc-sub">
+            <div class="ls-cell"><div class="ls-h">金融</div><div class="ls-body">
+              <span class="lm-item sm" data-d="icbc.com.cn">工行</span>
+              <span class="lm-item sm" data-d="pingan.com">平安</span>
+              <span class="lm-item sm" data-d="cmbchina.com">招行</span></div></div>
+            <div class="ls-cell"><div class="ls-h">安防</div><div class="ls-body">
+              <span class="lm-item sm" data-d="hikvision.com">海康</span>
+              <span class="lm-item sm" data-d="dahuatech.com">大华</span>
+              <span class="lm-item sm" data-d="uniview.com">宇视</span></div></div>
+            <div class="ls-cell"><div class="ls-h">医疗</div><div class="ls-body">
+              <span class="lm-item sm" data-d="airdoc.com">鹰瞳</span>
+              <span class="lm-item sm" data-d="united-imaging.com">联影</span>
+              <span class="lm-item sm" data-d="mindray.com">迈瑞</span></div></div>
+            <div class="ls-cell"><div class="ls-h">教育</div><div class="ls-body">
+              <span class="lm-item sm" data-d="100tal.com">好未来</span>
+              <span class="lm-item sm" data-d="koolearn.com">新东方</span>
+              <span class="lm-item sm" data-d="yuanfudao.com">猿辅导</span></div></div>
+            <div class="ls-cell"><div class="ls-h">电商</div><div class="ls-body">
+              <span class="lm-item sm" data-d="alibaba.com">阿里</span>
+              <span class="lm-item sm" data-d="jd.com">京东</span>
+              <span class="lm-item sm" data-d="pinduoduo.com">拼多多</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TIER 2（5 格，合计 span = 3+2+3+2+2 = 12）═══ -->
+    <div class="lm-row tier-2">
+      <div class="lm-tag"><span class="lt-arrow">▶</span><span class="lt-name">通用<br>技术</span></div>
+      <div class="lm-cols">
+        <div class="lm-col" style="--span:3;">
+          <div class="lc-h">计算机视觉</div>
+          <div class="lc-body">
+            <span class="lm-item" data-d="megvii.com">旷视</span>
+            <span class="lm-item" data-d="sensetime.com">商汤</span>
+            <span class="lm-item" data-d="yitutech.com">依图</span>
+            <span class="lm-item" data-d="cloudwalk.com">云从</span>
+          </div>
+        </div>
+        <div class="lm-col" style="--span:2;">
+          <div class="lc-h">智能语音</div>
+          <div class="lc-body">
+            <span class="lm-item" data-d="iflytek.com">讯飞</span>
+            <span class="lm-item" data-d="aispeech.com">思必驰</span>
+          </div>
+        </div>
+        <div class="lm-col" style="--span:3;">
+          <div class="lc-h">自然语言处理</div>
+          <div class="lc-body">
+            <span class="lm-item" data-d="baidu.com">百度</span>
+            <span class="lm-item" data-d="zhipuai.cn">智谱</span>
+            <span class="lm-item" data-d="deepseek.com">DeepSeek</span>
+            <span class="lm-item" data-d="minimaxi.com">MiniMax</span>
+          </div>
+        </div>
+        <div class="lm-col" style="--span:2;">
+          <div class="lc-h">机器学习</div>
+          <div class="lc-body">
+            <span class="lm-item" data-d="4paradigm.com">四范式</span>
+            <span class="lm-item" data-d="mininglamp.com">明略</span>
+          </div>
+        </div>
+        <div class="lm-col nest" style="--span:2;">
+          <div class="lc-h">云平台</div>
+          <div class="lc-sub two">
+            <div class="ls-cell"><div class="ls-h">PaaS</div><div class="ls-body">
+              <span class="lm-item sm" data-d="aliyun.com">阿里云</span>
+              <span class="lm-item sm" data-d="cloud.tencent.com">腾讯云</span></div></div>
+            <div class="ls-cell"><div class="ls-h">IaaS</div><div class="ls-body">
+              <span class="lm-item sm" data-d="huaweicloud.com">华为云</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TIER 3（2 格，合计 span = 6+6 = 12）═══ -->
+    <div class="lm-row tier-3">
+      <div class="lm-tag"><span class="lt-arrow">▶</span><span class="lt-name">底层<br>硬件</span></div>
+      <div class="lm-cols">
+        <div class="lm-col nest" style="--span:6;">
+          <div class="lc-h">AI 芯片</div>
+          <div class="lc-sub four">
+            <div class="ls-cell"><div class="ls-h">云端训练</div><div class="ls-body">
+              <span class="lm-item sm" data-d="hygon.cn">海光</span>
+              <span class="lm-item sm" data-d="birentech.com">壁仞</span></div></div>
+            <div class="ls-cell"><div class="ls-h">云端推理</div><div class="ls-body">
+              <span class="lm-item sm" data-d="cambricon.com">寒武纪</span></div></div>
+            <div class="ls-cell"><div class="ls-h">终端</div><div class="ls-body">
+              <span class="lm-item sm" data-d="horizon.ai">地平线</span>
+              <span class="lm-item sm" data-d="black-sesame.com">黑芝麻</span></div></div>
+            <div class="ls-cell"><div class="ls-h">类脑</div><div class="ls-body">
+              <span class="lm-item sm" data-d="lynxi.com">灵汐</span></div></div>
+          </div>
+        </div>
+        <div class="lm-col nest" style="--span:6;">
+          <div class="lc-h">视觉传感器</div>
+          <div class="lc-sub four">
+            <div class="ls-cell"><div class="ls-h">激光雷达</div><div class="ls-body">
+              <span class="lm-item sm" data-d="hesaitech.com">禾赛</span>
+              <span class="lm-item sm" data-d="robosense.ai">速腾</span></div></div>
+            <div class="ls-cell"><div class="ls-h">毫米波</div><div class="ls-body">
+              <span class="lm-item sm" data-d="cubtek.com">为升</span></div></div>
+            <div class="ls-cell"><div class="ls-h">摄像头</div><div class="ls-body">
+              <span class="lm-item sm" data-d="sunnyoptical.com">舜宇</span></div></div>
+            <div class="ls-cell"><div class="ls-h">3D 传感</div><div class="ls-body">
+              <span class="lm-item sm" data-d="orbbec.com">奥比中光</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* 本页脚本：build.py 自动抽到 JS 区。把 sX 改成页号。
+   只做 logo 注入（确定性、零测量）。chip 尺寸是 CSS 固定值，不靠 JS 自适应。 */
+function initSlideX() {
+  const PAL = ['#0052D9', '#00A4FF', '#4a90e2', '#003a99', '#1d6fd6', '#2b5fc0'];
+  document.querySelectorAll('#sX .lm-item[data-d]').forEach((el, i) => {
+    const dn = (el.dataset.d || '').trim(), nm = el.textContent.trim();
+    const ini = (nm.match(/[A-Za-z一-龥]/) || ['·'])[0];
+    el.textContent = '';
+    const fb = document.createElement('div');
+    fb.className = 'lm-fallback'; fb.style.background = PAL[i % PAL.length]; fb.textContent = ini;
+    const s = document.createElement('span'); s.className = 'nm'; s.textContent = nm;
+    if (!dn) { el.append(fb, s); return; }
+    const src = ['assets/logos/' + dn.replace(/\./g, '_') + '.png',
+                 `https://logo.clearbit.com/${dn}?size=64`,
+                 `https://www.google.com/s2/favicons?domain=${dn}&sz=64`];
+    let k = 0;
+    const img = document.createElement('img');
+    img.className = 'lm-logo'; img.loading = 'eager'; img.alt = nm; img.referrerPolicy = 'no-referrer';
+    const next = () => { k++; k < src.length ? img.src = src[k] : img.replaceWith(fb); };
+    img.onerror = next;
+    img.onload = () => { if (img.naturalWidth > 0 && img.naturalWidth < 12) next(); };
+    img.src = src[k];
+    el.append(img, s);
+  });
+}
+</script>
+
+<style>
+/* ══════════════════════════════════════════════════════════
+   Landscape Map · 咨询报告风（McKinsey / BCG 克制优雅）· 全静态
+   - tier 左细色脊 + 淡底 + 深字（不撞色大色块）
+   - 卡片白底 + 发丝线 + 单层微阴影
+   - chip 固定字号，flex-wrap 自然流 + 居中（零 JS 测量）
+   - 整图内容自然高度，在 slide 剩余空间垂直居中
+   关键铁律：每 tier 的 --span 合计 = 12，否则 grid 折行留白
+══════════════════════════════════════════════════════════ */
+#sX .diagram-landscape {
+  --tier-gap: 18px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 1fr 1fr 1fr;   /* 三 tier 等高，撑满剩余空间（有界，绝不溢出）*/
+  row-gap: var(--tier-gap);
+  width: 100%;
+  padding: 2px;
+  --lm-b1: #5b8def;
+  --lm-b2: var(--accent, #0052D9);
+  --lm-b3: color-mix(in srgb, var(--accent, #0052D9) 60%, #1e293b);
+  --lm-w1: color-mix(in srgb, var(--lm-b1) 8%, transparent);
+  --lm-w2: color-mix(in srgb, var(--accent, #0052D9) 7%, transparent);
+  --lm-w3: color-mix(in srgb, var(--lm-b3) 8%, transparent);
+  --lm-hair: color-mix(in srgb, var(--text, #0f172a) 9%, transparent);
+}
+
+/* ── 一级：tier 行（左标签固定宽 → 三行左边界对齐）── */
+#sX .lm-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 18px;
+  min-height: 0;
+}
+/* tier 之间发丝虚线分隔 */
+#sX .lm-row + .lm-row::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(-1 * var(--tier-gap, 22px) / 2);
+  border-top: 1px dashed var(--lm-hair);
+}
+
+#sX .lm-tag {
+  border-radius: 4px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6px; padding: 14px 8px;
+  background: var(--tier-wash);
+  border-left: 3px solid var(--tier-c);
+}
+#sX .tier-1 { --tier-c: var(--lm-b1); --tier-wash: var(--lm-w1); }
+#sX .tier-2 { --tier-c: var(--lm-b2); --tier-wash: var(--lm-w2); }
+#sX .tier-3 { --tier-c: var(--lm-b3); --tier-wash: var(--lm-w3); }
+#sX .lt-arrow { font-size: 11px; color: var(--tier-c); opacity: 0.85; }
+#sX .lt-name  { font-size: 22px; font-weight: 800; line-height: 1.2; color: var(--text); letter-spacing: 1px; text-align: center; }
+
+/* ── 二级：12 栅格 —— 同 tier 卡片等高（grid-auto-rows:1fr + stretch）。
+   tier 高度由 diagram 等分（1fr×3）封顶 → 永不溢出。卡片内容靠数据规范
+   （短词 + chip 数克制：嵌套小格 ≤3 chip / 简单卡 ≤4 chip）保证落在 1/3
+   tier 高度内、不裁切。这是「有界 + 数据自律」而非「JS 测量」的一次成思路。 ── */
+#sX .lm-cols {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 14px;
+  align-items: stretch;
+  min-height: 0;
+}
+#sX .lm-col {
+  grid-column: span var(--span, 3);
+  background: var(--surface);
+  border: 1px solid var(--lm-hair);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 12px -6px rgba(15,23,42,0.06);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  min-height: 0;
+}
+
+#sX .lc-h {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 700; color: var(--text);
+  letter-spacing: 0.3px;
+  padding: 9px 14px 7px;
+  border-bottom: 1px solid var(--lm-hair);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#sX .lc-h::before {
+  content: ""; width: 3px; height: 13px; border-radius: 2px;
+  background: var(--tier-c); flex-shrink: 0;
+}
+
+/* chip 区：flex-wrap 自然流 + 居中（零测量，永不死循环）。
+   align-items:center 关键 —— 否则 flex 默认 stretch 会把 chip 纵向拉成 2 倍高。 */
+#sX .lc-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  gap: 9px 8px;
+  min-height: 0;
+}
+
+/* chip = 圆角胶囊：克制固定字号（配合数据规范：短词 / 长项拆块 / 英文简写） */
+#sX .lm-item {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 8px 16px;
+  font-size: 15px; font-weight: 500; color: var(--text2);
+  line-height: 1.2; white-space: nowrap;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text, #0f172a) 5%, transparent);
+}
+#sX .lm-item .nm { white-space: nowrap; }
+#sX .lm-item.sm { font-size: 13px; gap: 6px; padding: 6px 12px; }
+
+/* logo：圆形 + 淡环 + 白底 */
+#sX .lm-logo {
+  width: 20px; height: 20px; border-radius: 50%;
+  object-fit: contain; background: #fff;
+  box-shadow: 0 0 0 1px var(--lm-hair); flex-shrink: 0; padding: 1px;
+}
+#sX .lm-item.sm .lm-logo { width: 17px; height: 17px; }
+#sX .lm-fallback {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; color: #fff;
+  font-family: var(--font-display, var(--font-mono));
+}
+#sX .lm-item.sm .lm-fallback { width: 17px; height: 17px; font-size: 8px; }
+
+/* ── 嵌套：大格内再切小格 —— 发丝缝分组 ── */
+#sX .lm-col.nest { grid-template-rows: auto 1fr; }
+#sX .lc-sub {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1px; padding: 0;
+  min-height: 0; overflow: hidden;
+  background: var(--lm-hair);
+}
+#sX .lc-sub.two  { grid-template-columns: repeat(2, 1fr); }
+#sX .lc-sub.four { grid-template-columns: repeat(4, 1fr); }
+#sX .ls-cell {
+  background: var(--surface);
+  display: grid; grid-template-rows: auto 1fr;
+  overflow: hidden; min-height: 0;
+}
+#sX .ls-h {
+  font-size: 11px; font-weight: 700; color: var(--text3);
+  letter-spacing: 0.4px;
+  padding: 7px 8px 5px; text-align: center;
+  border-bottom: 1px solid var(--lm-hair); margin-bottom: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#sX .ls-body {
+  display: flex; flex-wrap: wrap;
+  justify-content: center; align-items: center; align-content: center;
+  gap: 3px 6px;
+  padding: 5px 11px 7px;
+  min-height: 0;
+}
+
+/* dark 主题适配 */
+[data-theme="dark-tech"] #sX .diagram-landscape { --lm-hair: rgba(255,255,255,0.10); }
+[data-theme="dark-tech"] #sX .lm-col,
+[data-theme="dark-tech"] #sX .ls-cell { background: rgba(255,255,255,0.025); }
+[data-theme="dark-tech"] #sX .lm-item { color: var(--text2); background: rgba(255,255,255,0.06); }
+[data-theme="dark-tech"] #sX .lc-sub { background: rgba(255,255,255,0.08); }
+</style>

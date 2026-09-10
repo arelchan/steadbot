@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a1f3d"/>
+      <stop offset="100%" stop-color="#050b1f"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="70%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="200" height="200" rx="36" fill="url(#bg)"/>
+  <rect x="0" y="0" width="200" height="200" rx="36" fill="url(#glow)"/>
+
+  <g transform="translate(40, 40)">
+    <rect x="0" y="0" width="50" height="50" rx="6" fill="url(#accent)" opacity="0.95"/>
+    <rect x="60" y="0" width="60" height="20" rx="4" fill="#22D3EE" opacity="0.7"/>
+    <rect x="60" y="30" width="40" height="20" rx="4" fill="#22D3EE" opacity="0.4"/>
+
+    <rect x="0" y="60" width="120" height="20" rx="4" fill="#FFFFFF" opacity="0.85"/>
+
+    <rect x="0" y="90" width="55" height="30" rx="4" fill="#FFFFFF" opacity="0.6"/>
+    <rect x="65" y="90" width="55" height="30" rx="4" fill="#FFFFFF" opacity="0.3"/>
+  </g>
+
+  <line x1="20" y1="180" x2="180" y2="180" stroke="url(#accent)" stroke-width="0.8" opacity="0.4"/>
+
+  <circle cx="170" cy="30" r="3" fill="#22D3EE">
+    <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>

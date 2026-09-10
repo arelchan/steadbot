@@ -1,0 +1,22 @@
+<!--
+  竖屏模板 · cover（封面 / 小红书首图钩子）
+  低密度：一个钩子大标题 + 一句副标题 + 品牌页脚。第 1 张专用，决定点开率。
+  用法：拷成 src/slides/slide-N.html，sN 改页号；配竖屏 shell + portrait.css。
+-->
+<div class="slide between" id="sN">
+  <div class="p-ghost">01</div>
+
+  <div class="p-eyebrow">{副标题英文} · {大类名}</div>
+
+  <div>
+    <div class="p-h1" style="font-size: 100px;">{钩子大标题}<br><span>{高亮关键词}</span></div>
+    <div class="p-lead" style="margin-top: 36px; font-size: 38px;">
+      {一句副标题 · 含 <strong>关键数字</strong> · 给读者一个点开的理由}
+    </div>
+  </div>
+
+  <div class="p-foot">
+    <span class="brand">{品牌 / 作者}</span>
+    <span>{日期 / 期数}</span>
+  </div>
+</div>

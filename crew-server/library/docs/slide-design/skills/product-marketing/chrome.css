@@ -1,0 +1,127 @@
+/* product-marketing — bespoke chrome. Keynote polish: white stage, purple
+   accent worn as a soft chip, big friendly type, chrome that feels designed
+   rather than documented. */
+
+.slide h1, .slide h2, .slide h3, .slide h4 { letter-spacing: -0.025em; }
+.slide h1 { line-height: 1.0; }
+.slide h2 { line-height: 1.05; }
+.slide h3 { line-height: 1.1; }
+.slide h4 { line-height: 1.15; }
+
+/* the label is a tinted chip, the brand's one recurring accent moment */
+.slide .eyebrow {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-signal);
+  background: rgba(91, 33, 182, 0.08);
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+/* launch decks don't footnote; keep it nearly silent */
+.slide .source {
+  position: absolute;
+  bottom: 30px;
+  left: var(--page-safe);
+  right: var(--page-safe);
+  font-size: 14px;
+  color: var(--color-muted);
+}
+
+.slide .signal-bar {
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-signal), var(--color-subtle));
+  border-radius: 2px;
+}
+
+.slide-flow {
+  gap: 40px;
+  padding-bottom: 76px;
+}
+
+/* soft product table: zebra surfaces instead of ruled lines */
+.dir-table {
+  font-size: 19px;
+}
+.dir-table thead th {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-muted);
+  text-align: left;
+  padding: 12px 20px;
+}
+.dir-table tbody th {
+  font-family: var(--font-body);
+  font-weight: 600;
+  text-align: left;
+  padding: 16px 20px;
+  vertical-align: top;
+  width: 34%;
+}
+.dir-table tbody td {
+  padding: 16px 20px;
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+.dir-table tbody tr:nth-child(odd) th,
+.dir-table tbody tr:nth-child(odd) td { background: var(--color-card); }
+.dir-table tbody tr:first-child th:first-child { border-top-left-radius: 12px; }
+.dir-table tbody tr:first-child td:last-child { border-top-right-radius: 12px; }
+.dir-table tbody tr:last-child th:first-child { border-bottom-left-radius: 12px; }
+.dir-table tbody tr:last-child td:last-child { border-bottom-right-radius: 12px; }
+
+/* Graphic system: the stage. Hero slides are lit like a keynote: a soft
+   spotlight field plus one cropped halo ring. Light slides carry chip
+   labels and one giant pale quote mark on customer proof. The light is
+   the brand; nothing else decorates. */
+
+.pm-stage {
+  background-color: var(--color-signal);
+  background-image:
+    radial-gradient(1600px 900px at 24% 8%, rgba(255, 255, 255, 0.16), transparent 60%),
+    radial-gradient(1200px 800px at 88% 110%, rgba(0, 0, 0, 0.28), transparent 65%);
+}
+.pm-stage::after {
+  content: "";
+  position: absolute;
+  right: -320px;
+  top: -380px;
+  width: 1100px;
+  height: 1100px;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+}
+
+/* chip labels: the launch-post badge, sentence case, never uppercase */
+.pm-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  font-family: var(--font-data);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-signal);
+  background: rgba(91, 33, 182, 0.08);
+  padding: 8px 18px;
+  border-radius: 999px;
+}
+.pm-chip-muted {
+  color: var(--color-muted);
+  background: rgba(107, 114, 128, 0.10);
+}
+
+/* one giant pale quote mark behind customer proof */
+.pm-quote-mark {
+  position: absolute;
+  left: 48px;
+  top: -56px;
+  font-family: var(--font-header);
+  font-weight: 700;
+  font-size: 560px;
+  line-height: 1;
+  color: rgba(91, 33, 182, 0.07);
+  pointer-events: none;
+}

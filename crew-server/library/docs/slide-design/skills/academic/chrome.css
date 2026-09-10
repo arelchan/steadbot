@@ -1,0 +1,129 @@
+/* academic — bespoke chrome. Tufte-leaning scholarly apparatus: warm parchment
+   ground, serif headings at ease, footnote-grade citations, booktabs tables.
+   The look is the restraint; nothing shouts. */
+
+.slide h1, .slide h2, .slide h3, .slide h4 { letter-spacing: -0.005em; }
+.slide h1 { line-height: 1.12; }
+.slide h2 { line-height: 1.16; }
+.slide h3 { line-height: 1.2; }
+.slide h4 { line-height: 1.24; }
+
+/* kicker as a scholarly running head: italic serif, not a tech label */
+.slide .eyebrow {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--size-body-3);
+  color: var(--color-signal);
+}
+
+/* citations read as footnotes: mono, small, hairline rule above */
+.slide .source {
+  position: absolute;
+  bottom: 30px;
+  left: var(--page-safe);
+  right: var(--page-safe);
+  font-family: var(--font-data);
+  font-size: 14px;
+  color: var(--color-muted);
+  border-top: 1px solid var(--color-rule);
+  padding-top: 10px;
+}
+
+.slide .signal-bar {
+  height: 2px;
+  background: var(--color-signal);
+}
+
+.slide-flow {
+  gap: 36px;
+  padding-bottom: 76px;
+}
+
+/* booktabs ruling: strong head rule, light interior, no vertical lines */
+.dir-table {
+  font-size: 19px;
+}
+.dir-table thead th {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--size-body-4);
+  color: var(--color-ink);
+  text-align: left;
+  padding: 12px 22px 12px 0;
+  border-top: 2px solid var(--color-ink);
+  border-bottom: 1px solid var(--color-ink);
+}
+.dir-table tbody th {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-weight: 400;
+  text-align: left;
+  padding: 16px 22px 16px 0;
+  border-bottom: 1px solid var(--color-rule);
+  vertical-align: top;
+  width: 32%;
+}
+.dir-table tbody td {
+  padding: 16px 22px 16px 0;
+  border-bottom: 1px solid var(--color-rule);
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+.dir-table tbody tr:last-child th,
+.dir-table tbody tr:last-child td { border-bottom: 2px solid var(--color-ink); }
+
+/* Graphic system: the citation bracket. The [n] apparatus that runs through
+   the deck becomes the signature: a giant pale serif bracket on the title,
+   a double hairline as the section rule, evidence plates with a teal tab.
+   Parchment grain on the bookends. Apparatus, never ornament. */
+
+/* double hairline: the scholarly section rule (Tufte separator, not Oxford) */
+.ax-rule {
+  position: relative;
+  height: 7px;
+  border-top: 1px solid var(--color-ink);
+  flex: none;
+}
+.ax-rule::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  border-top: 1px solid var(--color-ink);
+}
+
+/* evidence plate: a ruled frame with a small teal tab on its top edge,
+   marks anything evidentiary (figures, tables, the dataset) */
+.ax-plate {
+  position: relative;
+  border: 1px solid var(--color-ink);
+}
+.ax-plate::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 32px;
+  width: 40px;
+  height: 5px;
+  background: var(--color-signal);
+}
+
+/* parchment grain for title and closing */
+.ax-paper {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.05'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='280' height='280' filter='url(%23p)'/%3E%3C/svg%3E");
+}
+
+/* the giant title bracket: pale serif, cropped by the canvas edge */
+.ax-bracket {
+  position: absolute;
+  left: -40px;
+  top: -210px;
+  font-family: var(--font-header);
+  font-size: 1380px;
+  line-height: 1;
+  color: rgba(15, 76, 92, 0.07);
+  z-index: 0;
+  pointer-events: none;
+}

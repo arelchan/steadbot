@@ -1,0 +1,16 @@
+node_modules/
+package-lock.json
+package.json
+.vscode/
+.superpowers/
+.DS_Store
+
+# 运行时产物（style-gallery/ 保留 26 风格预览用于 README 效果展示）
+ppt-output/*
+!ppt-output/style-gallery/
+
+# 测试结果（保留最近的 report.md，运行时图片不入库）
+tests/smoke-results/*/screenshots/
+
+# Puppeteer 运行时产物
+*.bundle.js

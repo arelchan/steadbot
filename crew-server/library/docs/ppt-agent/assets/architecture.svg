@@ -1,0 +1,253 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000" font-family="-apple-system, 'Inter Tight', 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <radialGradient id="bg-grad" cx="50%" cy="-20%" r="100%">
+      <stop offset="0%" stop-color="#1a3a6e"/>
+      <stop offset="50%" stop-color="#0a1f3d"/>
+      <stop offset="100%" stop-color="#050b1f"/>
+    </radialGradient>
+    <radialGradient id="glow-cyan" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#22D3EE" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-violet" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accent-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
+    </linearGradient>
+    <linearGradient id="accent-violet" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A855F7"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="accent-amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF9500"/>
+      <stop offset="100%" stop-color="#FF6B35"/>
+    </linearGradient>
+    <linearGradient id="accent-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="accent-pink" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="accent-mocha" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c1502e"/>
+      <stop offset="100%" stop-color="#8b5a3c"/>
+    </linearGradient>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+      <path d="M 80 0 L 0 0 0 80" fill="none" stroke="rgba(255,255,255,0.015)" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#22D3EE" opacity="0.7"/>
+    </marker>
+    <marker id="arrow-down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 0 L 5 10 z" fill="rgba(255,255,255,0.4)"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#bg-grad)"/>
+  <rect width="1600" height="1000" fill="url(#grid)"/>
+  <ellipse cx="200" cy="200" rx="400" ry="300" fill="url(#glow-cyan)"/>
+  <ellipse cx="1400" cy="800" rx="400" ry="300" fill="url(#glow-violet)"/>
+
+  <g>
+    <circle cx="60" cy="78" r="6" fill="#22D3EE"/>
+    <text x="78" y="84" font-size="13" font-weight="700" letter-spacing="2.5" fill="#22D3EE">PPT AGENT SKILL · SYSTEM ARCHITECTURE</text>
+  </g>
+  <text x="60" y="160" font-size="56" font-weight="700" letter-spacing="-2.5" fill="#ffffff">Architecture</text>
+  <text x="430" y="160" font-size="56" font-weight="400" font-style="italic" letter-spacing="-1.5" font-family="Georgia, 'Source Serif Pro', serif" fill="url(#accent-cyan)">Overview.</text>
+  <line x1="60" y1="200" x2="1540" y2="200" stroke="rgba(255,255,255,0.08)"/>
+
+  <g transform="translate(60, 240)">
+    <text x="0" y="0" font-size="11" font-weight="700" letter-spacing="2.5" fill="rgba(255,255,255,0.5)">— TIER 1 · ENTRY</text>
+
+    <g transform="translate(0, 30)">
+      <rect x="0" y="0" width="280" height="100" rx="12" fill="rgba(34,211,238,0.08)" stroke="url(#accent-cyan)" stroke-width="1.5"/>
+      <circle cx="22" cy="32" r="4" fill="#22D3EE"/>
+      <text x="36" y="38" font-size="11" font-weight="700" letter-spacing="2" fill="#22D3EE">USER PROMPT</text>
+      <text x="20" y="68" font-size="14" fill="rgba(255,255,255,0.9)">"做一个关于 X 的</text>
+      <text x="20" y="88" font-size="14" fill="rgba(255,255,255,0.9)">AI 安全汇报材料"</text>
+    </g>
+
+    <line x1="280" y1="80" x2="380" y2="80" stroke="#22D3EE" stroke-width="1.5" opacity="0.6" marker-end="url(#arrow)"/>
+
+    <g transform="translate(380, 30)">
+      <rect x="0" y="0" width="320" height="100" rx="12" fill="rgba(168,85,247,0.08)" stroke="url(#accent-violet)" stroke-width="1.5"/>
+      <circle cx="22" cy="32" r="4" fill="#A855F7"/>
+      <text x="36" y="38" font-size="11" font-weight="700" letter-spacing="2" fill="#A855F7">CLAUDE CODE SKILL</text>
+      <text x="20" y="62" font-size="20" font-weight="700" fill="#ffffff">SKILL.md</text>
+      <text x="20" y="84" font-size="12" fill="rgba(255,255,255,0.6)" font-family="'JetBrains Mono', monospace">主流程指令 · Agent 入口</text>
+    </g>
+
+    <g transform="translate(800, 30)">
+      <rect x="0" y="0" width="370" height="100" rx="12" fill="rgba(255,149,0,0.06)" stroke="url(#accent-amber)" stroke-width="1.5"/>
+      <circle cx="22" cy="32" r="4" fill="#FF9500"/>
+      <text x="36" y="38" font-size="11" font-weight="700" letter-spacing="2" fill="#FF9500">REFERENCES</text>
+      <g font-size="11" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.7)">
+        <text x="20" y="62">prompts.md · typography.md</text>
+        <text x="20" y="80">styles/* · charts/* · principles/*</text>
+        <text x="20" y="98">bento-grid.md · pipeline-compat.md</text>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(60, 410)">
+    <text x="0" y="0" font-size="11" font-weight="700" letter-spacing="2.5" fill="rgba(255,255,255,0.5)">— TIER 2 · 6-STEP PIPELINE</text>
+
+    <g transform="translate(0, 30)">
+      <rect x="0" y="0" width="220" height="180" rx="10" fill="rgba(34,211,238,0.06)" stroke="rgba(34,211,238,0.4)" stroke-width="1"/>
+      <text x="20" y="30" font-size="11" font-weight="700" letter-spacing="2" fill="#22D3EE">STEP 1</text>
+      <text x="20" y="58" font-size="20" font-weight="700" fill="#ffffff">需求调研</text>
+      <text x="20" y="80" font-size="11" fill="rgba(255,255,255,0.6)">Interview · STOP</text>
+      <line x1="20" y1="100" x2="200" y2="100" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="124" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">7 题三层递进</text>
+      <text x="20" y="144" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">场景 · 受众 · 行动</text>
+      <text x="20" y="164" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">叙事 · 侧重 · 说服</text>
+    </g>
+
+    <line x1="220" y1="120" x2="245" y2="120" stroke="rgba(34,211,238,0.7)" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <g transform="translate(245, 30)">
+      <rect x="0" y="0" width="220" height="180" rx="10" fill="rgba(168,85,247,0.06)" stroke="rgba(168,85,247,0.4)" stroke-width="1"/>
+      <text x="20" y="30" font-size="11" font-weight="700" letter-spacing="2" fill="#A855F7">STEP 2</text>
+      <text x="20" y="58" font-size="20" font-weight="700" fill="#ffffff">资料搜集</text>
+      <text x="20" y="80" font-size="11" fill="rgba(255,255,255,0.6)">Research</text>
+      <line x1="20" y1="100" x2="200" y2="100" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="124" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">Web search · 知识库</text>
+      <text x="20" y="144" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">3-15 查询自适应</text>
+      <text x="20" y="164" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">真实数据零幻觉</text>
+    </g>
+
+    <line x1="465" y1="120" x2="490" y2="120" stroke="rgba(168,85,247,0.7)" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <g transform="translate(490, 30)">
+      <rect x="0" y="0" width="220" height="180" rx="10" fill="rgba(34,197,94,0.06)" stroke="rgba(34,197,94,0.4)" stroke-width="1"/>
+      <text x="20" y="30" font-size="11" font-weight="700" letter-spacing="2" fill="#22c55e">STEP 3</text>
+      <text x="20" y="58" font-size="20" font-weight="700" fill="#ffffff">大纲策划</text>
+      <text x="20" y="80" font-size="11" fill="rgba(255,255,255,0.6)">Outline</text>
+      <line x1="20" y1="100" x2="200" y2="100" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="124" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">金字塔原理</text>
+      <text x="20" y="144" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">[PPT_OUTLINE] JSON</text>
+      <text x="20" y="164" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">Part / Page / Goal</text>
+    </g>
+
+    <line x1="710" y1="120" x2="735" y2="120" stroke="rgba(34,197,94,0.7)" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <g transform="translate(735, 30)">
+      <rect x="0" y="0" width="220" height="180" rx="10" fill="rgba(255,149,0,0.06)" stroke="rgba(255,149,0,0.4)" stroke-width="1"/>
+      <text x="20" y="30" font-size="11" font-weight="700" letter-spacing="2" fill="#FF9500">STEP 4</text>
+      <text x="20" y="58" font-size="20" font-weight="700" fill="#ffffff">策划稿</text>
+      <text x="20" y="80" font-size="11" fill="rgba(255,255,255,0.6)">Planning · Confirm</text>
+      <line x1="20" y1="100" x2="200" y2="100" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="124" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">Bento Grid 卡片</text>
+      <text x="20" y="144" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">cards[] / card_type</text>
+      <text x="20" y="164" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">density_label 合同</text>
+    </g>
+
+    <line x1="955" y1="120" x2="980" y2="120" stroke="rgba(255,149,0,0.7)" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <g transform="translate(980, 30)">
+      <rect x="0" y="0" width="240" height="180" rx="10" fill="rgba(236,72,153,0.06)" stroke="rgba(236,72,153,0.4)" stroke-width="1"/>
+      <text x="20" y="30" font-size="11" font-weight="700" letter-spacing="2" fill="#EC4899">STEP 5</text>
+      <text x="20" y="58" font-size="20" font-weight="700" fill="#ffffff">HTML 设计稿</text>
+      <text x="20" y="80" font-size="11" fill="rgba(255,255,255,0.6)">Style + Image + HTML</text>
+      <line x1="20" y1="100" x2="220" y2="100" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="124" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">26 风格 5 板块选 1</text>
+      <text x="20" y="144" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">字体栈三层降级</text>
+      <text x="20" y="164" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">tabular-nums + serif italic</text>
+    </g>
+
+    <line x1="1220" y1="120" x2="1245" y2="120" stroke="rgba(236,72,153,0.7)" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <g transform="translate(1245, 30)">
+      <rect x="0" y="0" width="240" height="180" rx="10" fill="rgba(193,80,46,0.06)" stroke="rgba(193,80,46,0.5)" stroke-width="1"/>
+      <text x="20" y="30" font-size="11" font-weight="700" letter-spacing="2" fill="#c1502e">STEP 6</text>
+      <text x="20" y="58" font-size="20" font-weight="700" fill="#ffffff">后处理</text>
+      <text x="20" y="80" font-size="11" fill="rgba(255,255,255,0.6)">Auto Pipeline</text>
+      <line x1="20" y1="100" x2="220" y2="100" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="124" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">html_packager.py</text>
+      <text x="20" y="144" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">html2svg.py (puppeteer)</text>
+      <text x="20" y="164" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.6)">svg2pptx.py (lxml)</text>
+    </g>
+  </g>
+
+  <g transform="translate(60, 670)">
+    <text x="0" y="0" font-size="11" font-weight="700" letter-spacing="2.5" fill="rgba(255,255,255,0.5)">— REFERENCE LIBRARY (注入到各步)</text>
+
+    <g transform="translate(0, 30)">
+      <rect x="0" y="0" width="280" height="80" rx="8" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="28" font-size="13" font-weight="700" fill="#22D3EE">📐 Style Library</text>
+      <text x="20" y="50" font-size="20" font-weight="700" fill="#ffffff" font-variant-numeric="tabular-nums">26 风格</text>
+      <text x="20" y="68" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.5)">5 板块 · references/styles/</text>
+    </g>
+
+    <g transform="translate(305, 30)">
+      <rect x="0" y="0" width="280" height="80" rx="8" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="28" font-size="13" font-weight="700" fill="#A855F7">📊 Chart Library</text>
+      <text x="20" y="50" font-size="20" font-weight="700" fill="#ffffff" font-variant-numeric="tabular-nums">18 图表</text>
+      <text x="20" y="68" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.5)">Basic · Advanced · ECharts 级</text>
+    </g>
+
+    <g transform="translate(610, 30)">
+      <rect x="0" y="0" width="280" height="80" rx="8" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="28" font-size="13" font-weight="700" fill="#22c55e">🔤 Typography</text>
+      <text x="20" y="50" font-size="20" font-weight="700" fill="#ffffff" font-variant-numeric="tabular-nums">14 铁律</text>
+      <text x="20" y="68" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.5)">字距 · OpenType · 字体栈</text>
+    </g>
+
+    <g transform="translate(915, 30)">
+      <rect x="0" y="0" width="280" height="80" rx="8" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="28" font-size="13" font-weight="700" fill="#FF9500">⚠ Failure Modes</text>
+      <text x="20" y="50" font-size="20" font-weight="700" fill="#ffffff" font-variant-numeric="tabular-nums">8 模式</text>
+      <text x="20" y="68" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.5)">underfill · overexpansion 等</text>
+    </g>
+
+    <g transform="translate(1220, 30)">
+      <rect x="0" y="0" width="265" height="80" rx="8" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)"/>
+      <text x="20" y="28" font-size="13" font-weight="700" fill="#EC4899">🎨 Bento Grid</text>
+      <text x="20" y="50" font-size="20" font-weight="700" fill="#ffffff" font-variant-numeric="tabular-nums">7 布局</text>
+      <text x="20" y="68" font-size="10" font-family="'JetBrains Mono', monospace" fill="rgba(255,255,255,0.5)">主次 · 英雄式 · 混合网格</text>
+    </g>
+  </g>
+
+  <line x1="60" y1="800" x2="1540" y2="800" stroke="rgba(255,255,255,0.08)"/>
+
+  <g transform="translate(60, 830)">
+    <text x="0" y="0" font-size="11" font-weight="700" letter-spacing="2.5" fill="rgba(255,255,255,0.5)">— TIER 3 · OUTPUTS</text>
+
+    <g transform="translate(0, 30)">
+      <rect x="0" y="0" width="320" height="100" rx="12" fill="rgba(34,197,94,0.06)" stroke="url(#accent-emerald)" stroke-width="1.5"/>
+      <text x="20" y="30" font-size="11" font-weight="700" letter-spacing="2" fill="#22c55e">📄 PREVIEW HTML</text>
+      <text x="20" y="58" font-size="18" font-weight="700" fill="#ffffff" font-family="'JetBrains Mono', monospace">preview.html</text>
+      <text x="20" y="82" font-size="11" fill="rgba(255,255,255,0.6)">浏览器翻页预览 · iframe 隔离</text>
+    </g>
+
+    <g transform="translate(345, 30)">
+      <rect x="0" y="0" width="320" height="100" rx="12" fill="rgba(34,211,238,0.06)" stroke="url(#accent-cyan)" stroke-width="1.5"/>
+      <text x="20" y="30" font-size="11" font-weight="700" letter-spacing="2" fill="#22D3EE">🎨 SVG VECTOR</text>
+      <text x="20" y="58" font-size="18" font-weight="700" fill="#ffffff" font-family="'JetBrains Mono', monospace">svg/*.svg</text>
+      <text x="20" y="82" font-size="11" fill="rgba(255,255,255,0.6)">单页矢量 · &lt;text&gt; 元素可编辑</text>
+    </g>
+
+    <g transform="translate(690, 30)">
+      <rect x="0" y="0" width="320" height="100" rx="12" fill="rgba(210,71,38,0.06)" stroke="url(#accent-mocha)" stroke-width="1.5"/>
+      <text x="20" y="30" font-size="11" font-weight="700" letter-spacing="2" fill="#D24726">📊 EDITABLE PPTX</text>
+      <text x="20" y="58" font-size="18" font-weight="700" fill="#ffffff" font-family="'JetBrains Mono', monospace">presentation.pptx</text>
+      <text x="20" y="82" font-size="11" fill="rgba(255,255,255,0.6)">PPT 365 右键"转换为形状"可编辑</text>
+    </g>
+
+    <g transform="translate(1035, 30)">
+      <rect x="0" y="0" width="450" height="100" rx="12" fill="rgba(168,85,247,0.06)" stroke="url(#accent-violet)" stroke-width="1.5"/>
+      <text x="20" y="30" font-size="11" font-weight="700" letter-spacing="2" fill="#A855F7">🖼️ STYLE GALLERY</text>
+      <text x="20" y="58" font-size="18" font-weight="700" fill="#ffffff" font-family="'JetBrains Mono', monospace">style-gallery/index.html</text>
+      <text x="20" y="82" font-size="11" fill="rgba(255,255,255,0.6)">26 风格卡片墙 · gallery.py 一键生成</text>
+    </g>
+  </g>
+
+  <text x="60" y="980" font-size="10" font-family="'JetBrains Mono', monospace" letter-spacing="0.1em" fill="rgba(255,255,255,0.3)">PPT AGENT SKILL · WORLD-CLASS · MMXXVI · github.com/Akxan/ppt-agent-skill</text>
+
+  <line x1="0" y1="1000" x2="1600" y2="1000" stroke="url(#accent-cyan)" stroke-width="1" opacity="0.5"/>
+</svg>

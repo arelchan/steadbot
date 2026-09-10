@@ -1,0 +1,44 @@
+<!--
+  竖屏模板 · single-chart（单图表卡）
+  低密度：一个标题 + 一张占满中部的图 + 一句结论。图表只放一个，别堆。
+  片段尾部内联 <script> 由 build.py 自动抽取；数据走 window.__DATA_N__。
+-->
+<div class="slide between" id="sN">
+  <div>
+    <div class="p-eyebrow">{副标题英文} · {大类名}</div>
+    <div class="p-h1" style="margin-top: 22px;">{本页标题 · <span>趋势</span>}</div>
+  </div>
+
+  <div class="p-chart">
+    <div class="p-chart-title">{图表标题 · 含时间口径}</div>
+    <div class="p-chart-box" id="pchart-sN"></div>
+  </div>
+
+  <div class="p-lead">{一句结论 · 含 <strong>关键数字</strong> · 告诉读者『所以呢』}</div>
+</div>
+
+<script>
+function initSlideN() {
+  // 竖屏图表：字号/线宽都按竖屏放大，保证手机可读。数据示例（实际走 window.__DATA_N__）。
+  const D = (window.__DATA_N__ && window.__DATA_N__.trend) || [
+    { m: '1月', v: 42 }, { m: '2月', v: 51 }, { m: '3月', v: 58 },
+    { m: '4月', v: 67 }, { m: '5月', v: 79 }, { m: '6月', v: 92 }
+  ];
+  initChart('pchart-sN', function () {
+    return {
+      grid: { left: 8, right: 18, top: 18, bottom: 8, containLabel: true },
+      xAxis: { type: 'category', data: D.map(function (r) { return r.m; }),
+        axisLabel: { fontSize: 22, color: _cssVar('--text2') }, axisTick: { show: false } },
+      yAxis: { type: 'value', axisLabel: { fontSize: 22, color: _cssVar('--text3') },
+        splitLine: { lineStyle: { color: _cssVar('--border') } } },
+      series: [{
+        type: 'line', smooth: 0.4, symbol: 'circle', symbolSize: 12,
+        data: D.map(function (r) { return r.v; }),
+        lineStyle: { width: 5, color: _cssVar('--accent') },
+        itemStyle: { color: _cssVar('--accent') },
+        areaStyle: { opacity: 0.12, color: _cssVar('--accent') }
+      }]
+    };
+  });
+}
+</script>

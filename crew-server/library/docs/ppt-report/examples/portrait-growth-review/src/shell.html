@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}}</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Noto+Serif+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&family=Bebas+Neue&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<style>
+{{STYLES}}
+</style>
+</head>
+<!--
+  竖屏 shell —— data-format="portrait" 激活 portrait.css 的低密度设计系统。
+  画幅按场景预设（见 presets.json）：改下面 --design-w / --design-h 即切尺寸——
+    小红书 1242×1656 · 公众号卡 1080×1440 · 朋友圈 1080×1350 · 手机全屏 1080×1920 …
+  导出图片/PDF 时由 export 脚本按 viewport 精准出图，无需改这里。
+-->
+<body data-theme="modern-light" data-format="portrait" style="--design-w: 1242px; --design-h: 1656px;">
+
+<div class="stage">
+  <div class="canvas">
+    <div class="slides">
+{{SLIDES}}
+    </div>
+  </div>
+</div>
+
+<!-- NAV（网页翻页用；导出图/PDF 时 JS 自动隐藏） -->
+<div class="nav">
+  <button onclick="go(-1)">← 上一页</button>
+  <div class="dots" id="dots"></div>
+  <div class="slide-counter" id="counter">1 / 1</div>
+  <button onclick="go(1)">下一页 →</button>
+</div>
+
+<!-- THEME SWITCHER -->
+<div class="theme-switcher" id="themeSwitcher"></div>
+
+<script>
+{{DATA}}
+</script>
+<script>
+{{SCRIPTS}}
+</script>
+</body>
+</html>

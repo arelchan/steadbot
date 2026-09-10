@@ -1,0 +1,115 @@
+/* training — bespoke chrome. Workbook warmth: cream page, teal wayfinding,
+   a left-rule kicker like a margin note, clear lined tables. Built to be
+   followed, not admired. */
+
+.slide h1, .slide h2, .slide h3, .slide h4 { letter-spacing: -0.012em; }
+.slide h1 { line-height: 1.1; }
+.slide h2 { line-height: 1.14; }
+.slide h3 { line-height: 1.18; }
+.slide h4 { line-height: 1.22; }
+
+/* margin-note kicker: teal text led by a small teal square marker */
+.slide .eyebrow {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-signal);
+}
+.slide .eyebrow::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--color-signal);
+  margin-right: 10px;
+}
+
+/* instructional footer: dotted rule, like a worksheet tear-line */
+.slide .source {
+  position: absolute;
+  bottom: 30px;
+  left: var(--page-safe);
+  right: var(--page-safe);
+  font-size: 14px;
+  color: var(--color-muted);
+  border-top: 1px dotted var(--color-rule);
+  padding-top: 9px;
+}
+
+.slide .signal-bar {
+  height: 3px;
+  background: var(--color-signal);
+  border-radius: 2px;
+}
+
+.slide-flow {
+  gap: 30px;
+  padding-bottom: 70px;
+}
+
+/* lined workbook table: teal head rule, evenly lined rows */
+.dir-table {
+  font-size: 18px;
+}
+.dir-table thead th {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-signal);
+  text-align: left;
+  padding: 12px 20px 12px 0;
+  border-bottom: 2px solid var(--color-ink);
+}
+.dir-table tbody th {
+  font-family: var(--font-body);
+  font-weight: 600;
+  text-align: left;
+  padding: 15px 20px 15px 0;
+  border-bottom: 1px solid var(--color-rule);
+  vertical-align: top;
+  width: 30%;
+}
+.dir-table tbody td {
+  padding: 15px 20px 15px 0;
+  border-bottom: 1px solid var(--color-rule);
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+.dir-table tbody tr:last-child th,
+.dir-table tbody tr:last-child td { border-bottom: none; }
+
+/* Graphic system: the workshop wall. A pegboard dot lattice on the bookends,
+   a hand-pulled orange marker swipe under the big titles, dashed worksheet
+   frames around anything participants act on. Tools of the room, drawn. */
+
+.tr-dots {
+  background-image: radial-gradient(circle, rgba(31, 41, 55, 0.10) 1.6px, transparent 1.6px);
+  background-size: 52px 52px;
+}
+.tr-dots-light {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 1.6px, transparent 1.6px);
+  background-size: 52px 52px;
+}
+
+/* worksheet frame: the handout, dashed and rounded; orange variant for
+   exercise material, teal for reflection */
+.tr-frame {
+  border: 2px dashed var(--color-signal);
+  border-radius: 18px;
+  background: var(--color-card);
+}
+.tr-frame-orange { border-color: #EA580C; }
+
+/* giant module numeral, cropped by the canvas on module intros */
+.tr-num {
+  position: absolute;
+  right: -50px;
+  bottom: -210px;
+  font-family: var(--font-header);
+  font-weight: 700;
+  font-size: 760px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.10);
+  z-index: 0;
+  pointer-events: none;
+}
