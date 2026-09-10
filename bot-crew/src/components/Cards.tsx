@@ -136,11 +136,14 @@ function LoginCard({ card, messageId }: { card: Extract<Card, { type: 'login' }>
   const [tick, setTick] = useState(0);
   const [values, setValues] = useState<Record<string, string>>({});
   const [sent, setSent] = useState(false);
+  // The code is live only while the page behind it is: once the server stops serving it (scanned, timed out, or the
+  // service restarted) the image stops loading — and a stale code is worse than none, so it greys out and says so.
+  const [dead, setDead] = useState(false);
   useEffect(() => {
-    if (card.kind !== 'qr' || card.done) return;
+    if (card.kind !== 'qr' || card.done || dead) return;
     const timer = setInterval(() => setTick((n) => n + 1), 8000);
     return () => clearInterval(timer);
-  }, [card.kind, card.done]);
+  }, [card.kind, card.done, dead]);
   if (card.done || sent) {
     return (
       <div className="card connect resolved">
@@ -160,12 +163,15 @@ function LoginCard({ card, messageId }: { card: Extract<Card, { type: 'login' }>
       <div className="c-head">
         <div>
           <div className="c-title">{card.title}</div>
-          <div className="c-sub">{card.kind === 'qr' ? t('card.loginScan') : t('card.secretsNote')}</div>
+          <div className="c-sub">{card.kind === 'qr' ? (dead ? t('card.loginStale') : t('card.loginScan')) : t('card.secretsNote')}</div>
         </div>
         <span className="cn-mark" aria-hidden>⌁</span>
       </div>
       {card.kind === 'qr' ? (
-        <img className="login-qr" src={withToken(`${httpBase || window.location.origin}/login/${card.askId}.png?t=${tick}`)} alt={card.title} />
+        <div className={cx('login-qr-wrap', dead && 'dead')}>
+          <img className="login-qr" src={withToken(`${httpBase || window.location.origin}/login/${card.askId}.png?t=${tick}`)} alt={card.title} onError={() => setDead(true)} />
+          {dead && <span className="login-dead">{t('card.loginStale')}</span>}
+        </div>
       ) : (
         <>
           <div className="sc-fields">

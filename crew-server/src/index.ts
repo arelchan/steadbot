@@ -828,6 +828,11 @@ async function main() {
   };
   // Login walls the bot hits on the shared computer come to the conversation instead (login.ts).
   const logins = new LoginDesk(store, desktops, (botId, text) => router.tellBot(botId, text));
+  // A login card points at a live page through an ask that only exists in memory. After a restart there is nothing
+  // behind it, so the card would sit there forever showing a broken image: close them out as soon as we come up.
+  for (const m of store.data.messages) {
+    if (m.card?.type === 'login' && !m.card.done) store.patchMessage(m.id, { card: { ...m.card, done: true, note: '已失效（服务重启过）' } });
+  }
 
   const upgrader = new Upgrader(runtime, () => machineBuild, () => process.exit(75), () => (active ? bots.busyNames() : []));
   void upgrader.refreshLatest();

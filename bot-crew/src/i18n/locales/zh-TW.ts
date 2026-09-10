@@ -507,6 +507,7 @@ export const zhTW: Record<string, string> = {
   'card.secretsNote': '只有連線本身讀得到這些值，bot 和對話紀錄都看不到。',
   'card.loginScan': '手機掃一下，碼會自己刷新',
   'card.loginDone': '登入好了',
+  'card.loginStale': '這個碼已失效',
   'card.loginGo': '登入',
   'card.openSettingsPage': '開啟設定頁',
   'card.secretsSubmit': '填好了',

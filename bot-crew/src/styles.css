@@ -1030,7 +1030,10 @@ li.md-task.done { color: var(--text-2); }
 .md-box { flex: none; width: 12px; height: 12px; margin-top: 1px; border: 1px solid var(--hair); border-radius: 3px; font-size: 9px; line-height: 11px; text-align: center; color: var(--accent); }
 .bubble s, .md s { color: var(--text-2); }
 /* 登录卡里的二维码：够大到手机能扫 */
+.login-qr-wrap { position: relative; display: flex; justify-content: center; }
 .login-qr { display: block; margin: 10px auto 2px; width: 100%; max-width: 260px; border-radius: var(--r-sm); background: #fff; }
+.login-qr-wrap.dead .login-qr { filter: grayscale(1) brightness(0.55); }
+.login-dead { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 12px; letter-spacing: 0.02em; }
 .bubble .md-hr, .md .md-hr { border: 0; border-top: 1px solid var(--hair); margin: 8px 0; }
 .bubble ol.md-list { margin: 3px 0 3px 1.3em; padding: 0; }
 .md-img { display: block; margin: 6px 0; border-bottom: 0 !important; }

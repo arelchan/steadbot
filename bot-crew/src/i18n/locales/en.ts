@@ -507,6 +507,7 @@ export const en: Record<string, string> = {
   'card.secretsNote': 'Only the connection itself can read these; the bot and the chat log cannot.',
   'card.loginScan': 'Scan it with your phone; the code refreshes itself',
   'card.loginDone': 'Signed in',
+  'card.loginStale': 'This code has expired',
   'card.loginGo': 'Sign in',
   'card.openSettingsPage': 'Open the settings page',
   'card.secretsSubmit': 'Done',

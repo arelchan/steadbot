@@ -313,6 +313,14 @@ export class DesktopManager {
         await new Promise((r) => setTimeout(r, 250));
       }
       this.live = { procs, viewers: 0, bots: new Map() };
+      // The port opens long before the browser is usable. Chrome brings back the session it was killed with — a
+      // dozen heavy tabs (Feishu, Telegram, each with its own service and shared workers) all loading at once on a
+      // two-core box — and a Playwright client has to attach to every one of those targets before it can do
+      // anything. Measured on this machine: that handshake takes 0.8 s once things are quiet and blows past 30 s
+      // while they are not, which is exactly the "websocket 初始化超时" the bots kept hitting. So: clean up what
+      // does not need to be there, then wait until the handshake is actually fast before handing the browser out.
+      await this.tidyTabs().catch(() => undefined);
+      await this.settle();
       this.patch({ state: 'on', since: Date.now(), lastUsed: Date.now(), note: undefined, users: [] });
       console.log(`[crew] the computer is on (display :${DISPLAY})`);
     } catch (e) {
@@ -395,6 +403,48 @@ export class DesktopManager {
     if (!this.live) return;
     this.live.bots.set(botId, Date.now());
     this.patch({ lastUsed: Date.now(), users: this.users() });
+  }
+
+  /**
+   * Wait until connecting over CDP is quick. Every bot's browser tools do this handshake on their first call, and
+   * a slow one surfaces to the model as a timeout it cannot act on.
+   */
+  private async settle(budgetMs = 90_000) {
+    const { chromium } = createRequire(import.meta.url)('playwright-core') as typeof import('playwright-core');
+    const started = Date.now();
+    for (let i = 0; Date.now() - started < budgetMs; i++) {
+      const t = Date.now();
+      const ok = await chromium
+        .connectOverCDP(`http://127.0.0.1:${CDP_PORT}`, { timeout: 15_000 })
+        .then(async (b) => {
+          await b.close();
+          return true;
+        })
+        .catch(() => false);
+      if (ok && Date.now() - t < 5000) {
+        if (i) console.log(`[crew] computer: 浏览器 ${Math.round((Date.now() - started) / 1000)} 秒后才接得动，现在可以了`);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    console.warn('[crew] computer: 浏览器一直很慢，先放行，bot 的浏览器工具可能会超时');
+  }
+
+  /**
+   * Close what nobody needs. Each bot opens its own tab on every attach and nothing ever closed them, so the shared
+   * browser accumulated 23 pages — most of them about:blank — and every one of them is a target that each new
+   * client has to attach to.
+   */
+  private async tidyTabs(keep = 8) {
+    const list = await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`, { signal: AbortSignal.timeout(5000) })
+      .then((r) => r.json() as Promise<{ id: string; type: string; url: string }[]>)
+      .catch(() => []);
+    const pages = list.filter((t) => t.type === 'page');
+    const blank = pages.filter((t) => t.url === 'about:blank' || t.url === 'chrome://newtab/');
+    // Keep one blank tab to land on, and cap the rest at `keep` — oldest first, which is the order Chrome lists them.
+    const doomed = [...blank.slice(1), ...pages.filter((t) => !blank.includes(t)).slice(0, Math.max(0, pages.length - blank.length - keep))];
+    for (const t of doomed) await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${t.id}`, { signal: AbortSignal.timeout(3000) }).catch(() => undefined);
+    if (doomed.length) console.log(`[crew] computer: 关掉 ${doomed.length} 个没人用的标签页（还剩 ${pages.length - doomed.length} 个）`);
   }
 
   private cdp: Promise<import('playwright-core').Browser> | undefined;
@@ -497,9 +547,17 @@ export class DesktopManager {
     });
   }
 
+  private tidyAt = 0;
+
   private sweepIdle() {
     const l = this.live;
     if (!l) return;
+    // Tabs pile up during a session too — one per bot per attach. Every ten minutes, put the browser back to a size
+    // a new client can attach to quickly.
+    if (Date.now() - this.tidyAt > 10 * 60_000) {
+      this.tidyAt = Date.now();
+      void this.tidyTabs().catch(() => undefined);
+    }
     const users = this.users();
     const shown = this.store.data.computer?.users ?? [];
     if (users.length !== shown.length || users.some((u) => !shown.includes(u))) this.patch({ users });

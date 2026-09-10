@@ -543,6 +543,7 @@ export const ru: Record<string, string> = {
   'card.secretsNote': 'Эти значения читает только само подключение; ни бот, ни переписка их не видят.',
   'card.loginScan': 'Scan it with your phone; the code refreshes itself',
   'card.loginDone': 'Signed in',
+  'card.loginStale': 'This code has expired',
   'card.loginGo': 'Sign in',
   'card.openSettingsPage': 'Открыть страницу настроек',
   'card.secretsSubmit': 'Готово',

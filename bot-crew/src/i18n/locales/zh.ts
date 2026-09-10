@@ -524,6 +524,7 @@ export const zh: Record<string, string> = {
   'card.secretsNote': '只有连接本身能读到这些值，bot 和聊天记录都看不到。',
   'card.loginScan': '手机扫一下，码会自己刷新',
   'card.loginDone': '登录好了',
+  'card.loginStale': '这个码已失效',
   'card.loginGo': '登录',
   'card.openSettingsPage': '打开设置页',
   'card.secretsSubmit': '填好了',

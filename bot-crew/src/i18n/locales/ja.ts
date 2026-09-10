@@ -507,6 +507,7 @@ export const ja: Record<string, string> = {
   'card.secretsNote': 'これらの値を読めるのは接続そのものだけで、bot も会話履歴も見られません。',
   'card.loginScan': 'Scan it with your phone; the code refreshes itself',
   'card.loginDone': 'Signed in',
+  'card.loginStale': 'This code has expired',
   'card.loginGo': 'Sign in',
   'card.openSettingsPage': '設定ページを開く',
   'card.secretsSubmit': '入力しました',

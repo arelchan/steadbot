@@ -507,6 +507,7 @@ export const ko: Record<string, string> = {
   'card.secretsNote': '이 값은 연결 자체만 읽을 수 있고 bot과 대화 기록은 보지 못합니다.',
   'card.loginScan': 'Scan it with your phone; the code refreshes itself',
   'card.loginDone': 'Signed in',
+  'card.loginStale': 'This code has expired',
   'card.loginGo': 'Sign in',
   'card.openSettingsPage': '설정 페이지 열기',
   'card.secretsSubmit': '입력 완료',
