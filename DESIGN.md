@@ -144,9 +144,11 @@
 
 **主流**：发版号、发布说明、用户手动更新。
 
-**我们**：版本 = git 提交。App 里有更新就出一个标签，点一下升级；bot 住在远端机器时，远端一起升级（云机器用只读部署密钥自己拉代码，代码改动只重启，Dockerfile 变了才重建镜像）。
+**我们**：版本 = git 提交，名字 = 提交上的标签。机器之间比的是提交，人看的是 `v0.1.0`；标签之后的提交读作 `v0.1.0+3`，所以任何一个提交都有名字。「关于」里就一行：图标、EverBot、版本标签、提交号和仓库，有新版本时右边出现「升级到 v0.x.y」。bot 住在远端机器时，远端一起升级（云机器用只读部署密钥自己拉代码，代码改动只重启，Dockerfile 变了才重建镜像）。
 
-**在哪**：`crew-server/src/version.ts`、`upgrade.ts`；前端 `SettingsModal.tsx` 「关于」。
+**发一版**：`git tag -a vX.Y.Z -m '…' && git push --follow-tags`，同时把两个 `package.json` 的 `version` 改成 `X.Y.Z`——标签是给人看的名字，package.json 是没有 git 时（容器里）的兜底，两个错开就会自相矛盾。
+
+**在哪**：`crew-server/src/version.ts`（`versionName`：本地 `git describe` 先答，本地没有的标签再问远端）、`upgrade.ts`；前端 `SettingsModal.tsx` 「关于」。
 
 ## 14. 界面说用户的语言，bot 说用户想听的语言
 
