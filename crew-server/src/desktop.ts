@@ -1,5 +1,5 @@
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import type { IncomingMessage } from 'node:http';
 import { createRequire } from 'node:module';
@@ -37,6 +37,16 @@ const H = 900;
 const IDLE_MS = 30 * 60 * 1000;
 /** A bot counts as "using it" for this long after its last browser call. */
 const USING_MS = 2 * 60 * 1000;
+/**
+ * What keeps the shared computer from growing without limit. Left alone it does: every bot that touches it opens a
+ * tab and leaves a node process behind, and neither was ever cleaned up — 23 pages and a browser near two gigabytes
+ * on a two-core box, which is what made a Playwright client's handshake time out. So the machine holds a shape:
+ * at most this many tabs, a bot's browser tools let go when it stops using them, and a browser that has grown too
+ * heavy is restarted while nobody is watching (the profile — every login — is on disk and survives).
+ */
+const TAB_CAP = 8;
+const BOT_IDLE_MS = 15 * 60 * 1000;
+const CHROME_RSS_MB = 2000;
 const DISPLAY = 100;
 const VNC_PORT = 5900 + DISPLAY;
 const CDP_PORT = 9222;
@@ -225,6 +235,16 @@ export class DesktopManager {
   private users(): string[] {
     const cutoff = Date.now() - USING_MS;
     return this.live ? [...this.live.bots.entries()].filter(([, at]) => at > cutoff).map(([id]) => id) : [];
+  }
+
+  /**
+   * Force this bot's browser tools to be built again. `on` is idempotent and would keep a wedged process; this is
+   * for the case where the process is there but no longer works (extensions/recover.ts).
+   */
+  async reattach(botId: string) {
+    await this.mcp.disconnect(this.integrationId(botId)).catch(() => undefined);
+    this.live?.bots.delete(botId);
+    return this.on(botId);
   }
 
   /** The computer on (booting it if it sleeps) and this bot's browser tools attached. Idempotent. */
@@ -430,21 +450,57 @@ export class DesktopManager {
     console.warn('[crew] computer: 浏览器一直很慢，先放行，bot 的浏览器工具可能会超时');
   }
 
+  /** first time each target was seen, so "the oldest ones" means something without asking Chrome */
+  private seenTabs = new Map<string, number>();
+
   /**
-   * Close what nobody needs. Each bot opens its own tab on every attach and nothing ever closed them, so the shared
-   * browser accumulated 23 pages — most of them about:blank — and every one of them is a target that each new
-   * client has to attach to.
+   * Hold the browser to a size a new client can attach to quickly. Blank tabs are pure residue (one per bot per
+   * attach) — keep one to land on. Past the cap, the tabs that have been sitting around longest go first.
    */
-  private async tidyTabs(keep = 8) {
+  private async tidyTabs(cap = TAB_CAP) {
     const list = await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`, { signal: AbortSignal.timeout(5000) })
       .then((r) => r.json() as Promise<{ id: string; type: string; url: string }[]>)
       .catch(() => []);
     const pages = list.filter((t) => t.type === 'page');
-    const blank = pages.filter((t) => t.url === 'about:blank' || t.url === 'chrome://newtab/');
-    // Keep one blank tab to land on, and cap the rest at `keep` — oldest first, which is the order Chrome lists them.
-    const doomed = [...blank.slice(1), ...pages.filter((t) => !blank.includes(t)).slice(0, Math.max(0, pages.length - blank.length - keep))];
-    for (const t of doomed) await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${t.id}`, { signal: AbortSignal.timeout(3000) }).catch(() => undefined);
-    if (doomed.length) console.log(`[crew] computer: 关掉 ${doomed.length} 个没人用的标签页（还剩 ${pages.length - doomed.length} 个）`);
+    if (!pages.length) return;
+    const now = Date.now();
+    for (const p of pages) if (!this.seenTabs.has(p.id)) this.seenTabs.set(p.id, now);
+    for (const id of [...this.seenTabs.keys()]) if (!pages.some((p) => p.id === id)) this.seenTabs.delete(id);
+    const blank = (t: { url: string }) => t.url === 'about:blank' || t.url === 'chrome://newtab/';
+    const doomed = new Set(pages.filter(blank).slice(1));
+    const rest = pages.filter((p) => !doomed.has(p)).sort((a, b) => (this.seenTabs.get(a.id) ?? 0) - (this.seenTabs.get(b.id) ?? 0));
+    for (const t of rest.slice(0, Math.max(0, rest.length - cap))) doomed.add(t);
+    for (const t of doomed) {
+      await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${t.id}`, { signal: AbortSignal.timeout(3000) }).catch(() => undefined);
+      this.seenTabs.delete(t.id);
+    }
+    if (doomed.size) console.log(`[crew] computer: 关掉 ${doomed.size} 个标签页（还剩 ${pages.length - doomed.size} 个）`);
+  }
+
+  /** How much memory the browser is holding, in MB. Chrome is one process per tab plus its own; sum them. */
+  private async chromeRssMb(): Promise<number> {
+    let total = 0;
+    for (const pid of readdirSync('/proc').filter((n) => /^\d+$/.test(n))) {
+      try {
+        if (!readFileSync(`/proc/${pid}/comm`, 'utf8').startsWith('chrome')) continue;
+        const rss = /VmRSS:\s+(\d+) kB/.exec(readFileSync(`/proc/${pid}/status`, 'utf8'))?.[1];
+        if (rss) total += Number(rss) / 1024;
+      } catch {
+        /* the process ended while we were reading it */
+      }
+    }
+    return Math.round(total);
+  }
+
+  /** A bot has stopped using the computer: close its tab and let its browser process go. */
+  private async release(botId: string) {
+    const id = this.integrationId(botId);
+    await this.mcp.callTool(id, 'browser_tabs', { action: 'close' }).catch(() => undefined);
+    await this.mcp.disconnect(id).catch(() => undefined);
+    this.store.patchIntegration(id, { status: 'off', note: '闲着，用的时候会自己接回来', tools: undefined });
+    this.live?.bots.delete(botId);
+    await this.refreshTools(botId).catch(() => undefined);
+    console.log(`[crew] computer: ${this.store.bot(botId)?.name ?? botId} 十五分钟没用浏览器，先放开了`);
   }
 
   private cdp: Promise<import('playwright-core').Browser> | undefined;
@@ -547,23 +603,31 @@ export class DesktopManager {
     });
   }
 
-  private tidyAt = 0;
-
   private sweepIdle() {
     const l = this.live;
     if (!l) return;
-    // Tabs pile up during a session too — one per bot per attach. Every ten minutes, put the browser back to a size
-    // a new client can attach to quickly.
-    if (Date.now() - this.tidyAt > 10 * 60_000) {
-      this.tidyAt = Date.now();
-      void this.tidyTabs().catch(() => undefined);
-    }
+    void this.sweepShape(l).catch((e: Error) => console.warn('[crew] computer: 收拾了一半没收拾完 —', e.message));
     const users = this.users();
     const shown = this.store.data.computer?.users ?? [];
     if (users.length !== shown.length || users.some((u) => !shown.includes(u))) this.patch({ users });
     if (l.viewers > 0) return;
     const last = this.store.data.computer?.lastUsed ?? 0;
     if (Date.now() - last > IDLE_MS) void this.off();
+  }
+
+  /** Every minute: let go of what nobody is using, and keep the browser inside its shape. */
+  private async sweepShape(l: NonNullable<typeof this.live>) {
+    for (const [botId, at] of [...l.bots]) if (Date.now() - at > BOT_IDLE_MS) await this.release(botId);
+    await this.tidyTabs();
+    const mb = await this.chromeRssMb().catch(() => 0);
+    if (mb <= CHROME_RSS_MB) return;
+    console.warn(`[crew] computer: 浏览器占了 ${mb}MB，收紧到 4 个标签页`);
+    await this.tidyTabs(4);
+    // Still heavy with nobody on it: start it over. The profile is on disk, so every login comes back.
+    if ((await this.chromeRssMb().catch(() => 0)) > CHROME_RSS_MB && !l.bots.size && !l.viewers) {
+      console.warn('[crew] computer: 还是太重，趁没人用重开一次浏览器');
+      await this.off('浏览器占用太高，重开一次');
+    }
   }
 
   async stopAll() {

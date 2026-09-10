@@ -37,6 +37,7 @@ import { connectExtension } from './extensions/connect.ts';
 import { harvestExtension } from './extensions/harvest.ts';
 import { channelCheckExtension } from './extensions/channel-check.ts';
 import { loginExtension } from './extensions/login.ts';
+import { recoverExtension } from './extensions/recover.ts';
 import { operateExtension } from './extensions/operate.ts';
 import type { Hands } from './gui.ts';
 import { redactSecrets } from './secrets.ts';
@@ -282,6 +283,11 @@ export class BotManager extends EventEmitter {
         loginExtension(ctx, () => {
           if (!this.ops) throw new Error('crew ops not ready');
           return this.ops;
+        }),
+        // Failures the runtime can fix are fixed here, not reasoned about by the model (extensions/recover.ts).
+        recoverExtension(ctx, () => {
+          if (!this.desktops) throw new Error('desktops not ready');
+          return { mcp: this.mcp, desktops: this.desktops };
         }),
         connectExtension(ctx, () => {
           if (!this.ops) throw new Error('crew ops not ready');
