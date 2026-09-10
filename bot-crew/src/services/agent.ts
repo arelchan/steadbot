@@ -41,6 +41,7 @@ export interface AgentService {
   onPendingChoice(pendingId: string, optionId: string): void;
   /** 凭据卡提交：值只发给后端，不进本地状态 */
   submitSecrets(messageId: string, integrationId: string, values: Record<string, string>): void;
+  submitLogin(messageId: string, askId: string, values: Record<string, string>): void;
   /** 把一个 bot 接到某个 IM：后端往它的会话里发凭据卡；它在那边会是一个独立的机器人 */
   connectChannel(botId: string, channel: Channel): void;
   /** 把一个 bot 从某个 IM 断开：停掉那边的机器人，删掉凭据 */
@@ -399,6 +400,10 @@ export class MockAgentService implements AgentService {
     }
     if (/为什么|怎么选/.test(q)) return `我按右栏"它眼中的你"里的这几条选的：${bot.viewOfYou.slice(0, 2).join('；')}。哪条不对你直接删掉，我下次就不这么选了。`;
     return `这个我不确定，先不猜。你要的话我去查一下，查到了记进事项里。`;
+  }
+
+  submitLogin() {
+    /* demo mode: nothing to type into */
   }
 
   submitSecrets() {

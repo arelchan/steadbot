@@ -23,6 +23,7 @@ import { secretsChanged } from './secrets.ts';
 import { DesktopManager } from './desktop.ts';
 import { Upgrader } from './upgrade.ts';
 import { restoreAll } from './tools.ts';
+import { LoginDesk } from './login.ts';
 import { initDeps, kick as kickDeps, reconcile as reconcileDeps, ready as depsReady } from './deps.ts';
 import { fetchAssets } from './assets.ts';
 import { versionLine } from './version.ts';
@@ -536,6 +537,22 @@ async function main() {
       if (p.state === 'expired') return `暗号 ${p.code} 过期了（超过十分钟）。重新 arm 一个再发一次。`;
       return `暗号 ${p.code} 还没回来。要么消息还没发出去，要么那边根本收不到——按这个顺序查：应用发布了吗（飞书要「版本管理与发布」发一版并通过审核）、可用范围包不包括这个用户、事件订阅有没有加「接收消息」、长连接选没选。改完再发一次同一条暗号。`;
     },
+    async askLogin(botId, threadId, spec) {
+      const bot = store.bot(botId);
+      if (!bot) throw new Error('找不到这个 bot');
+      const thread = threadId ?? botThread(botId);
+      if (spec.kind === 'password' && !spec.passwordSelector) throw new Error('kind=password 要给 passwordSelector：密码输入框的 CSS 选择器，从页面快照里读');
+      return logins.ask({
+        botId,
+        threadId: thread,
+        kind: spec.kind,
+        match: { url: spec.url },
+        selector: spec.kind === 'qr' ? spec.selector : spec.passwordSelector,
+        fields: spec.kind === 'password' ? { account: spec.accountSelector, password: spec.passwordSelector!, submit: spec.submitSelector } : undefined,
+        title: spec.title,
+        note: spec.note,
+      });
+    },
     librarySearch: (query, limit = 8) => (query.trim() ? library.search(query, limit) : library.list()).map((e) => ({ ...e, categoryLabel: LIBRARY_CATEGORIES[e.category] ?? e.category, kindLabel: KIND_LABEL[e.kind ?? 'skill'] })),
     /**
      * Equip a bot with one entry from the pool. Four kinds, four ways in, one door: the bot says what it wants and
@@ -809,6 +826,9 @@ async function main() {
       broadcastUpgrade();
     }
   };
+  // Login walls the bot hits on the shared computer come to the conversation instead (login.ts).
+  const logins = new LoginDesk(store, desktops, (botId, text) => router.tellBot(botId, text));
+
   const upgrader = new Upgrader(runtime, () => machineBuild, () => process.exit(75), () => (active ? bots.busyNames() : []));
   void upgrader.refreshLatest();
   setInterval(() => void upgrader.refreshLatest().then(broadcastUpgrade), 10 * 60_000).unref();
@@ -839,6 +859,20 @@ async function main() {
           } catch (e) {
             res.writeHead(500, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
             res.end(JSON.stringify({ error: (e as Error).message.slice(0, 160) }));
+          }
+          return true;
+        }
+      }
+      {
+        const m = /^\/login\/([a-f0-9]{12})\.png$/.exec(url.pathname);
+        if (m) {
+          try {
+            const png = await logins.shot(m[1]);
+            res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store', 'access-control-allow-origin': '*' });
+            res.end(png);
+          } catch (e) {
+            res.writeHead(404, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+            res.end(JSON.stringify({ error: (e as Error).message.slice(0, 120) }));
           }
           return true;
         }
@@ -1116,6 +1150,14 @@ async function main() {
           } finally {
             rmSync(tmp, { force: true });
           }
+          break;
+        }
+        case 'submit_login': {
+          const card = store.message(msg.messageId)?.card;
+          if (card?.type !== 'login') throw new Error('这张卡不在了');
+          // The values go straight into the page and nowhere else: not to the store, not to the log, not to the bot.
+          await logins.fill(msg.askId, msg.values);
+          store.patchMessage(msg.messageId, { card: { ...card, done: true } });
           break;
         }
         case 'submit_secrets': {

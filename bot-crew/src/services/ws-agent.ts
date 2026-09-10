@@ -180,6 +180,10 @@ export class WsAgentService implements AgentService {
     this.send({ type: 'submit_secrets', messageId, integrationId, values });
   }
 
+  submitLogin(messageId: string, askId: string, values: Record<string, string>) {
+    this.send({ type: 'submit_login', messageId, askId, values });
+  }
+
   connectChannel(botId: string, channel: Channel) {
     this.send({ type: 'connect_channel', botId, channel });
   }

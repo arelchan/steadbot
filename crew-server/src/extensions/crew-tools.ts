@@ -34,6 +34,12 @@ export interface CrewOps {
   harvest(botId: string, spec: { action: 'take' | 'info'; target: string; field?: string; url?: string; selector?: string; near?: string; threadId?: ThreadId }): Promise<string>;
   /** the round trip that proves an IM is really connected: hand out a code, then say whether it came back */
   channelCheck(botId: string, channel: string, action: 'arm' | 'status'): Promise<string>;
+  /** a login wall on the shared computer, moved into the conversation: a live QR to scan, or a card to fill */
+  askLogin(
+    botId: string,
+    threadId: ThreadId | undefined,
+    spec: { kind: 'qr' | 'password'; url?: string; title?: string; selector?: string; accountSelector?: string; passwordSelector?: string; submitSelector?: string; note?: string },
+  ): Promise<string>;
   /** the vigil manager, for the vigil (值守) tool */
   vigil(): import('../vigil.ts').VigilManager;
   /** change a bot's avatar: 'regen' | 'reset' | a look description | an image file the bot produced */

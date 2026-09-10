@@ -332,6 +332,15 @@ export type Card =
       reason?: string;
     }
   | {
+      /** 登录卡：bot 在电脑上撞到登录墙，把它搬到对话里。qr = 实时二维码，用户手机扫；password = 用户填，服务端直接打进页面 */
+      type: 'login';
+      askId: string;
+      kind: 'qr' | 'password';
+      title: string;
+      fields?: { key: string; label: string; secret?: boolean }[];
+      done?: boolean;
+    }
+  | {
       /** 凭据卡：用户在这里填授权码 / token，直接进连接的环境变量，不经过对话 */
       type: 'secrets';
       integrationId: string;

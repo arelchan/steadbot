@@ -36,6 +36,7 @@ import { webExtension } from './extensions/web.ts';
 import { connectExtension } from './extensions/connect.ts';
 import { harvestExtension } from './extensions/harvest.ts';
 import { channelCheckExtension } from './extensions/channel-check.ts';
+import { loginExtension } from './extensions/login.ts';
 import { operateExtension } from './extensions/operate.ts';
 import type { Hands } from './gui.ts';
 import { redactSecrets } from './secrets.ts';
@@ -275,6 +276,10 @@ export class BotManager extends EventEmitter {
           return this.ops;
         }),
         channelCheckExtension(ctx, () => {
+          if (!this.ops) throw new Error('crew ops not ready');
+          return this.ops;
+        }),
+        loginExtension(ctx, () => {
           if (!this.ops) throw new Error('crew ops not ready');
           return this.ops;
         }),

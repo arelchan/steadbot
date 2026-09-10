@@ -4,12 +4,14 @@ import { useStore, getState } from '../store';
 import { agent } from '../services/agent';
 import { cx } from '../utils';
 import { useT, tn } from '../i18n';
+import { httpBase, withToken } from '../services/runtime';
 
 export function CardView({ card, messageId }: { card: Card; messageId?: string }) {
   const t = useT();
   const pending = useStore((s) => ('pendingId' in card ? s.pendings.find((p) => p.id === card.pendingId) : undefined));
 
   if (card.type === 'secrets') return <SecretsCard card={card} messageId={messageId} />;
+  if (card.type === 'login') return <LoginCard card={card} messageId={messageId} />;
   if (card.type === 'machine') return <MachineCard card={card} messageId={messageId} />;
   if (card.type === 'vigil') return <VigilCard card={card} />;
   if (card.type === 'agent_run') return <AgentRunCard card={card} />;
@@ -125,6 +127,81 @@ export function CardView({ card, messageId }: { card: Card; messageId?: string }
 }
 
 /** Credentials go straight to the backend's integration env; nothing is kept in local state or shown afterwards. */
+/**
+ * 登录卡：bot 在电脑上撞到登录墙时把它搬到这里。二维码是活的——码几十秒就换一次，所以图每 8 秒重新取一遍，
+ * 而不是发一张会过期的截图；密码由服务端直接打进那个页面，填完卡就作废。
+ */
+function LoginCard({ card, messageId }: { card: Extract<Card, { type: 'login' }>; messageId?: string }) {
+  const t = useT();
+  const [tick, setTick] = useState(0);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [sent, setSent] = useState(false);
+  useEffect(() => {
+    if (card.kind !== 'qr' || card.done) return;
+    const timer = setInterval(() => setTick((n) => n + 1), 8000);
+    return () => clearInterval(timer);
+  }, [card.kind, card.done]);
+  if (card.done || sent) {
+    return (
+      <div className="card connect resolved">
+        <div className="c-head">
+          <div>
+            <div className="c-title">{card.title}</div>
+            <div className="c-sub">{t('card.loginDone')}</div>
+          </div>
+          <span className="cn-mark" aria-hidden>✓</span>
+        </div>
+      </div>
+    );
+  }
+  const ready = (card.fields ?? []).every((f) => f.secret === false || (values[f.key] ?? '').trim());
+  return (
+    <div className="card connect secrets">
+      <div className="c-head">
+        <div>
+          <div className="c-title">{card.title}</div>
+          <div className="c-sub">{card.kind === 'qr' ? t('card.loginScan') : t('card.secretsNote')}</div>
+        </div>
+        <span className="cn-mark" aria-hidden>⌁</span>
+      </div>
+      {card.kind === 'qr' ? (
+        <img className="login-qr" src={withToken(`${httpBase || window.location.origin}/login/${card.askId}.png?t=${tick}`)} alt={card.title} />
+      ) : (
+        <>
+          <div className="sc-fields">
+            {(card.fields ?? []).map((f) => (
+              <label key={f.key} className="sc-field">
+                <span className="sc-label">{f.label}</span>
+                <input
+                  type={f.secret === false ? 'text' : 'password'}
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={values[f.key] ?? ''}
+                  onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
+                />
+              </label>
+            ))}
+          </div>
+          <div className="c-actions">
+            <button
+              className="btn primary"
+              disabled={!ready || !messageId}
+              onClick={() => {
+                if (!messageId) return;
+                agent.submitLogin(messageId, card.askId, values);
+                setValues({});
+                setSent(true);
+              }}
+            >
+              {t('card.loginGo')}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function SecretsCard({ card, messageId }: { card: Extract<Card, { type: 'secrets' }>; messageId?: string }) {
   const t = useT();
   const [values, setValues] = useState<Record<string, string>>({});

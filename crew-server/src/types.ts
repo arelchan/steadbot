@@ -266,6 +266,8 @@ export type Card =
   | { type: 'confirm'; pendingId: string; title: string; sub: string; amount: number }
   | { type: 'options'; pendingId: string; options: { id: string; label: string; hint: string; price?: string }[] }
   | { type: 'blocked'; pendingId: string; title: string; sub: string }
+  /** 登录卡：bot 在电脑上撞到登录墙，把它搬到对话里。qr = 实时二维码，用户手机扫；password = 用户填，服务端直接打进页面，不存、不给模型看。 */
+  | { type: 'login'; askId: string; kind: 'qr' | 'password'; title: string; fields?: { key: string; label: string; secret?: boolean }[]; done?: boolean }
   | { type: 'secrets'; integrationId: string; title: string; fields: { key: string; label: string; hint?: string; secret?: boolean }[]; help?: { url?: string; urlLabel?: string; steps?: string[] }; done?: boolean }
   /** 机器卡：管家发的。connect = 用户填 IP / 账号 / 密码，本机连上并存进凭据；run = 管家在那台机器上执行的一条命令及其输出；move = 把 bot 们搬到那台机器。密码只到服务端，bot 看不到。 */
   | {
@@ -483,6 +485,7 @@ export type ClientMessage =
   | { type: 'patch_skill'; name: string; patch: { description?: string; body?: string } }
   | { type: 'mount_library_skill'; botId: string; slug: string }
   | { type: 'submit_secrets'; messageId: string; integrationId: string; values: Record<string, string> }
+  | { type: 'submit_login'; messageId: string; askId: string; values: Record<string, string> }
   /** 把一个 bot 接到某个 IM：在它的会话里发一张凭据卡（它在那个 IM 里是独立的机器人，凭据只进 config.json） */
   | { type: 'connect_channel'; botId: string; channel: Channel }
   /** 断开一个 bot 在某个 IM 上的账号：停桥、删凭据 */
