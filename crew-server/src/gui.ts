@@ -425,12 +425,16 @@ function finish(ok: boolean, summary: string, steps: number, lastShot: string | 
   return { ok, summary, steps, lastShot: lastShot && existsSync(lastShot) ? lastShot : undefined, log: file };
 }
 
-/** Free-text fallback: a JSON object somewhere in the reply, shaped like the tool call. */
+/**
+ * Free-text fallback, for a model that describes the action instead of calling the tool: a JSON object somewhere in
+ * the reply, or, failing that, `action: click / x: 184 / y: 439` written as lines. A weak model does this on a third
+ * of its turns, and every one of those turns is otherwise a wasted screenshot.
+ */
 function parseStep(raw: string): { thought: string; action: Step } | undefined {
   const s = raw.replace(/```(?:json)?/g, '');
   const a = s.indexOf('{');
   const b = s.lastIndexOf('}');
-  if (a < 0 || b < a) return undefined;
+  if (a < 0 || b < a) return parseLoose(s);
   try {
     const o = JSON.parse(s.slice(a, b + 1)) as { thought?: string; action?: unknown };
     // Either {thought, action:{type,…}} or the flat shape of the tool call.
@@ -438,8 +442,29 @@ function parseStep(raw: string): { thought: string; action: Step } | undefined {
     const type = String((act.type as string) ?? (typeof o.action === 'string' ? o.action : '') ?? '');
     return parseAction(type, act, String(o.thought ?? ''));
   } catch {
-    return undefined;
+    return parseLoose(s);
   }
+}
+
+/** `action: click`, `x: 184`, `keys: ["ctrl","a"]` as loose lines rather than JSON. */
+function parseLoose(s: string): { thought: string; action: Step } | undefined {
+  const field = (k: string) => new RegExp(`(?:^|[\\n,{])\\s*"?${k}"?\\s*[:=]\\s*("[^"]*"|\\[[^\\]]*\\]|[^\\n,}]+)`, 'i').exec(s)?.[1]?.trim();
+  const unquote = (v: string | undefined) => (v ? v.replace(/^"|"$/g, '').trim() : undefined);
+  const type = unquote(field('action') ?? field('type'))?.toLowerCase();
+  if (!type) return undefined;
+  const num = (k: string) => {
+    const v = Number(unquote(field(k)));
+    return Number.isFinite(v) ? v : undefined;
+  };
+  const keysRaw = field('keys');
+  const f: Record<string, unknown> = {
+    x: num('x'), y: num('y'), x2: num('x2'), y2: num('y2'), amount: num('amount'), seconds: num('seconds'),
+    scroll_x: num('scroll_x'), scroll_y: num('scroll_y'),
+    text: unquote(field('text')), button: unquote(field('button')), direction: unquote(field('direction')),
+    summary: unquote(field('summary')), reason: unquote(field('reason')),
+    keys: keysRaw?.startsWith('[') ? keysRaw.slice(1, -1).split(',').map((k) => k.replace(/['"]/g, '').trim()).filter(Boolean) : unquote(keysRaw),
+  };
+  return parseAction(type.replace(/[^a-z_]/g, ''), f, unquote(field('thought')) ?? '');
 }
 
 /**
