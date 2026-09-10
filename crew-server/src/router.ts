@@ -50,6 +50,11 @@ export class Router {
     });
   }
 
+  /** A note for a bot's own loop, not for the transcript: the runtime noticed something it has to act on. */
+  tellBot(botId: string, text: string) {
+    void this.bots.send(botId, { threadId: botThread(botId), kind: 'system', text });
+  }
+
   onUserMessage(threadId: ThreadId, text: string, via?: Channel, id?: string, files?: FileRef[]) {
     const { kind, id: tid } = parseThread(threadId);
     const t = text.trim();

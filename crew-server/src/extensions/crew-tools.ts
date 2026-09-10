@@ -32,6 +32,8 @@ export interface CrewOps {
   machineStatus(): Promise<MachineStatus>;
   /** read a credential off a page in the shared browser straight into the bot's IM account / a connection's env (never through the model); or the setup facts for a target */
   harvest(botId: string, spec: { action: 'take' | 'info'; target: string; field?: string; url?: string; selector?: string; near?: string; threadId?: ThreadId }): Promise<string>;
+  /** the round trip that proves an IM is really connected: hand out a code, then say whether it came back */
+  channelCheck(botId: string, channel: string, action: 'arm' | 'status'): Promise<string>;
   /** the vigil manager, for the vigil (值守) tool */
   vigil(): import('../vigil.ts').VigilManager;
   /** change a bot's avatar: 'regen' | 'reset' | a look description | an image file the bot produced */

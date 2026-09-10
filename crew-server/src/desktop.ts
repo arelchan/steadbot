@@ -28,8 +28,11 @@ import type { Computer } from './types.ts';
  * them) can host it; elsewhere the tool says so and the bot falls back to fetch_url / web_search.
  */
 
-const W = 1280;
-const H = 800;
+// The virtual screen is a laptop, because everything on it is read by a person watching the card and by a model
+// looking at screenshots: too small and web apps go into their cramped layout, too big and every operate step
+// carries more pixels than it needs (a screenshot is ~1300 prompt tokens at this size).
+const W = 1440;
+const H = 900;
 /** Idle this long with nobody watching and no tool call → the computer sleeps (its browser is ~1.4 GB of RAM). Waking takes ~10 s. */
 const IDLE_MS = 30 * 60 * 1000;
 /** A bot counts as "using it" for this long after its last browser call. */

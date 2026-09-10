@@ -224,6 +224,13 @@ export class ChannelManager implements Hub {
   private seen = new Map<Channel, Set<string>>();
   private watcher: FSWatcher | undefined;
   private debounce: ReturnType<typeof setTimeout> | undefined;
+  /**
+   * The round trip that proves an IM is really connected. Credentials that authenticate prove nothing about whether
+   * a person can find the bot over there — a Feishu app that was never published starts its websocket happily and
+   * then never receives anything. So the bot goes to the shared computer, finds itself in the user's own client and
+   * sends itself one line carrying a code; the code arriving here is the proof. Keyed by bot + IM.
+   */
+  private probes = new Map<string, { code: string; at: number; hitAt?: number }>();
 
   constructor(
     private store: CrewStore,
@@ -332,7 +339,15 @@ export class ChannelManager implements Hub {
       this.bridges.set(key(botId, channel), br);
       const fresh = !bot.channels.includes(channel);
       this.setLink(botId, channel, { status: 'ok', note: CHANNEL_LIVE[channel], account });
-      if (fresh) this.store.grow(botId, 'channel', `接入${IM_NAME[channel]}${account ? `，那边叫「${account}」` : ''}`);
+      if (fresh) {
+        this.store.grow(botId, 'channel', `接入${IM_NAME[channel]}${account ? `，那边叫「${account}」` : ''}`);
+        // Connected is not the same as reachable, and the bot has no way to know the difference from here. Send it
+        // to close the loop itself before it tells anyone it is on that IM.
+        this.router.tellBot(
+          botId,
+          `【系统】「${IM_NAME[channel]}」的凭据接上了，但还没验证用户那边找不找得到你。现在跑一次验收：channel_check(arm, channel="${IM_NAME[channel]}") 拿暗号 → 用电脑打开${IM_NAME[channel]}网页版（用户已登录），搜自己的名字，以用户身份把暗号发给自己 → channel_check(status)。通过了再对用户说接好了；没通过就按提示查发布状态、可用范围和事件订阅。`,
+        );
+      }
       console.log(`[crew] ${bot.name} is on ${channel}${account ? ` as ${account}` : ''}`);
       return { ok: true, note: CHANNEL_LIVE[channel] };
     } catch (e) {
@@ -346,6 +361,31 @@ export class ChannelManager implements Hub {
       this.setLink(botId, channel, { status: 'error', note });
       return { ok: false, note };
     }
+  }
+
+  /* ---- the connected-for-real check ---- */
+
+  /** Hand out a code and wait for it to come back from the other side. Ten minutes is plenty for a browser detour. */
+  armProbe(botId: string, channel: Im): string {
+    const code = `EB-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    this.probes.set(key(botId, channel), { code, at: Date.now() });
+    return code;
+  }
+
+  probeStatus(botId: string, channel: Im): { state: 'none' | 'waiting' | 'ok' | 'expired'; code?: string } {
+    const p = this.probes.get(key(botId, channel));
+    if (!p) return { state: 'none' };
+    if (p.hitAt) return { state: 'ok', code: p.code };
+    return { state: Date.now() - p.at > 10 * 60_000 ? 'expired' : 'waiting', code: p.code };
+  }
+
+  /** An inbound line that is the code coming home: mark it and swallow it, so the test is not a conversation. */
+  private isProbe(botId: string, channel: Channel, text: string): boolean {
+    const p = this.probes.get(key(botId, channel as Im));
+    if (!p || p.hitAt || !text.includes(p.code)) return false;
+    p.hitAt = Date.now();
+    console.log(`[crew] ${this.store.bot(botId)?.name ?? botId}: ${channel} 回路验收通过（${p.code}）`);
+    return true;
   }
 
   /** The user filled the credentials card for a bot's IM: store them and connect. */
@@ -469,11 +509,13 @@ export class ChannelManager implements Hub {
   dm(botId: string, channel: Channel, chatId: string, text: string) {
     const bot = this.store.bot(botId);
     if (!bot) return;
+    if (this.isProbe(botId, channel, text)) return;
     if (bot.bindings?.[channel] !== chatId) this.store.patchBot(botId, { bindings: { ...bot.bindings, [channel]: chatId } }, { growth: false });
     this.router.onUserMessage(botThread(botId), text, channel);
   }
 
   async group(botId: string, channel: Channel, chatId: string, text: string, title: () => Promise<string | undefined>) {
+    if (this.isProbe(botId, channel, text)) return;
     const matter = await this.matterFor(botId, channel, chatId, title);
     this.router.onUserMessage(matterThread(matter.id), text, channel);
   }

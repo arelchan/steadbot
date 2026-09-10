@@ -514,6 +514,27 @@ async function main() {
       await bots.ops!.grant(botId, integ!.id);
       return after?.status === 'ok' ? `收到 ${label}（${value.length} 位）。「${integ!.name}」接好了，${after.tools?.length ?? 0} 个工具在你的列表里。` : `收到 ${label}（${value.length} 位），但「${integ!.name}」没连上：${after?.note ?? ''}`;
     },
+    /**
+     * The last step of joining an IM, judged by the runtime rather than by the model: a code goes out, the bot
+     * sends itself that line from the user's own client (on the shared computer), and the code coming back through
+     * the bridge is the only thing that counts as connected.
+     */
+    async channelCheck(botId, channelName, action) {
+      const im = imFromName(channelName);
+      if (!im || im === 'app') throw new Error(`「${channelName}」不是 IM，写飞书 / Telegram / Slack / 企业微信`);
+      const bot = store.bot(botId);
+      const link = bot?.im?.[im];
+      if (action === 'arm') {
+        if (link?.status !== 'ok') return `「${IM_NAME[im]}」还没接上（${link?.status ?? '没有凭据'}），先把凭据收齐再验收。`;
+        const code = channels.armProbe(botId, im);
+        return `暗号：${code}。现在去电脑上打开${IM_NAME[im]}的网页版（用户已经登录的那个），搜「${bot!.name}」，以用户的身份给它发一条消息，内容里带上 ${code}（只发这一行就行）。发完用 channel_check(status) 看有没有收到。`;
+      }
+      const p = channels.probeStatus(botId, im);
+      if (p.state === 'ok') return `收到了暗号 ${p.code}：${IM_NAME[im]}真的通了，用户在那边找得到你、消息进得来。可以告诉用户了。`;
+      if (p.state === 'none') return '还没发暗号，先 channel_check(arm)。';
+      if (p.state === 'expired') return `暗号 ${p.code} 过期了（超过十分钟）。重新 arm 一个再发一次。`;
+      return `暗号 ${p.code} 还没回来。要么消息还没发出去，要么那边根本收不到——按这个顺序查：应用发布了吗（飞书要「版本管理与发布」发一版并通过审核）、可用范围包不包括这个用户、事件订阅有没有加「接收消息」、长连接选没选。改完再发一次同一条暗号。`;
+    },
     librarySearch: (query, limit = 8) => (query.trim() ? library.search(query, limit) : library.list()).map((e) => ({ ...e, categoryLabel: LIBRARY_CATEGORIES[e.category] ?? e.category, kindLabel: KIND_LABEL[e.kind ?? 'skill'] })),
     /**
      * Equip a bot with one entry from the pool. Four kinds, four ways in, one door: the bot says what it wants and

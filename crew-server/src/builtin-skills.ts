@@ -27,12 +27,19 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
 1. \`computer(open)\`，\`browser_navigate\` 到后台（地址在 info 里）。需要登录：把自己的标签拉到前台（browser_tabs list → select），告诉用户「屏幕在你那边，登录一下就行」，等他登好。
 2. 按平台步骤在页面上操作：建应用 / 机器人（名字用你的名字），加机器人能力，开权限，订事件，发布。每步看结果里带的快照，只点自己标签里的东西。
 3. 到凭据页：密钥被遮着就先点「查看 / 显示」，然后 \`harvest(take, target=飞书, field=App ID, url=当前网址一段)\`，再 \`harvest(take, field=App Secret, …)\`。同类格式的值不止一个时加 near（旁边的标签文字）。收齐系统自动接入，告诉你那边的名字。
-4. 收尾：去那个 IM 里给用户发第一条消息「我在这儿了」（接上后你就有那边的发消息能力：用户私聊你、或在 App 里让你发）。App 里一句话告诉用户去哪找你。
-5. 跑通后，用 build(aspect=skill, action=set) 给自己写一份「接入 X 实操」手册：实际点了哪些菜单、哪些按钮文案、哪一步卡过、怎么绕。不写任何凭据。下次你或同事再接就照它走。
+4. **验收（必做，不做不算接完）**：\`channel_check(arm, channel=飞书)\` 拿一个暗号 → 回电脑打开这个 IM 的**网页版**（用户已经登录的那个，不是开放平台后台），搜自己的机器人名字，以用户的身份把暗号发给自己 → \`channel_check(status)\`。ok 才算真的通了；这条测试消息不会进对话。
+   - 搜不到自己：应用没发布，或可用范围不包括这个用户。回后台补，再验一次。
+   - 搜得到、发了却 waiting：事件没订上（少「接收消息」）、没选长连接，或版本还在审核。
+   - 两次都过不去才告诉用户，说清楚卡在哪一步、需要他做什么（多半是管理员审核）。
+5. 验收通过后：在 App 里一句话告诉用户去哪找你（那边的机器人叫什么名字），并在那个 IM 里回他一句。
+6. 跑通后，用 build(aspect=skill, action=set) 给自己写一份「接入 X 实操」手册：实际点了哪些菜单、哪些按钮文案、哪一步卡过、怎么绕。不写任何凭据。下次你或同事再接就照它走。
 
 ### 各平台的倾向
 - **Telegram**：最容易。web.telegram.org 登录（用户扫码一次）→ 和 @BotFather 对话：/newbot，显示名用你的名字，用户名以 bot 结尾 → 它回的那条消息里有 token → harvest(field=Bot Token)。拉进群后默认只看得到 @它 的消息，正好。
-- **飞书**：open.feishu.cn/app → 创建企业自建应用（名字用你的名字）→ 添加应用能力：机器人 → 权限管理开 im:message、im:message:send_as_bot、im:chat:readonly → 事件与回调：选「长连接」，加「接收消息」「机器人进群」「机器人被移出群」→ 凭证与基础信息：App ID 直接 harvest；App Secret 点「查看」后 harvest → 版本管理与发布：创建版本、发布（企业管理员审核，可能要用户点一下）。不需要公网地址。
+- **飞书**：open.feishu.cn/app → 创建企业自建应用（名字用你的名字）→ 添加应用能力：机器人 → 权限管理开 im:message、im:message:send_as_bot、im:chat:readonly → 事件与回调：选「长连接」，加「接收消息」「机器人进群」「机器人被移出群」→ 凭证与基础信息：App ID 直接 harvest；App Secret 点「查看」后 harvest → **版本管理与发布：创建版本 → 可用范围要包含这个用户（默认「全员可用」最省事）→ 发布，等管理员审核通过**。不需要公网地址。
+  - 发布这一步不是可选的：不发布，凭据照样连得上、后台一切正常，但用户在飞书里根本搜不到这个机器人，消息也进不来。所以必须走完第 4 步验收。
+  - 审核要企业管理员点同意。用户自己就是管理员的话让他去「管理后台 → 应用管理」通过一下；不是的话，告诉他找谁审，别在这儿干等。
+  - 飞书不能主动私聊一个从没跟你说过话的人，所以「接好后主动打招呼」这件事要反过来做：验收时是**你以用户的身份**在网页版里给机器人发第一条，之后你才能回他。
 - **Slack**：api.slack.com/apps → Create New App → From an app manifest 最省事：一次把 scopes（chat:write、im:history、channels:history、groups:history、app_mentions:read、channels:read、groups:read、users:read）、Socket Mode、事件（message.im、message.channels、message.groups、app_mention、member_joined_channel、member_left_channel）都写进去 → Basic Information 里生成 App-Level Token（connections:write）→ harvest(field=App-Level Token) → Install to Workspace → OAuth & Permissions 里 harvest(field=Bot Token)。不需要公网地址。
 - **企业微信**：管理后台 → 我的企业：harvest(field=企业 ID) → 应用管理 → 自建应用（名字用你的名字）→ 详情页 harvest(field=AgentId)、点「查看」后 harvest(field=Secret) → 接收消息 → 设置 API 接收：回调 URL 填 info 给的地址，Token 和 EncodingAESKey 点随机生成后各 harvest 一次 → 企业可信 IP 填 info 给的公网 IP → 保存（系统接上后它才能验证通过，顺序：先收齐让系统接上，再点保存）。企业微信的应用进不了群，只能私聊。
 - **个人微信**：没有官方接口，只有第三方协议，有封号风险，本产品不接。用户问就直说，推荐企业微信或飞书。
@@ -41,6 +48,7 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
 build(aspect=channel, action=add, value="飞书")。系统发凭据卡，卡上有步骤和要填的项。你只说一句「按卡上的步骤建一个机器人，凭据填在卡上」。用户填完系统自动接上并通知你。失败就把原因说成人话，让他核对后重填：request_credentials，integration 填平台名（如「飞书」），系统会重发标准卡（字段是固定的，不用你定）。
 
 ## 收尾
+- 没跑过 channel_check 就不要说「接好了」。凭据能连 ≠ 用户找得到你，这两件事分开判断。
 - configure(target=bot, action=get) 能看到「IM」一栏：哪个平台接了、那边叫什么。
 - 提醒用户：在哪个 IM 都是同一个你，对话和事项只有一份；拍板卡片在 IM 里是按钮（企业微信里是编号，回数字）。
 - 哪一步卡住：路线一里把自己的标签拉到前台让用户看一眼、点一下；路线二让他截图或复述看到的界面，再给下一步。`,
