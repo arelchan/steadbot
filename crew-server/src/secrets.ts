@@ -42,11 +42,30 @@ export function secretsChanged() {
   cache = undefined;
 }
 
-/** The text with every known credential value replaced by ••••. Returns the same string when nothing matched. */
+/**
+ * Credentials the product does not hold yet. The list above only knows what is already stored, and the leak that
+ * matters happens one step earlier: a bot reads a secret off the page it is driving and says it out loud on the way
+ * to storing it. These are the shapes that are never anything but a credential — plus a 32-character word standing
+ * next to the word "secret", which is what a Feishu app hands out.
+ */
+const SHAPES: RegExp[] = [
+  /\b\d{8,12}:[A-Za-z0-9_-]{35}\b/g, // telegram bot token
+  /\bxox[baprs]-[A-Za-z0-9-]{10,}/g, // slack bot / user token
+  /\bxapp-[A-Za-z0-9-]{10,}/g, // slack app token
+  /\bsk-[A-Za-z0-9_-]{20,}/g, // openai-style model key
+  /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, // aws access key id
+  /\bgh[pousr]_[A-Za-z0-9]{20,}/g, // github token
+];
+/** A bare 32-character word is only a secret when the sentence says so (an md5 or a build id is not). */
+const NEAR_SECRET = /((?:secret|密钥|凭据|token|app\s*secret)[^\n]{0,40}?)\b([A-Za-z0-9]{32})\b/gi;
+
+/** The text with every credential — known value or unmistakable shape — replaced by ••••. */
 export function redactSecrets(text: string, store: CrewStore): string {
   if (!text) return text;
   let out = text;
   for (const v of knownSecrets(store)) if (out.includes(v)) out = out.split(v).join('••••');
+  for (const re of SHAPES) out = out.replace(re, '••••');
+  out = out.replace(NEAR_SECRET, (_m, lead: string) => `${lead}••••`);
   return out;
 }
 

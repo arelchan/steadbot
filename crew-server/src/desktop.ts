@@ -405,8 +405,10 @@ export class DesktopManager {
     if (!this.live) throw new Error('电脑没开');
     if (!this.cdp) {
       this.cdp = (async () => {
+        // playwright-core is CommonJS whose entry re-exports at run time, so `import()` gives it back with nothing
+        // but a default: asking for `{ chromium }` there yields undefined, and harvest died on the first real page.
         const req = createRequire(import.meta.url);
-        const { chromium } = (await import(req.resolve('playwright-core'))) as typeof import('playwright-core');
+        const { chromium } = req('playwright-core') as typeof import('playwright-core');
         const b = await chromium.connectOverCDP(`http://127.0.0.1:${CDP_PORT}`);
         b.on('disconnected', () => (this.cdp = undefined));
         return b;
