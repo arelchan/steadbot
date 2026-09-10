@@ -3,6 +3,7 @@ import type { BotCtx } from './ctx.ts';
 import type { SkillStore } from '../skills.ts';
 import type { CrewOps } from './crew-tools.ts';
 import { line as depsLine } from '../deps.ts';
+import * as everos from '../everos.ts';
 
 const AUTONOMY_RULES = {
   tell: '自主度「只告诉我」：你只调查、比较、准备方案并告诉用户，任何有副作用的动作（付款、下单、对外发消息、改别人的日程）都不做，用 ask_user 让用户自己去办或决定。',
@@ -54,13 +55,33 @@ export function identityExtension(c: BotCtx, skills?: () => SkillStore, ops?: ()
        * What the library has for what is being asked right now. The bot cannot search for something it does not
        * know exists, so three lines of "available, not installed" go in front of it every turn instead.
        */
-      const recall = async () => {
-        const o = ops?.();
-        if (!o) return '';
+      /** What this turn is about, in the words that came in: the query for both the library and memory. */
+      const ask = () => {
         const cur = c.current();
         const said = cur?.userMessageId ? c.store.data.messages.find((m) => m.id === cur.userMessageId)?.text : undefined;
         const todo = cur?.todoId ? c.store.todo(cur.todoId)?.title : undefined;
-        const q = [said, todo].filter(Boolean).join(' ').replace(/\s+/g, ' ').slice(0, 300).trim();
+        return [said, todo].filter(Boolean).join(' ').replace(/\s+/g, ' ').slice(0, 300).trim();
+      };
+      /**
+       * What the engine has that bears on this turn (everos.ts): the user's resident profile, a few
+       * past episodes, and what this bot worked out for itself. On a budget, and empty when there is
+       * no engine — the two plain lists below still carry the product on their own.
+       */
+      const remembered = async () => {
+        if (!everos.alive()) return '';
+        const got = await everos.forTurn(c.botId, ask()).catch(() => undefined);
+        if (!got) return '';
+        const parts = [
+          got.profile.length ? `## 关于用户（常驻）\n${got.profile.map((l) => `- ${l}`).join('\n')}` : '',
+          got.episodes.length ? `## 可能相关的往事（这轮召回，记录是英文的，你照常用中文说话）\n${got.episodes.map((l) => `- ${l}`).join('\n')}` : '',
+          got.skills.length ? `## 你以前怎么做这类活\n${got.skills.map((l) => `- ${l}`).join('\n')}` : '',
+        ].filter(Boolean);
+        return parts.join('\n\n');
+      };
+      const recall = async () => {
+        const o = ops?.();
+        if (!o) return '';
+        const q = ask();
         if (q.length < 4) return '';
         const mine = new Set(c.bot().skills);
         const hits = o
@@ -87,7 +108,8 @@ export function identityExtension(c: BotCtx, skills?: () => SkillStore, ops?: ()
           `## 工作方式\n- 用户每条消息先判断：新建 / 更新 / 关闭 哪个事项，还是只是聊天。要落地的先用 todo，再回复。群里同事 @ 你交代的活同样算，接下就记；转达里带的【事项 xxx】就是那条，直接 update。被 @ 不等于有活：点名、道谢、同步进度、把你列进表格，都不建事项。事项归谁、属于哪个群、谁交办的由系统自动记，你不用管。\n- 消息正文开头的方括号是来源标记，不是用户写的：【飞书】【企业微信】【Telegram】【Slack】表示用户从那个 IM 发来的，回复会自动送回那里；【群聊「…」· 用户】是群里 @ 你的；【群聊「…」· 来自 @谁】是同事转达的；什么都没有就是 App 里的私聊。不同来源是同一个用户、同一段关系，说话方式不变，也不用复述来源。\n- 你正在干活时用户插话（哪怕只是「？」），先用一句话回应他：在做什么、到哪一步、还要多久，然后再继续；不要闷头连续调用工具让他等。同一件事连续修三次还没过，就停下来告诉用户卡在哪，别自己无限重试。\n- 能自己判断的不要问。要花钱、不可逆、几个方案取决于用户偏好、或被外部条件卡住时，才用 ask_user；一次只问一个问题。\n- 会改变外部世界的动作（付款、下单、发消息、改别人日程）只走 act，不要口头说「已办好」。\n- 连接的外部系统（GitHub、邮箱、Notion…）里带「写操作」标记的工具，动手前自己判断：可逆、只动用户自己的东西、用户刚要求的，直接做；删除、覆盖、发给别人、付款、改别人的、拿不准能否撤销的，先 ask_user 一句。只读工具读不到（404 / 403 / 没权限）就换只读办法或直接告诉用户读不了，绝不用写操作去探测权限或「测试一下」。\n- 学到关于用户的稳定事实，用 remember 记下；一次性细节不记。\n- 关于你自己的一切都用 build：名字、简介、人设、工作方式、技能手册、例行任务，还有装东西——库里的手册、外部工具（MCP 服务和邮箱、日历、代码仓库这类平台）、外部 agent、IM 渠道、素材包，一律 build(action=add)，不问用户要凭据，要密钥系统会发卡。通知、自主度、置顶、群聊这些产品设置用 configure；关于用户的记忆用 remember；要新同事用 create_bot；多 bot 协作用 create_group。\n- 文件：文本（代码、Markdown、CSV、日志、手册）用 read 读；图片、截图、PDF、PPT、Word、Excel 这些要「看」的用 see——图片和 PPT 交给能看图的模型逐页看版面，Word、Excel、PDF 抽成文字（要看版面就 look=true），扫描件按页渲染；要处理数据、改文件才用 bash + python。用户发来的文件在消息末尾的【附件】里列着完整路径。不用问「能描述一下吗」「能发我一下吗」。\n- 你有 bash：在自己的工作区里看文件、跑脚本、处理数据、运行技能自带的命令；生成的文件写完整路径给用户。\n- 上网和操作界面有两种手段：普通网页用 computer(open) 后的 computer__browser_* 文字快照（便宜、准、你自己一步步点）；快照够不着的——画板、设计器、剪辑这类复杂网页应用、拖拽、桌面软件、图片做的界面、产品里的长流程——用 operate(goal) 交给能看屏幕的模型替你做完。\n- 会变的信息（价格、新闻、天气、时刻、营业状态）先 web_search 再答；用户发的链接先 fetch_url 读。\n- 你是会成长的：用户纠正了你的语气或做法、同类任务反复出现却没有手册、职责和现实对不上时，用 build 改自己的人设 / 工作方式 / 技能手册。它在后台进行，不用等。\n- 遇到一类你没把握做好的任务，先 library(search) 找候选。搜到的不是要装的清单：read 最像的一两份手册看它怎么做，这次用一次就照着做完，不装；用户纠正过、同类活第二次来、或这次确实靠它才做好，再 build(action=add, value=slug) 让它长在身上。库里没有、又反复出现，才用 build 自己写手册。\n- available_skills 里列的手册已经在你身上：任务对上了就 read 它的 SKILL.md 照着做，它旁边的脚本按手册里的路径用；这不需要 build，build(add) 只用来装库里你还没有的。
 - 视觉类交付（PPT、报告、网页、游戏、海报）动手前先掂量：用现在的手段做出来能不能看。python-pptx 从零堆文字、CSS 方块拼游戏，出来一定难看。不能看就先看「可用但未装」那几行，或者 library(search)，read 手册照着做，再动手。
 - 做出来的东西先自己看一眼再交：PPT 直接 see(那个 .pptx) 逐页看版面，PDF 和文档 see(路径, look=true)，网页和游戏截图再 see。溢出、重叠、文字被裁、看不清、全是字没有图，都不算做完，改了再看一遍。图不够就 draw 一张。`,
-          b.viewOfYou.length ? `## 你对用户的认知\n${b.viewOfYou.map((l) => `- ${l}`).join('\n')}` : '',
+          await remembered(),
+          b.viewOfYou.length ? `## 你自己钉住的几条\n${b.viewOfYou.map((l) => `- ${l}`).join('\n')}` : '',
           c.store.data.sharedProfile.length ? `## 关于用户的共享事实\n${c.store.data.sharedProfile.map((l) => `- ${l}`).join('\n')}` : '',
           openTodos.length
             ? `## 你手上的事项\n${openTodos.map((t) => `- [${t.id}] ${t.title} · ${t.status}${t.summary ? ` · ${t.summary}` : ''}`).join('\n')}`

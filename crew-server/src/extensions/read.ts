@@ -2,7 +2,7 @@ import { createReadToolDefinition, type InlineExtension } from '@earendil-works/
 import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { BotCtx } from './ctx.ts';
-import { config, isCredentialFile } from '../config.ts';
+import { config, isCredentialFile, isMemoryFile } from '../config.ts';
 
 /**
  * read: pi's own file reader, on for every bot. Any path goes — the workspace, a skill's SKILL.md and the scripts
@@ -19,10 +19,12 @@ export function readExtension(c: BotCtx): InlineExtension {
         operations: {
           readFile: async (p) => {
             if (isCredentialFile(p)) throw new Error('这是产品的凭据文件，不给 bot 读');
+            if (isMemoryFile(p)) throw new Error('这是记忆库，不直接读文件；用 recall 回想（只会给你你自己那部分）');
             return readFile(p);
           },
           access: async (p) => {
             if (isCredentialFile(p)) throw new Error('这是产品的凭据文件，不给 bot 读');
+            if (isMemoryFile(p)) throw new Error('这是记忆库，不直接读文件；用 recall 回想（只会给你你自己那部分）');
             await access(p);
           },
         },

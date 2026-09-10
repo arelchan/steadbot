@@ -3,6 +3,7 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import type { BotCtx } from './ctx.ts';
 import { botThread, type Todo, type TodoOrigin, type TodoStatus } from '../types.ts';
+import * as everos from '../everos.ts';
 
 const Params = Type.Object({
   action: StringEnum(['create', 'update', 'close', 'list'] as const),
@@ -114,6 +115,9 @@ export function todoExtension(c: BotCtx): InlineExtension {
               if (p.action === 'close') cur.receipt = 'closed';
               else cur.receipt ??= 'updated';
             }
+            // A closed matter is a finished story: cut the memory here rather than waiting for the thread to
+            // go quiet, so what gets extracted is one whole task instead of a task plus whatever came next.
+            if (p.action === 'close' && cur?.threadId) void everos.flush(cur.threadId);
           }
           if (cur?.userMessageId && cur.receipt && changed) {
             const kind = cur.receipt;

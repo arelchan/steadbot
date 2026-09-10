@@ -36,6 +36,14 @@ export function hasToolCalls(content: unknown): boolean {
   return Array.isArray(content) && content.some((c: { type?: string }) => c && c.type === 'toolCall');
 }
 
+/** The tool calls inside an assistant message. What the bot reached for is most of what a case is made of (everos.ts). */
+export function toolsOf(content: unknown): { name: string; args?: string }[] {
+  if (!Array.isArray(content)) return [];
+  return (content as { type?: string; name?: string; arguments?: unknown }[])
+    .filter((c) => c && c.type === 'toolCall')
+    .map((c) => ({ name: c.name ?? '', args: JSON.stringify(c.arguments ?? {}) }));
+}
+
 /**
  * When a reply landed entirely in the thinking channel, pull something showable out of it: the last
  * paragraph(s), capped, since the answer tends to sit at the end after the deliberation.

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore, setSharedProfile, patchBot, select } from '../store';
+import { memoryOverview } from '../services/agent';
 import { botThread } from '../types';
 import { Avatar } from './Avatar';
 import { useT } from '../i18n';
@@ -8,6 +9,14 @@ export function ProfileView() {
   const t = useT();
   const s = useStore((x) => x);
   const [draft, setDraft] = useState('');
+  // What the engine worked out on its own, as opposed to what the user wrote down. One picture for every
+  // bot: the user is one person, so his profile is not split per bot (see the memory design).
+  const [seen, setSeen] = useState<string[]>([]);
+  useEffect(() => {
+    let live = true;
+    void memoryOverview().then((m) => { if (live) setSeen(m.profile); });
+    return () => { live = false; };
+  }, []);
   return (
     <section className="col thread">
       <header className="hd">
@@ -41,6 +50,15 @@ export function ProfileView() {
             }}
           />
         </div>
+
+        {seen.length > 0 && (
+          <div className="inbox-group">
+            <h4>{t('profile.engine')}</h4>
+            <ul className="mem readonly">
+              {seen.map((v, i) => <li key={i}><span>{v}</span></li>)}
+            </ul>
+          </div>
+        )}
 
         {s.bots.map((b) => (
           <div className="inbox-group" key={b.id}>

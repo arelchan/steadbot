@@ -181,3 +181,15 @@
 **不做**：不做依赖清单页和补齐按钮；不把想要集合再单独同步一份（会和真实状态漂移）；不在用户自己的电脑上装系统包。
 
 **在哪**：`crew-server/src/deps.ts`（想要集合、后台收敛、`ready`/`line`）；`tools.ts`（真正的安装、清单、跨机器复原）；`requires.ts`（从手册和脚本里读出依赖）。
+
+## 18. 记忆分两轨，引擎接 EverOS，我们只管作用域和预算
+
+**我们**：记忆引擎不自研，本机跑一个 EverOS sidecar（`127.0.0.1:5211`，只听回环，模型和密钥经环境变量注入，不落它自己的配置文件），根目录 `$CREW_HOME/memory`——md 是真源，旁边的 LanceDB 索引是可重建的派生物。记忆分两轨，分法是「归谁」而不是重要程度：**用户轨**（经历、原子事实、常驻画像、预判）owner 是用户，全员共用一份；**agent 轨**（干过的活、攒出来的做法）owner 是 botId，天然只属于那个 bot；团队共识是 owner 为虚拟 agent `crew` 的第三份，只有用户在面板上点「设为团队通用」才写进去。写入没有 owner 参数——引擎从每条消息的 `sender_id`+`role` 推出来，所以一轮结束（`agent_settled`）发一次 `add`，用户说的话署用户、bot 干的活署 botId；线程静置 90 秒或事项关掉就 `flush` 切段。读取 `user_id` 和 `agent_id` 是异或，一轮两次并行 search（用户轨 hybrid 6 条，agent 轨 vector 4 条——agent 的 hybrid 车道要么要 rerank 服务要么要多一次模型调用，都不该挡在第一个字前面），加上内存里的常驻画像；实测一次检索热 0.4s、冷 3s、赶上嵌入端点抽风 6s，所以有预算（2.5s）也认预算：没回来的就不注入，回答照常。空的 agent 轨记住是空的，下次不再白花一次嵌入。新攒出来的 `agent_skill` 是唯一一个「bot 自己学到了东西」的机械信号，它排一次 build——走的还是用户纠正那条路，能看见、能改、能回滚。
+
+**为什么**：情节切分、事实抽取、画像聚类、case/skill 抽取、混合检索，EverOS 已经做完了，还用着同一把 OpenRouter key；重写一遍只是把自己分叉出去，之后每次它升级都要重新对齐。用户轨不按 bot 切，是因为用户是一个人——跟着 bot 切，他就得跟每个 bot 重新自我介绍一遍。agent 轨不互相打通，是因为手艺是自己练出来的，共享得是一次明确的动作。
+
+**不做**：不做图数据库；不自己写抽取 prompt；不默认开 per-bot 的用户轨（`project_id=bot_xxx` 留着，默认关）；不做记忆的可视化编辑器（两份 md 就是编辑器）；不让 bot 直接读记忆库文件——它只能 `recall`，而 recall 只答它自己那份。
+
+**已知的坑**：情节叙事目前是英文（everalgo 的抽取 prompt 只挂了 en 那套，zh 那套没接上；画像倒是中文），注入时说明一句「记录是英文的，照常说中文」；agent case 的门槛很高（≥3 轮工具调用、最后一条必须是 bot 自己的收尾、且被模型判定「出过岔子并被纠正」才留），所以 agent 轨天生稀疏——这是对的，只从麻烦里学；LanceDB 会因遗留 FTS 索引和未回收版本膨胀（量过 26MB 记忆撑到 344GB），要定期 `optimize`。
+
+**在哪**：`crew-server/src/everos.ts`（唯一出入口：作用域、预算、降级、sidecar 生命周期）；`bots.ts`（一轮的消息怎么攒、什么时候发）；`extensions/identity.ts`（三段注入）；`extensions/remember.ts`（`remember` 双写 + `recall` 工具）；`builder.ts` `pickupSkills`（做法转 build）；`index.ts`（拉起、`/memory/overview`、`/memory/promote`、退出前 flush）；`Dockerfile`（uv + 固定版本的 everos）。

@@ -15,7 +15,7 @@ import { FakeBrain } from './fake-brain.ts';
 import { fromTemplate, inferBot, inferSkillDocs, inferSoul } from './infer-bot.ts';
 import { SkillStore } from './skills.ts';
 import { KIND_LABEL, Library, LIBRARY_CATEGORIES } from './library.ts';
-import { buildLabel, runBuild, runMemory } from './builder.ts';
+import { buildLabel, pickupSkills, runBuild, runMemory } from './builder.ts';
 import { ConnectorManager, POPULAR_TOOLKITS, isChinesePlatform } from './connectors.ts';
 import { AgentRunner, McpManager, seedIntegrations } from './integrations.ts';
 import { ChannelManager, CHANNEL_KEYS, CHANNEL_PATTERNS, CHANNEL_PUBLIC_KEYS, IMS, IM_NAME, connectCard, missingChannelCreds, saveBotChannelCreds, wecomCallback, whatsappCallback, type Im } from './channels.ts';
@@ -25,6 +25,7 @@ import { Upgrader } from './upgrade.ts';
 import { restoreAll } from './tools.ts';
 import { LoginDesk } from './login.ts';
 import { initDeps, kick as kickDeps, reconcile as reconcileDeps, ready as depsReady } from './deps.ts';
+import * as everos from './everos.ts';
 import { fetchAssets } from './assets.ts';
 import { versionLine } from './version.ts';
 import { usageReport } from './usage.ts';
@@ -75,6 +76,16 @@ async function main() {
   // lost, then converge to what the manuals and connections that are here actually need (deps.ts). Both run in the
   // background: a machine that just arrived is missing everything, and nothing should wait for that.
   initDeps({ skills: () => skills, integrations: () => store.data.integrations });
+  // Memory: an EverOS sidecar on loopback (everos.ts). Also in the background, and also fine to be missing —
+  // without it the bots keep the two plain-text lists they have always had.
+  everos.initMemory({
+    store,
+    // A bot just had memories cut: if the engine has hardened one of its cases into a way of working,
+    // that becomes a build (builder.ts). Nothing here waits for it.
+    onExtract: (botId) =>
+      void pickupSkills({ store, botsDir: config.botsDir, skillsOf: everos.skillsOf, build: async (id, spec) => bots.ops?.build(id, spec) }, botId),
+  });
+  void everos.startMemory();
   void restoreAll()
     .catch((e: Error) => console.warn('[crew] tools restore failed:', e.message))
     .then(() => reconcileDeps('启动'));
@@ -882,6 +893,30 @@ async function main() {
           return true;
         }
       }
+      if (url.pathname === '/memory/overview') {
+        // What the settings panel shows: one profile for the whole crew, plus what this bot worked out for itself.
+        const botId = url.searchParams.get('bot') ?? undefined;
+        res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+        res.end(JSON.stringify(await everos.overview(botId)));
+        return true;
+      }
+      if (url.pathname === '/memory/promote' && req.method === 'POST') {
+        // The user deciding that one bot's way of working is now everyone's. Sharing is this act and nothing else:
+        // no turn promotes anything by itself.
+        const chunks: Buffer[] = [];
+        await new Promise<void>((resolve, reject) => {
+          req.on('data', (c: Buffer) => chunks.push(c));
+          req.on('end', resolve);
+          req.on('error', reject);
+        });
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { botId?: string; name?: string };
+        const bot = body.botId ? store.bot(body.botId) : undefined;
+        const found = bot ? (await everos.skillsOf(bot.id)).find((x) => x.name === body.name) : undefined;
+        const ok = found && bot ? await everos.promote(found.text, bot.name) : false;
+        res.writeHead(ok ? 200 : 409, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+        res.end(JSON.stringify({ ok }));
+        return true;
+      }
       if (url.pathname === '/usage') {
         res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
         res.end(JSON.stringify(usageReport(store, Number(url.searchParams.get('days') ?? 30))));
@@ -1348,6 +1383,9 @@ async function main() {
 
   const shutdown = async () => {
     runtime.release();
+    // Whatever is still accumulating in the memory engine: cut it into memories now, or that stretch is lost.
+    await everos.flushAll().catch(() => {});
+    everos.stopMemory();
     hostClient?.stop();
     notifier.stop();
     scheduler.stop();

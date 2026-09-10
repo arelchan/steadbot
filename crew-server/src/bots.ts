@@ -55,7 +55,8 @@ import { readExtension } from './extensions/read.ts';
 import { CHANNEL_LABEL, botThread, parseThread, type Channel, type FileRef, type ThreadId } from './types.ts';
 import { readFileSync } from 'node:fs';
 import type { ImageContent } from '@earendil-works/pi-ai';
-import { hasToolCalls, parseMentions, salvageFromThinking, textOf, thinkingOf, filesMentioned } from './util.ts';
+import { hasToolCalls, parseMentions, salvageFromThinking, textOf, thinkingOf, filesMentioned, toolsOf } from './util.ts';
+import * as everos from './everos.ts';
 
 export interface Inbound {
   threadId: ThreadId;
@@ -100,6 +101,8 @@ interface BotRuntime {
   markupNudged?: boolean;
   /** already handed one message back this turn over a format that does not parse (format-check.ts) */
   formatNudged?: boolean;
+  /** what this turn said and did, handed to the memory engine when it settles (everos.ts) */
+  turn?: { threadId: ThreadId; msgs: everos.EvMsg[] };
 }
 
 /** DeepSeek-style tool-call markup that came out as text: the model meant to call a tool and called nothing. */
@@ -384,6 +387,13 @@ export class BotManager extends EventEmitter {
         if (rt) {
           rt.running = false;
           for (const w of rt.settledWaiters.splice(0)) w();
+          // A finished turn ends in the bot's own final answer, which is the only shape an agent case is
+          // extracted from. Fire and forget: nothing about the next turn waits on this.
+          if (rt.turn?.msgs.length) {
+            const t = rt.turn;
+            rt.turn = { threadId: t.threadId, msgs: [] };
+            void everos.turnDone(t.threadId, t.msgs);
+          }
         }
         break;
       case 'message_start':
@@ -412,7 +422,12 @@ export class BotManager extends EventEmitter {
             text = redactSecrets(salvaged, this.store);
           }
         }
-        if (!text) break;
+        const tools = toolsOf(m.content);
+        if (!text) {
+          // A step with no prose is still a step: the tool rounds are what makes a trajectory a case.
+          if (tools.length && rt?.turn) rt.turn.msgs.push({ role: 'assistant', senderId: botId, text: '', ts: Date.now(), tools });
+          break;
+        }
         if (TOOL_MARKUP.test(text)) {
           // Not a reply: a tool call that never happened. Keep it off the screen and have the model do it properly.
           console.warn(`[crew] bot ${botId}: tool-call markup in prose (${text.length} chars), nudging`);
@@ -437,6 +452,7 @@ export class BotManager extends EventEmitter {
           break;
         }
         if (rt) rt.textCount += 1;
+        if (rt?.turn) rt.turn.msgs.push({ role: 'assistant', senderId: botId, text, ts: Date.now(), tools });
         // Inside a group only members can be addressed; an @ to an outsider is text, not a handoff.
         const matter = cur?.matterId ? this.store.matter(cur.matterId) : undefined;
         const candidates = matter ? this.store.data.bots.filter((b) => b.id === matter.ownerBotId || matter.participantBotIds.includes(b.id)) : this.store.data.bots;
@@ -548,6 +564,12 @@ export class BotManager extends EventEmitter {
         fromBotId: inbound.fromBotId,
         depth: inbound.depth ?? 0,
         todoId: inbound.todoId,
+      };
+      // What memory will be made of. The user's own words only when this turn is the user talking: a colleague's
+      // handoff or a routine firing is the bot working, not the user saying something about himself.
+      rt.turn = {
+        threadId: inbound.threadId,
+        msgs: inbound.kind === 'user' || inbound.kind === 'group' ? [{ role: 'user', senderId: everos.HUMAN_ID, text: inbound.text, ts: Date.now() }] : [],
       };
       try {
         if (inbound.kind === 'user') {

@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import type { CrewStore } from './store.ts';
@@ -157,5 +159,46 @@ export async function runBuild(d: Deps, botId: string, job: BuildJob, spec: Buil
   } catch (e) {
     console.warn('[crew] build failed:', (e as Error).message);
     finish(`${job.label}这次没进化成功：${(e as Error).message}`, false);
+  }
+}
+
+/**
+ * Memory turning into ability.
+ *
+ * The engine clusters a bot's own cases and, when a cluster hardens, writes one `agent_skill` —
+ * "this is how you do this kind of work". That is the only mechanical signal the product has that a
+ * bot learned something without being told, and it is rare on purpose: a case is only kept when a
+ * trajectory went sideways and got fixed. So a new one is worth a build, and it takes the same path
+ * a user's correction takes — rewritten by the light model, applied to the bot, an「进化」notice in its
+ * thread — which is what makes it visible, editable and revertable instead of a silent mutation.
+ */
+export async function pickupSkills(
+  d: { store: CrewStore; botsDir: string; skillsOf: (botId: string) => Promise<{ name: string; text: string; at: string }[]>; build: (botId: string, spec: BuildSpec) => Promise<unknown> },
+  botId: string,
+): Promise<void> {
+  try {
+    const seenFile = join(d.botsDir, botId, '.skills-seen.json');
+    const seen: Record<string, string> = existsSync(seenFile) ? (JSON.parse(readFileSync(seenFile, 'utf8')) as Record<string, string>) : {};
+    const have = await d.skillsOf(botId);
+    if (!have.length) return;
+    const fresh = have.filter((s) => s.name && s.text.length > 20 && seen[s.name] !== (s.at || '1'));
+    // Record everything first: a build that fails should not make this fire again on the next flush.
+    const next: Record<string, string> = {};
+    for (const s of have) if (s.name) next[s.name] = s.at || '1';
+    mkdirSync(join(d.botsDir, botId), { recursive: true });
+    writeFileSync(seenFile, JSON.stringify(next, null, 2) + '\n');
+    if (!fresh.length) return;
+    // One at a time. Two rewrites of the same working instructions in one pass would fight each other.
+    const s = fresh[0];
+    const bot = d.store.bot(botId);
+    if (!bot) return;
+    console.log(`[crew] 记忆：${bot.name} 攒出一条做法「${s.name}」，排一次 build`);
+    await d.build(botId, {
+      aspect: 'instructions',
+      trigger: `同类活反复干过，记忆里攒出了一条做法「${s.name}」`,
+      change: `把这条做法写进你的工作方式，用你自己的话，别照抄：\n${s.text.slice(0, 1200)}`,
+    });
+  } catch (e) {
+    console.warn('[crew] 记忆：做法转 build 失败 —', (e as Error).message);
   }
 }

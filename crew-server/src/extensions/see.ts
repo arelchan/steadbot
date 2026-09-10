@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { extname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { BotCtx } from './ctx.ts';
-import { config, isCredentialFile } from '../config.ts';
+import { config, isCredentialFile, isMemoryFile } from '../config.ts';
 import { imageContent, look, type Eyes } from '../vision.ts';
 
 /**
@@ -54,6 +54,7 @@ export function seeExtension(c: BotCtx, eyes: () => Eyes | undefined): InlineExt
           const botDir = join(config.botsDir, c.botId);
           const file = isAbsolute(p.path) ? p.path : join(botDir, p.path);
           if (isCredentialFile(file)) throw new Error('这是产品的凭据文件，不给 bot 读');
+          if (isMemoryFile(file)) throw new Error('这是记忆库，不直接看文件；用 recall 回想');
           if (!existsSync(file) || !statSync(file).isFile()) throw new Error(`没有这个文件：${p.path}`);
           const ext = extname(file).toLowerCase();
           const text = (t: string, how: string) => ({ content: [{ type: 'text' as const, text: t }], details: { how, file: p.path } });

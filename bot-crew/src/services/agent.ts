@@ -570,6 +570,33 @@ export async function uploadFile(threadId: ThreadId, file: File): Promise<FileRe
   if (!r.ok) throw new Error(j.error || `上传失败（${r.status}）`);
   return j;
 }
+/**
+ * What memory holds, for the bot's settings panel. The user's profile is one shared thing; the ways of
+ * working belong to the bot that worked them out. Empty (and `alive: false`) on a machine with no memory
+ * engine — the panel then shows only what the user pinned by hand.
+ */
+export async function memoryOverview(botId?: string): Promise<{ alive: boolean; profile: string[]; skills: { name: string; text: string; at: string }[] }> {
+  if (!HTTP_BASE) return { alive: false, profile: [], skills: [] };
+  try {
+    const r = await fetch(`${HTTP_BASE}/memory/overview${botId ? `?bot=${encodeURIComponent(botId)}` : ''}`, { headers: authHeaders() });
+    if (!r.ok) return { alive: false, profile: [], skills: [] };
+    return (await r.json()) as { alive: boolean; profile: string[]; skills: { name: string; text: string; at: string }[] };
+  } catch {
+    return { alive: false, profile: [], skills: [] };
+  }
+}
+
+/** Make one bot's way of working the whole crew's. */
+export async function promoteSkill(botId: string, name: string): Promise<boolean> {
+  if (!HTTP_BASE) return false;
+  try {
+    const r = await fetch(`${HTTP_BASE}/memory/promote`, { method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() }, body: JSON.stringify({ botId, name }) });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 // One instance per page, surviving Vite HMR: a re-evaluated module must not create a second,
 // never-started client that swallows clicks.
 const g = globalThis as unknown as { __crewAgent?: AgentService };

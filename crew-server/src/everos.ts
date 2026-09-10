@@ -1,0 +1,506 @@
+/**
+ * Memory. The engine is EverOS, run as a sidecar on loopback; this file is the only place that talks
+ * to it. Four things live here and nowhere else: whose memory it is, where it is written, how much
+ * comes back, and how long a turn is willing to wait for it.
+ *
+ * Nothing here throws and nothing here blocks a reply. With no sidecar — not installed, crashed, a
+ * machine without Python 3.12 — every call is a no-op and the product falls back to the two plain
+ * text lists it has always had (memory.ts). Memory is worth something extra, not something required.
+ *
+ * Ownership is not a parameter. `/memory/add` derives it from each message: the `sender_id` of a
+ * `role: "user"` message owns the user track, the `sender_id` of a `role: "assistant"` message owns
+ * the agent track — which is why a bot's own id is what we later read back as `agent_id`.
+ */
+import { spawn, type ChildProcess } from 'node:child_process';
+import { existsSync, mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { config } from './config.ts';
+import type { CrewStore } from './store.ts';
+import { redactSecrets } from './secrets.ts';
+
+/** The app all of this product's memory lives under. Pinned into the engine's queries: write and read must match. */
+const APP = 'everbot';
+/** There is one human. When there are more this becomes their id; the shape does not change. */
+const HUMAN = 'chen';
+/** The user's id as the write path needs it (bots.ts labels his messages with it). */
+export const HUMAN_ID = HUMAN;
+/** Team knowledge is owned by an agent that is not a bot: nothing writes here without an explicit promotion. */
+const CREW = 'crew';
+/** Everyone shares one space. Per-bot spaces (`bot_<id>`) are possible and deliberately unused — see DESIGN.md §18. */
+const SPACE = 'shared';
+
+const PORT = Number(process.env.CREW_MEMORY_PORT ?? 5211);
+const BASE = process.env.EVEROS_URL ?? `http://127.0.0.1:${PORT}`;
+/** A finished task is a task nobody has touched for a while: that is where one memory ends and the next begins. */
+const IDLE_FLUSH_MS = 90_000;
+
+/**
+ * Write scope. `session_id` is the thread — the engine cuts memories along it — with the product's
+ * `bot:xxx` / `matter:xxx` colon flattened, since ids like these end up as identifiers downstream.
+ */
+const sid = (threadId: string) => threadId.replace(/:/g, '_');
+const writeScope = (threadId: string) => ({ session_id: sid(threadId), app_id: APP, project_id: SPACE });
+/** Read scopes. `user_id` and `agent_id` are exclusive — one call each, never both. */
+const readUser = () => ({ user_id: HUMAN, app_id: APP, project_id: SPACE });
+const readBot = (botId: string) => ({ agent_id: botId, app_id: APP, project_id: SPACE });
+const readCrew = () => ({ agent_id: CREW, app_id: APP, project_id: SPACE });
+
+export interface EvTool {
+  name: string;
+  args?: string;
+}
+export interface EvMsg {
+  role: 'user' | 'assistant';
+  /** the human, or the bot that said it; becomes the owner of whatever is extracted */
+  senderId: string;
+  text: string;
+  ts: number;
+  tools?: EvTool[];
+}
+
+interface Deps {
+  store: CrewStore;
+  /** an extraction just happened for these bots: whatever they learned is now worth looking at (builder.ts) */
+  onExtract?: (botId: string) => void;
+}
+
+let deps: Deps | undefined;
+let child: ChildProcess | undefined;
+let up = false;
+let starting: Promise<boolean> | undefined;
+/** Compressed resident profile, refreshed after each extraction; injected every turn without a network call. */
+let profileCache: string[] = [];
+const idle = new Map<string, ReturnType<typeof setTimeout>>();
+/** Which bots have said something in a thread since its last extraction. */
+const contributors = new Map<string, Set<string>>();
+
+export const alive = () => up;
+const memoryRoot = () => config.memoryDir;
+
+export function initMemory(d: Deps) {
+  deps = d;
+}
+
+// ── the sidecar ───────────────────────────────────────────────────────────────
+
+/** Where the CLI is. Installed per-user by uv, so it is often not on a service's PATH. */
+function bin(): string | undefined {
+  const named = process.env.EVEROS_BIN;
+  if (named) return existsSync(named) ? named : undefined;
+  for (const p of [join(homedir(), '.local/bin/everos'), '/usr/local/bin/everos', '/opt/everos/bin/everos']) {
+    if (existsSync(p)) return p;
+  }
+  // Last resort: let PATH resolve it, and treat a spawn failure as "not installed".
+  return 'everos';
+}
+
+async function health(ms = 1500): Promise<boolean> {
+  try {
+    const r = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(ms) });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Model and key come from the product's own config, through the environment: the engine's own
+ * config file never holds a credential. Everything else is left at its defaults.
+ */
+function childEnv(root: string): Record<string, string> {
+  const key = process.env.OPENROUTER_API_KEY ?? '';
+  const model = (config.lightModel ?? config.model ?? '').replace(/^openrouter\//, '');
+  return {
+    ...process.env,
+    EVEROS_ROOT: root,
+    EVEROS_LLM__MODEL: model,
+    EVEROS_LLM__API_KEY: key,
+    EVEROS_LLM__BASE_URL: 'https://openrouter.ai/api/v1',
+    // Cheap, multilingual, and on the same account as everything else. Changing this invalidates every
+    // vector in the index, so it is not a knob: a change means a rebuild.
+    EVEROS_EMBEDDING__MODEL: process.env.CREW_EMBEDDING_MODEL ?? 'baai/bge-m3',
+    EVEROS_EMBEDDING__API_KEY: key,
+    EVEROS_EMBEDDING__BASE_URL: 'https://openrouter.ai/api/v1',
+    // Both tracks: what the user is like, and how a bot got something done.
+    EVEROS_MEMORIZE__MODE: 'agent',
+    EVEROS_MEMORY__TIMEZONE: process.env.TZ || 'Asia/Shanghai',
+  } as Record<string, string>;
+}
+
+/** `everos server start` refuses to run without its two config files; the CLI is what writes them. */
+async function scaffold(root: string, exe: string): Promise<void> {
+  mkdirSync(root, { recursive: true });
+  if (existsSync(join(root, 'everos.toml')) && existsSync(join(root, 'ome.toml'))) return;
+  await new Promise<void>((resolve) => {
+    const p = spawn(exe, ['init', '--root', root, '--force'], { env: childEnv(root), stdio: 'ignore' });
+    p.on('close', () => resolve());
+    p.on('error', () => resolve());
+  });
+}
+
+/**
+ * Bring memory up, or decide there is none. Called once at startup and never awaited by a turn:
+ * the first few minutes of a fresh machine run without memory, which is correct — there isn't any yet.
+ */
+export function startMemory(): Promise<boolean> {
+  if (starting) return starting;
+  starting = (async () => {
+    if (process.env.CREW_MEMORY === '0') {
+      console.log('[crew] 记忆：已关闭（CREW_MEMORY=0）');
+      return false;
+    }
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.log('[crew] 记忆：没有 OpenRouter key，先不开');
+      return false;
+    }
+    // Something already listening (a dev restart, or a sidecar the user runs themselves): use it.
+    if (await health()) {
+      up = true;
+      console.log(`[crew] 记忆：接上已在跑的 EverOS（${BASE}）`);
+      void refreshProfile();
+      return true;
+    }
+    const exe = bin();
+    if (!exe) {
+      console.log('[crew] 记忆：这台机器没装 EverOS，先用纯文本那套');
+      return false;
+    }
+    const root = memoryRoot();
+    await scaffold(root, exe);
+    let tail = '';
+    let missing = false;
+    const spawnOne = () => {
+      const c = spawn(exe, ['server', 'start', '--host', '127.0.0.1', '--port', String(PORT), '--root', root], {
+        env: childEnv(root),
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      // The engine logs every request. Nobody reading these pipes would fill the buffer and stall it, so they
+      // are drained here and only the tail is kept, for the one line printed if it dies.
+      const keep = (d: Buffer) => {
+        tail = (tail + d.toString()).slice(-2000);
+      };
+      c.stdout?.on('data', keep);
+      c.stderr?.on('data', keep);
+      c.on('error', (e) => {
+        // No such binary: it is not installed, and trying again cannot change that.
+        if ((e as NodeJS.ErrnoException).code === 'ENOENT') missing = true;
+        else console.warn('[crew] 记忆：起不来 —', (e as Error).message);
+        if (child === c) child = undefined;
+      });
+      c.on('exit', (code) => {
+        if (up) console.warn(`[crew] 记忆：EverOS 退出了（${code}），先用纯文本那套`);
+        up = false;
+        if (child === c) child = undefined;
+      });
+      return c;
+    };
+    child = spawnOne();
+    // The engine rebuilds its index on first start, so give it real time. And it may die on the first try
+    // for a reason that fixes itself: right after this server restarted, the previous sidecar can still be
+    // holding the port for a second or two.
+    let spawns = 1;
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 1000));
+      if (await health()) {
+        up = true;
+        console.log(`[crew] 记忆：EverOS 就位（${BASE}，${root}）`);
+        void refreshProfile();
+        return true;
+      }
+      if (missing) {
+        console.log('[crew] 记忆：这台机器没装 EverOS，先用纯文本那套');
+        return false;
+      }
+      if (!child) {
+        if (spawns >= 3) break;
+        spawns += 1;
+        child = spawnOne();
+      }
+    }
+    if (!up) {
+      console.warn(`[crew] 记忆：EverOS 没起来（试了 ${spawns} 次），先用纯文本那套${tail ? ` — ${tail.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').slice(-1)[0].slice(0, 160)}` : ''}`);
+      child?.kill();
+      child = undefined;
+    }
+    return up;
+  })();
+  return starting;
+}
+
+export function stopMemory() {
+  for (const t of idle.values()) clearTimeout(t);
+  idle.clear();
+  child?.kill();
+  child = undefined;
+  up = false;
+}
+
+async function call<T>(path: string, body: unknown, ms: number): Promise<T | undefined> {
+  if (!up) return undefined;
+  try {
+    const r = await fetch(`${BASE}/api/v1/memory/${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(ms),
+    });
+    const j = (await r.json()) as { data?: T; error?: { message?: string } };
+    if (!r.ok || j.error) {
+      console.warn(`[crew] 记忆 ${path}：${j.error?.message ?? r.status}`);
+      return undefined;
+    }
+    return j.data;
+  } catch (e) {
+    // A timeout here is not a failure of the turn; it is memory being slow.
+    if ((e as Error).name !== 'TimeoutError') console.warn(`[crew] 记忆 ${path}：${(e as Error).message}`);
+    return undefined;
+  }
+}
+
+// ── writing ───────────────────────────────────────────────────────────────────
+
+/**
+ * One turn, after it has settled. Fire and forget.
+ *
+ * Two shapes matter to the engine and neither is obvious:
+ *   · a `role: "tool"` message must carry a `tool_call_id` pairing it to a call, so tool *results*
+ *     are not sent at all — what a tool returned is already summarised in what the bot said next;
+ *   · an agent case is only extracted from a trajectory that ENDS in the bot's own final answer
+ *     (and has at least three tool rounds, and went sideways at some point). A turn is exactly that
+ *     shape, which is why this is per-turn and not per-message.
+ */
+export async function turnDone(threadId: string, msgs: EvMsg[]): Promise<void> {
+  if (!up || !msgs.length) return;
+  const store = deps?.store;
+  const messages = msgs
+    .map((m) => ({
+      sender_id: m.senderId,
+      role: m.role,
+      timestamp: m.ts,
+      // The extractor's input is the raw conversation, and a credential has met a page before now.
+      content: store ? redactSecrets(m.text, store) : m.text,
+      ...(m.tools?.length
+        ? {
+            tool_calls: m.tools.slice(0, 12).map((t, i) => ({
+              id: `c${i}`,
+              type: 'function' as const,
+              function: { name: t.name, arguments: (t.args ?? '{}').slice(0, 2000) },
+            })),
+          }
+        : {}),
+    }))
+    .filter((m) => m.content.trim() || m.tool_calls?.length);
+  if (!messages.length) return;
+  for (const m of msgs) if (m.role === 'assistant') (contributors.get(threadId) ?? contributors.set(threadId, new Set()).get(threadId)!).add(m.senderId);
+  await call('add', { ...writeScope(threadId), messages }, 20_000);
+  // Reset the quiet timer: the memory for this thread is cut when the work on it stops.
+  const prev = idle.get(threadId);
+  if (prev) clearTimeout(prev);
+  idle.set(
+    threadId,
+    setTimeout(() => {
+      idle.delete(threadId);
+      void flush(threadId);
+    }, IDLE_FLUSH_MS),
+  );
+}
+
+/** Force the boundary: the thread went quiet, a matter was closed, or the server is going down. */
+export async function flush(threadId: string): Promise<void> {
+  if (!up) return;
+  const t = idle.get(threadId);
+  if (t) {
+    clearTimeout(t);
+    idle.delete(threadId);
+  }
+  const d = await call<{ status?: string }>('flush', writeScope(threadId), 300_000);
+  if (d?.status !== 'extracted') return;
+  void refreshProfile();
+  const who = contributors.get(threadId);
+  contributors.delete(threadId);
+  for (const botId of who ?? []) {
+    hasAgent.delete(botId);
+    deps?.onExtract?.(botId);
+  }
+  turnCache.clear();
+}
+
+/** Every thread with unfinished business, before the process goes away. */
+export async function flushAll(): Promise<void> {
+  await Promise.all([...idle.keys()].map((t) => flush(t)));
+}
+
+/**
+ * A fact the product holds by hand (the `remember` tool, or the user editing PROFILE.md) said to the
+ * engine as if the user had said it — otherwise the two halves of "what we know about him" drift apart.
+ */
+export async function statedFact(threadId: string, fact: string): Promise<void> {
+  if (!up || !fact.trim()) return;
+  await turnDone(threadId, [{ role: 'user', senderId: HUMAN, text: fact.trim(), ts: Date.now() }]);
+}
+
+/** Promote one bot's way of working to the whole crew. An explicit act, never a side effect of a turn. */
+export async function promote(text: string, fromBotName: string): Promise<boolean> {
+  if (!up || !text.trim()) return false;
+  const now = Date.now();
+  const d = await call(
+    'add',
+    {
+      ...writeScope(`crew_${now}`),
+      messages: [
+        { sender_id: HUMAN, role: 'user', timestamp: now, content: `把这条做法定为团队通用（来自 ${fromBotName}）：${text.trim()}` },
+        { sender_id: CREW, role: 'assistant', timestamp: now + 1, content: text.trim() },
+      ],
+    },
+    20_000,
+  );
+  if (d) void flush(`crew_${now}`);
+  return !!d;
+}
+
+// ── reading ───────────────────────────────────────────────────────────────────
+
+interface Episode {
+  summary?: string;
+  episode?: string;
+  subject?: string;
+  timestamp?: string;
+  score?: number;
+}
+interface Skill {
+  name?: string;
+  description?: string;
+  content?: string;
+  updated_at?: string;
+}
+interface Case {
+  task_intent?: string;
+  approach?: string;
+  key_insight?: string;
+  timestamp?: string;
+}
+interface SearchData {
+  episodes?: Episode[];
+  profiles?: { profile_data?: ProfileData }[];
+  agent_cases?: Case[];
+  agent_skills?: Skill[];
+}
+interface ProfileData {
+  summary?: string;
+  explicit_info?: { category?: string; description?: string }[];
+  implicit_traits?: { trait?: string; description?: string }[];
+}
+
+const day = (iso?: string) => (iso ? iso.slice(5, 10) : '');
+const trim = (s: string, n: number) => (s.length > n ? s.slice(0, n) + '…' : s);
+
+/**
+ * The user's resident profile, compressed to lines that fit in a prompt. The engine's own profile
+ * carries its evidence for every claim, which is right for a record and wrong for an instruction.
+ */
+async function refreshProfile(): Promise<void> {
+  const d = await call<SearchData>('get', { ...readUser(), memory_type: 'profile', page: 1, page_size: 5 }, 8000);
+  const p = d?.profiles?.[0]?.profile_data;
+  if (!p) return;
+  const lines = [
+    ...(p.explicit_info ?? []).map((e) => e.description ?? ''),
+    ...(p.implicit_traits ?? []).map((e) => e.description ?? ''),
+  ]
+    .map((l) => l.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .map((l) => trim(l, 60));
+  profileCache = [...new Set(lines)].slice(0, 8);
+}
+
+export const profileLines = () => profileCache;
+
+/**
+ * Whether an agent track has anything in it at all. Most do not: a case is only kept from a trajectory
+ * that went sideways and got fixed, so a bot can work for weeks and have none. Searching an empty track
+ * still costs an embedding call, so the answer is remembered until that bot extracts something new.
+ */
+const hasAgent = new Map<string, boolean>();
+
+/** One turn's recall, kept for a minute: a nudge or an empty reply re-runs the turn and must not pay again. */
+const turnCache = new Map<string, { at: number; val: Recalled }>();
+interface Recalled {
+  profile: string[];
+  episodes: string[];
+  skills: string[];
+}
+
+/**
+ * What this bot should have in mind for this turn: the cached profile (free), what the user has done
+ * before, and what this bot worked out for itself.
+ *
+ * Measured on the real endpoint: a search is 0.4–0.5 s warm, 3 s cold, and 6 s when the embedding
+ * endpoint has a bad minute. So there is a budget and it is generous — the turn behind it takes tens of
+ * seconds — but it is a budget: whatever has not arrived is left out and the reply goes ahead without it.
+ *
+ * The agent track runs `vector` rather than `hybrid` on purpose: the engine's agent hybrid lane demands
+ * a rerank provider (or an extra LLM call per turn), and neither belongs in front of the first token.
+ */
+export async function forTurn(botId: string, query: string, budgetMs = 2500): Promise<Recalled> {
+  const out: Recalled = { profile: profileCache, episodes: [], skills: [] };
+  if (!up || query.trim().length < 4) return out;
+  const q = trim(query.replace(/\s+/g, ' ').trim(), 300);
+  const key = `${botId}|${q}`;
+  const hit = turnCache.get(key);
+  if (hit && Date.now() - hit.at < 60_000) return { ...hit.val, profile: profileCache };
+  const empty = Promise.resolve(undefined);
+  const mine = hasAgent.get(botId) === false ? empty : call<SearchData>('search', { ...readBot(botId), query: q, top_k: 4, method: 'vector' }, budgetMs);
+  const his = call<SearchData>('search', { ...readUser(), query: q, top_k: 6, method: 'hybrid' }, budgetMs);
+  const crew = hasAgent.get(CREW) === false ? empty : call<SearchData>('search', { ...readCrew(), query: q, top_k: 2, method: 'vector' }, budgetMs);
+  const [a, b, c] = await Promise.all([his, mine, crew]);
+  if (b) hasAgent.set(botId, !!(b.agent_skills?.length || b.agent_cases?.length));
+  if (c) hasAgent.set(CREW, !!(c.agent_skills?.length || c.agent_cases?.length));
+  out.episodes = (a?.episodes ?? [])
+    .map((e) => `${day(e.timestamp)} ${trim((e.summary || e.episode || e.subject || '').replace(/\s+/g, ' ').trim(), 150)}`)
+    .filter((l) => l.trim().length > 6)
+    .slice(0, 6);
+  const skills = [...(b?.agent_skills ?? []), ...(c?.agent_skills ?? [])].map((s) => `${s.name ?? ''}：${trim((s.content || s.description || '').replace(/\s+/g, ' ').trim(), 180)}`);
+  const cases = (b?.agent_cases ?? []).map((k) => `${k.task_intent ?? ''}：${trim((k.key_insight || k.approach || '').replace(/\s+/g, ' ').trim(), 150)}`);
+  out.skills = [...skills, ...cases].filter((l) => l.replace(/[：\s]/g, '').length > 4).slice(0, 5);
+  if (a || b || c) turnCache.set(key, { at: Date.now(), val: out });
+  if (turnCache.size > 40) for (const k of [...turnCache.keys()].slice(0, 20)) turnCache.delete(k);
+  return out;
+}
+
+/** The `recall` tool: the bot asking for something the turn's own injection would not have found. */
+export async function recall(botId: string, query: string, scope: 'user' | 'self' | 'crew', k = 5): Promise<string> {
+  if (!up) return '记忆引擎没在跑，只有你身上那几条（工作方式和「你对用户的认知」）。';
+  const q = trim(query.replace(/\s+/g, ' ').trim(), 300);
+  if (q.length < 2) return '要找什么？给一句具体点的。';
+  const top = Math.max(1, Math.min(20, k));
+  if (scope === 'user') {
+    const d = await call<SearchData>('search', { ...readUser(), query: q, top_k: top, method: 'hybrid', include_profile: true }, 25_000);
+    const eps = (d?.episodes ?? []).map((e) => `- ${day(e.timestamp)} ${trim((e.summary || e.episode || '').replace(/\s+/g, ' ').trim(), 300)}`);
+    return eps.length ? `关于用户，找到 ${eps.length} 条：\n${eps.join('\n')}` : '这件事没有记录。';
+  }
+  const who = scope === 'crew' ? readCrew() : readBot(botId);
+  // Off the turn's critical path, so the agent hybrid lane's LLM rerank is affordable here.
+  const d = await call<SearchData>('search', { ...who, query: q, top_k: top, method: 'hybrid', enable_llm_rerank: true }, 40_000);
+  const items = [
+    ...(d?.agent_skills ?? []).map((s) => `- 做法「${s.name ?? ''}」：${trim((s.content || s.description || '').replace(/\s+/g, ' ').trim(), 400)}`),
+    ...(d?.agent_cases ?? []).map((k2) => `- ${day(k2.timestamp)} ${k2.task_intent ?? ''}：${trim((k2.approach || k2.key_insight || '').replace(/\s+/g, ' ').trim(), 300)}`),
+  ];
+  if (items.length) return `${scope === 'crew' ? '团队' : '你自己'}干过的：\n${items.join('\n')}`;
+  return scope === 'crew' ? '团队里没有这方面的共识。' : '你没干过这类活，或者干得太顺利，没留下记录（只有出过岔子的活才会被记下来）。';
+}
+
+/** Everything a bot has learned about how to work, newest first. Used by the settings panel and by the build loop. */
+export async function skillsOf(botId: string): Promise<{ name: string; text: string; at: string }[]> {
+  const d = await call<SearchData>('get', { ...readBot(botId), memory_type: 'agent_skill', page: 1, page_size: 50, sort_by: 'updated_at' }, 8000);
+  return (d?.agent_skills ?? []).map((s) => ({
+    name: s.name ?? '',
+    text: (s.content || s.description || '').replace(/\s+/g, ' ').trim(),
+    at: s.updated_at ?? '',
+  }));
+}
+
+/** What the settings panel shows: one shared profile, and what this bot has worked out for itself. */
+export async function overview(botId?: string): Promise<{ alive: boolean; profile: string[]; skills: { name: string; text: string; at: string }[] }> {
+  if (!up) return { alive: false, profile: [], skills: [] };
+  return { alive: true, profile: profileCache, skills: botId ? await skillsOf(botId) : [] };
+}

@@ -16,6 +16,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && pip3 install --no-cache-dir --break-system-packages openpyxl python-docx python-pptx pypdf pandas matplotlib \
       # cutting the background out of a generated picture (game sprites, stickers, cut-outs): CPU-only, no GPU here
       rembg onnxruntime
+# Memory (everos.ts): the engine runs as a sidecar on loopback. It wants Python 3.12 and Debian ships 3.11, so uv
+# brings its own interpreter. Pinned, because the index on the volume is written by this exact version; and
+# non-fatal, because a machine that cannot install it still runs, just with the plain-text memory it always had.
+ENV UV_INSTALL_DIR=/usr/local/bin UV_TOOL_BIN_DIR=/usr/local/bin
+RUN (curl -LsSf https://astral.sh/uv/install.sh | sh \
+      && uv tool install --python 3.12 --with lancedb==0.33.0 'everos[multimodal]==1.1.3' \
+      && everos --help > /dev/null) \
+    || echo "[crew] everos not installed; memory falls back to the plain-text lists"
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev || npm install --omit=dev

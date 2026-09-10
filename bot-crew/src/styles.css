@@ -699,6 +699,10 @@ textarea.ident-desc:focus { outline: 0; border-color: var(--accent-hair); backgr
 .cfg-role:focus { outline: 0; border-color: var(--accent-hair); }
 .cfg-content .mem li { padding: 8px 0; }
 .cfg-content .mem.readonly li { color: var(--text-2); }
+/* One learned way of working: its name, then the way itself, on one line that can breathe. */
+.mem li .memk { color: var(--text); margin-right: 6px; }
+.mem li .memt { color: var(--text-2); }
+.mem li .link:disabled { color: var(--muted); cursor: default; }
 .skill-list, .routine-list { list-style: none; margin: 0; padding: 0; }
 .skill-list li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--hair-2); font-size: 12.5px; }
 .skill-list .sk-ic { color: var(--muted); }

@@ -3,10 +3,16 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import type { BotCtx } from './ctx.ts';
 import type { CrewOps } from './crew-tools.ts';
+import * as everos from '../everos.ts';
+import { botThread } from '../types.ts';
 
 /**
- * remember: what this bot knows about the user. Writes are asynchronous — the fact is handed to a
- * background consolidation (dedupe, merge, resolve conflicts) and the conversation moves on.
+ * remember / recall: the two ends of memory.
+ *
+ * `remember` pins a fact by hand — it stays a plain line the user can read and edit (memory.ts), and
+ * is repeated to the engine as something the user said, so the two halves of "what we know about him"
+ * do not drift apart. `recall` is the bot going back through what it and the crew have actually done;
+ * the turn already arrives with the relevant few (identity.ts), so this is for what that missed.
  */
 export function rememberExtension(c: BotCtx, ops: () => CrewOps): InlineExtension {
   return {
@@ -31,10 +37,35 @@ export function rememberExtension(c: BotCtx, ops: () => CrewOps): InlineExtensio
         async execute(_id, p) {
           const action = p.action ?? 'add';
           const job = await ops().remember(c.botId, { action, fact: p.fact, scope: p.scope });
+          // Say it to the engine too, as the user saying it. Forgetting is not mirrored: the engine's own
+          // record of a conversation that happened is not something a later opinion should rewrite.
+          if (action === 'add') void everos.statedFact(c.current()?.threadId ?? botThread(c.botId), p.fact);
           return {
             content: [{ type: 'text', text: action === 'add' ? '记下了，后台归并进记忆。继续。' : '好，后台从记忆里去掉。继续。' }],
             details: { jobId: job.id, action, scope: p.scope, fact: p.fact },
           };
+        },
+      });
+
+      pi.registerTool({
+        name: 'recall',
+        label: '回想',
+        description:
+          '翻自己的记忆。scope=user：用户以前说过、做过的事（他提起「上次那个…」而你不知道是哪件时用）；scope=self：你自己干过的同类活和从中学到的做法；scope=crew：团队定下来的通用做法。这是回想经历，不是搜索引擎——查外部事实、新闻、价格用 web_search，查手册用 library。每轮开头已经自动带了最相关的几条，这里只用来找那些没带上的。',
+        promptSnippet: '翻记忆：用户的往事 / 自己干过的活 / 团队共识',
+        promptGuidelines: [
+          '用户说「上次那个」「还是按之前的来」而你不确定指哪件事时，先 recall(scope=user) 再问；能自己找到就不要问。',
+          '接手一类活之前 recall(scope=self)，看自己上次在哪儿栽过；找不到就正常做，不要因此多话。',
+          '找不到记录是常态（只有出过岔子的活才会留下记录），不要反复换词重试，也不要跟用户汇报「我查了记忆」。',
+        ],
+        parameters: Type.Object({
+          query: Type.String({ description: '要找什么，一句话；用当时可能出现过的词' }),
+          scope: StringEnum(['user', 'self', 'crew'] as const),
+          k: Type.Optional(Type.Number({ description: '最多几条，默认 5' })),
+        }),
+        async execute(_id, p) {
+          const text = await everos.recall(c.botId, p.query, p.scope, p.k ?? 5);
+          return { content: [{ type: 'text', text }], details: { scope: p.scope, query: p.query } };
         },
       });
     },

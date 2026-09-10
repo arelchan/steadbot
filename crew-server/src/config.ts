@@ -108,6 +108,8 @@ export const config = {
   composio: (process.env.CREW_COMPOSIO_API_KEY ?? file.composioApiKey) ? { apiKey: (process.env.CREW_COMPOSIO_API_KEY ?? file.composioApiKey)! } : undefined,
   connectionsDir: join(home, 'connections'),
   libraryDir: join(home, 'library'),
+  /** the memory engine's root: md files are the truth, the vector index next to them is rebuildable (everos.ts) */
+  memoryDir: join(home, 'memory'),
   tools: { pipIndex: process.env.CREW_PIP_INDEX ?? file.tools?.pipIndex, npmRegistry: process.env.CREW_NPM_REGISTRY ?? file.tools?.npmRegistry },
   handoffDepth: 3,
 };
@@ -124,6 +126,17 @@ export const configPath = cfgPath;
  */
 const CREDENTIAL_FILES = new Set(['config.json', 'moved.json', 'machine.json', 'lease.json', 'instance.json', join('pi-agent', 'auth.json')].map((n) => resolve(home, n)));
 export const isCredentialFile = (p: string) => CREDENTIAL_FILES.has(resolve(p)) || /(^|\/)\.env(\.|$)/.test(p);
+
+/**
+ * The memory store. A bot reads its own memory through `recall`, which answers for its own owner only;
+ * the files underneath hold every bot's memory and the user's whole profile, so they are not readable
+ * as files by anyone.
+ */
+export const isMemoryFile = (p: string) => {
+  const r = resolve(config.memoryDir);
+  const q = resolve(p);
+  return q === r || q.startsWith(r + '/');
+};
 
 /** The config file as it is right now (not the startup snapshot): used for values that may change while running, e.g. IM credentials. */
 export function readFileConfig(): FileConfig {
