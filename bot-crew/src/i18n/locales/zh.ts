@@ -92,11 +92,11 @@ export const zh: Record<string, string> = {
   'draft.placeholder': '第一句话，说清它管什么…',
 
   /* ---- 档案 ---- */
-  'profile.title': '档案',
+  'profile.title': '记忆',
   'profile.sub': '',
-  'profile.shared': '记录',
+  'profile.shared': 'Notes',
   'profile.addShared': '加一条所有 bot 都该知道的事…',
-  'profile.engine': '画像',
+  'profile.engine': 'Profile',
 
   /* ---- 新建群聊 ---- */
   'group.new': '新建群聊',
@@ -254,10 +254,9 @@ export const zh: Record<string, string> = {
   'cfg.memDelete': '删掉',
   'cfg.memAdd': '加一条，回车',
   'cfg.sharedMem': '所有 bot 共享',
-  'cfg.memAbout': '档案',
-  'cfg.memSeen': '画像',
-  'cfg.memTold': '记录',
-  'cfg.memCraft': '经验',
+  'cfg.memSeen': 'Profile',
+  'cfg.memTold': 'Notes',
+  'cfg.memCraft': 'Agent skill',
   'cfg.memPromote': '设为团队通用',
   'cfg.memShared': '已通用',
   'cfg.skillsSub': '每个技能是一份它照着做的手册',

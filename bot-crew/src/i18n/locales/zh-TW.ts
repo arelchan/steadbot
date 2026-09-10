@@ -86,7 +86,7 @@ export const zhTW: Record<string, string> = {
   'draft.sub': '像是「幫我盯競品動態，每週五給我一頁」',
   'draft.placeholder': '第一句話，說清楚它管什麼…',
 
-  'profile.title': '檔案',
+  'profile.title': '記憶',
   'profile.sub': '共享的那層所有 bot 都看得到，每個 bot 自己的那層只影響它',
   'profile.shared': '所有 bot 共享',
   'profile.addShared': '加一條所有 bot 都該知道的事…',

@@ -193,13 +193,12 @@ function Memory({ bot }: { bot: Bot }) {
   return (
     <>
       <Head title={t('cfg.memory')} />
-      <h4>{t('cfg.memAbout')}</h4>
-      <div className="mem-cap">{t('cfg.memSeen')}</div>
+      <h4>{t('cfg.memSeen')}</h4>
       <ul className="mem readonly">
         {mem.profile.map((v, i) => <li key={i}><span>{v}</span></li>)}
         {mem.profile.length === 0 && <li className="quiet">{t('common.none')}</li>}
       </ul>
-      <div className="mem-cap">{t('cfg.memTold')}</div>
+      <h4>{t('cfg.memTold')}</h4>
       <ul className="mem">
         {shared.map((v, i) => (
           <li key={i}>
