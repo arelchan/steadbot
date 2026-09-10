@@ -492,6 +492,7 @@ export type ClientMessage =
   | { type: 'disconnect_channel'; botId: string; channel: Channel }
   /** 给 bot 的电脑开机 / 关机 */
   | { type: 'computer_power'; on: boolean }
+  | { type: 'computer_focus' }
   /** 升级到这台电脑上的最新代码（bot 在云机器上时，连那台一起升） */
   | { type: 'upgrade' }
   | { type: 'usage'; days?: number }

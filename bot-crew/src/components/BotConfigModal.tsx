@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
-import { useStore, patchBot, patchSkill, mountLibrarySkill, select, uid, addIntegration, removeIntegration, testIntegration } from '../store';
+import { useStore, patchBot, patchSkill, mountLibrarySkill, select, uid, addIntegration, removeIntegration, testIntegration, setSharedProfile } from '../store';
 import { LIBRARY_CATEGORY_IDS, botThread, type Bot, type Channel, type GrowthEvent, type GrowthKind, type Integration, type Routine, type SkillDoc } from '../types';
 import { agent, memoryOverview, promoteSkill } from '../services/agent';
 import { Avatar } from './Avatar';
@@ -36,7 +36,6 @@ export function BotConfigModal({ bot, onClose }: { bot: Bot; onClose: () => void
 
   const counts: Partial<Record<Tab, number>> = {
     growth: bot.growth?.length ?? 0,
-    memory: bot.viewOfYou.length,
     skills: bot.skills.length,
     routines: bot.routines.filter((r) => r.enabled).length,
     integrations: integrations.filter((i) => !i.owner && ((bot.integrationIds ?? []).includes(i.id) || (i.channel && bot.channels.includes(i.channel)))).length,
@@ -66,7 +65,7 @@ export function BotConfigModal({ bot, onClose }: { bot: Bot; onClose: () => void
           <div className="cfg-content">
             {tab === 'growth' && <Growth bot={bot} />}
             {tab === 'instructions' && <Instructions bot={bot} />}
-            {tab === 'memory' && <Memory bot={bot} onClose={onClose} />}
+            {tab === 'memory' && <Memory bot={bot} />}
             {tab === 'skills' && <Skills bot={bot} />}
             {tab === 'routines' && <Routines bot={bot} />}
             {tab === 'integrations' && <Integrations bot={bot} />}
@@ -175,12 +174,12 @@ function Instructions({ bot }: { bot: Bot }) {
 /* ---------------- 记忆 ---------------- */
 
 /**
- * Three things, in the order they matter. The profile is one shared thing — the user is one person,
- * and every bot reads the same picture of him. The ways of working belong to this bot alone: it
- * worked them out of its own trouble, and they only spread when the user says so. What the user
- * pinned by hand stays last and stays editable; on a machine with no memory engine it is all there is.
+ * Two tracks, the way the engine keeps them. About the user there is one shared picture — the user is one
+ * person — split by where it came from: what the engine worked out (read-only) and what the user told the
+ * bots (editable right here; it is shared, so there is no other page to go to). The bot's own craft is what
+ * it worked out from its own trouble; it stays its own until the user hands a line to the whole crew.
  */
-function Memory({ bot, onClose }: { bot: Bot; onClose: () => void }) {
+function Memory({ bot }: { bot: Bot }) {
   const t = useT();
   const shared = useStore((s) => s.sharedProfile);
   const [draft, setDraft] = useState('');
@@ -191,43 +190,24 @@ function Memory({ bot, onClose }: { bot: Bot; onClose: () => void }) {
     void memoryOverview(bot.id).then((m) => { if (live) setMem(m); });
     return () => { live = false; };
   }, [bot.id]);
-  const about = [...mem.profile, ...shared];
   return (
     <>
       <Head title={t('cfg.memory')} />
-      <h4>{t('cfg.memAbout')} <button className="link" onClick={() => { select('profile'); onClose(); }}>{t('common.edit')}</button></h4>
+      <h4>{t('cfg.memAbout')}</h4>
+      <div className="mem-cap">{t('cfg.memSeen')}</div>
       <ul className="mem readonly">
-        {about.map((v, i) => <li key={i}><span>{v}</span></li>)}
-        {about.length === 0 && <li className="quiet">{t('common.none')}</li>}
+        {mem.profile.map((v, i) => <li key={i}><span>{v}</span></li>)}
+        {mem.profile.length === 0 && <li className="quiet">{t('common.none')}</li>}
       </ul>
-      {mem.skills.length > 0 && (
-        <>
-          <h4>{t('cfg.memLearned')}</h4>
-          <ul className="mem readonly">
-            {mem.skills.map((k) => (
-              <li key={k.name}>
-                <span><b className="memk">{k.name}</b><span className="memt">{k.text}</span></span>
-                <button
-                  className="link"
-                  disabled={sent.includes(k.name)}
-                  onClick={() => { setSent((p) => [...p, k.name]); void promoteSkill(bot.id, k.name); }}
-                >
-                  {sent.includes(k.name) ? t('cfg.memShared') : t('cfg.memPromote')}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      <h4>{t('cfg.memPinned')}</h4>
+      <div className="mem-cap">{t('cfg.memTold')}</div>
       <ul className="mem">
-        {bot.viewOfYou.map((v, i) => (
+        {shared.map((v, i) => (
           <li key={i}>
             <span>{v}</span>
-            <button className="del" title={t('cfg.memDelete')} onClick={() => patchBot(bot.id, { viewOfYou: bot.viewOfYou.filter((_, j) => j !== i) })}>✕</button>
+            <button className="del" title={t('cfg.memDelete')} onClick={() => setSharedProfile(shared.filter((_, j) => j !== i))}>✕</button>
           </li>
         ))}
-        {bot.viewOfYou.length === 0 && <li className="quiet">{t('common.none')}</li>}
+        {shared.length === 0 && <li className="quiet">{t('common.none')}</li>}
       </ul>
       <input
         className="mem-add"
@@ -236,11 +216,27 @@ function Memory({ bot, onClose }: { bot: Bot; onClose: () => void }) {
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && draft.trim()) {
-            patchBot(bot.id, { viewOfYou: [...bot.viewOfYou, draft.trim()] });
+            setSharedProfile([...shared, draft.trim()]);
             setDraft('');
           }
         }}
       />
+      <h4>{t('cfg.memCraft')}</h4>
+      <ul className="mem readonly">
+        {mem.skills.map((k) => (
+          <li key={k.name}>
+            <span><b className="memk">{k.name}</b><span className="memt">{k.text}</span></span>
+            <button
+              className="link"
+              disabled={sent.includes(k.name)}
+              onClick={() => { setSent((p) => [...p, k.name]); void promoteSkill(bot.id, k.name); }}
+            >
+              {sent.includes(k.name) ? t('cfg.memShared') : t('cfg.memPromote')}
+            </button>
+          </li>
+        ))}
+        {mem.skills.length === 0 && <li className="quiet">{t('common.none')}</li>}
+      </ul>
     </>
   );
 }

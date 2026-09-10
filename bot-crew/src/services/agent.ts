@@ -48,6 +48,8 @@ export interface AgentService {
   disconnectChannel(botId: string, channel: Channel): void;
   /** 唤醒 / 休眠 bot 们共用的电脑 */
   computerPower(on: boolean): void;
+  /** 把电脑的浏览器窗口切到用户面前（bot 跑在用户自己电脑上时） */
+  computerFocus(): void;
   start(): void;
   stop(): void;
 }
@@ -416,6 +418,9 @@ export class MockAgentService implements AgentService {
     /* mock: no IM */
   }
   computerPower() {
+    /* mock: no computer */
+  }
+  computerFocus() {
     /* mock: no computer */
   }
 

@@ -37,13 +37,12 @@ export function operateExtension(c: BotCtx, hands: () => Hands | undefined, desk
         async execute(_id, p) {
           const h = hands();
           if (!h) throw new Error('这套 bot 没有配能操作屏幕的模型（config.json 里设 guiModel，或至少 visionModel）。');
+          // The same on every machine: the computer is on (its browser window is what there is to operate), and
+          // the hands take the screen it is on — an X display of ours, or the machine's own.
           const d = desktops();
-          let display: string | undefined;
-          if (process.platform === 'linux') {
-            if (!d?.capable) throw new Error(`这台机器没有可操作的屏幕：${d?.capableNote ?? ''}`);
-            await d.wake();
-            display = d.display;
-          }
+          if (!d?.capable) throw new Error(`这台机器没有可操作的屏幕：${d?.capableNote ?? ''}`);
+          await d.wake();
+          const display = d.display;
           const cap = await guiCapability(display);
           if (!cap.ok) throw new Error(cap.note ?? '现在不能操作屏幕');
           const outDir = join(config.botsDir, c.botId, 'workspace', '_gui');

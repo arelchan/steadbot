@@ -699,6 +699,8 @@ textarea.ident-desc:focus { outline: 0; border-color: var(--accent-hair); backgr
 .cfg-role:focus { outline: 0; border-color: var(--accent-hair); }
 .cfg-content .mem li { padding: 8px 0; }
 .cfg-content .mem.readonly li { color: var(--text-2); }
+/* Where a line came from, under the track it belongs to. */
+.mem-cap { font-size: 11px; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 2px; }
 /* One learned way of working: its name, then the way itself, on one line that can breathe. */
 .mem li .memk { color: var(--text); margin-right: 6px; }
 .mem li .memt { color: var(--text-2); }

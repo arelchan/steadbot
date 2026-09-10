@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useStore, setSharedProfile, patchBot, select } from '../store';
+import { useStore, setSharedProfile } from '../store';
 import { memoryOverview } from '../services/agent';
-import { botThread } from '../types';
 import { Avatar } from './Avatar';
 import { useT } from '../i18n';
 
@@ -60,24 +59,6 @@ export function ProfileView() {
           </div>
         )}
 
-        {s.bots.map((b) => (
-          <div className="inbox-group" key={b.id}>
-            <h4>
-              <Avatar bot={b} size="xs" /> {t('profile.own', { name: b.name })}
-              <button className="link" onClick={() => select(botThread(b.id))}>{t('profile.goSee')}</button>
-            </h4>
-            {b.viewOfYou.length === 0 ? <p className="quiet" style={{ color: 'var(--muted)' }}>{t('common.none')}</p> : (
-              <ul className="mem">
-                {b.viewOfYou.map((v, i) => (
-                  <li key={i}>
-                    <span>{v}</span>
-                    <button className="del" onClick={() => patchBot(b.id, { viewOfYou: b.viewOfYou.filter((_, j) => j !== i) })}>✕</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
       </div>
     </section>
   );

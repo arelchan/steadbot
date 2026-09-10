@@ -109,7 +109,7 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
           .map(([ch, l]) => `${{ feishu: '飞书', telegram: 'Telegram', slack: 'Slack', wechat: '企业微信', app: 'App' }[ch] ?? ch}（${l?.status === 'ok' ? `已接${l.account ? `，那边叫「${l.account}」` : ''}` : l?.status === 'connecting' ? '连接中' : `没接上：${l?.note ?? ''}`}）`)
           .join('；') || '（没接任何 IM；用 build(aspect=channel, action=add, value="飞书") 接）'
       }`,
-      `记忆: ${b.viewOfYou.join('；') || '（无）'}`,
+      `关于用户（全员共用）: ${c.store.data.sharedProfile.join('；') || '（无）'}`,
     ].join('\n');
   };
 

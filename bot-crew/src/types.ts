@@ -535,6 +535,8 @@ export interface RuntimeInfo {
   hostLink?: 'connecting' | 'connected' | 'off' | 'no_token';
   /** 这台运行机器能给每个 bot 一台自己的电脑（Linux 桌面 + 浏览器，屏幕可实时看） */
   desktops?: boolean;
+  /** 屏幕能不能在 App 里实时看（云机器上能；bot 跑在用户自己电脑上时窗口就在他桌面上，只给静态画面） */
+  desktopsLive?: boolean;
   desktopsNote?: string;
   /** 正在跑的代码指纹（用于判断有没有新版本） */
   build?: string;

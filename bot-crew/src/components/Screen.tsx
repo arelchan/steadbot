@@ -26,7 +26,11 @@ export function ScreenCard() {
   const old = !!rt && rt.mode === 'active' && rt.desktops === undefined;
   const idle = !!rt && rt.mode !== 'active';
   const using = (st === 'on' ? (d?.users ?? []) : []).map((id) => bots.find((b) => b.id === id)?.name).filter((n): n is string => !!n);
+  // On a screen the App cannot stream (the bots run on this very computer), the window is on the user's desktop:
+  // the one action is to bring it up.
+  const streamed = rt?.desktopsLive !== false;
   const open = () => {
+    if (!streamed) return agent.computerFocus();
     if (st === 'error') agent.computerPower(true);
     setBig(true);
   };
@@ -41,7 +45,7 @@ export function ScreenCard() {
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9.5 2.5H13.5V6.5M13.5 2.5L9 7M6.5 13.5H2.5V9.5M2.5 13.5L7 9" />
                 </svg>
-                {t('screen.open')}
+                {streamed ? t('screen.open') : t('screen.toWindow')}
               </button>
             </>
           ) : (
@@ -62,7 +66,7 @@ export function ScreenCard() {
         {st === 'error' && <div className="sc-note">{t('screen.retryHint')}</div>}
         {st === 'none' && !old && !idle && !rt?.local && rt?.desktopsNote && <div className="sc-note">{rt.desktopsNote}</div>}
       </div>
-      {big && st !== 'none' && <ScreenModal onClose={() => setBig(false)} />}
+      {big && streamed && st !== 'none' && <ScreenModal onClose={() => setBig(false)} />}
     </>
   );
 }

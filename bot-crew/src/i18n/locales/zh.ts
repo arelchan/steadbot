@@ -93,12 +93,10 @@ export const zh: Record<string, string> = {
 
   /* ---- 它们眼中的你 ---- */
   'profile.title': '它们眼中的你',
-  'profile.sub': '所有 bot 共用一份，各自另钉了几条',
-  'profile.shared': '所有 bot 共享',
+  'profile.sub': '所有 bot 共用一份',
+  'profile.shared': '你告诉它们的',
   'profile.addShared': '加一条所有 bot 都该知道的事…',
   'profile.engine': '它们看出来的',
-  'profile.own': '{name} 钉住的',
-  'profile.goSee': '去看它',
 
   /* ---- 新建群聊 ---- */
   'group.new': '新建群聊',
@@ -218,6 +216,7 @@ export const zh: Record<string, string> = {
 
   /* ---- bot 的电脑 ---- */
   'screen.open': '打开',
+  'screen.toWindow': '切到窗口',
   'screen.notHere': 'bot 不在这台机器',
   'screen.oldVersion': '这个版本还没有',
   'screen.noComputer': '还没有电脑',
@@ -256,8 +255,9 @@ export const zh: Record<string, string> = {
   'cfg.memAdd': '加一条，回车',
   'cfg.sharedMem': '所有 bot 共享',
   'cfg.memAbout': '关于用户',
-  'cfg.memLearned': '它学到的做法',
-  'cfg.memPinned': '钉住的几条',
+  'cfg.memSeen': '它看出来的',
+  'cfg.memTold': '你告诉它的',
+  'cfg.memCraft': '它的手艺',
   'cfg.memPromote': '设为团队通用',
   'cfg.memShared': '已通用',
   'cfg.skillsSub': '每个技能是一份它照着做的手册',

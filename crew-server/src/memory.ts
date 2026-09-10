@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CrewStore } from './store.ts';
 
@@ -67,6 +67,26 @@ export class MemoryStore {
     return removed;
   }
 
+  /**
+   * The user is one person, so what the bots know about him is one list (DESIGN.md §18). Whatever a bot kept to
+   * itself before that was decided moves into the shared list, once, and the per-bot files go away.
+   */
+  fold() {
+    let shared = [...this.store.data.sharedProfile];
+    let moved = 0;
+    for (const b of this.store.data.bots) {
+      if (!b.viewOfYou.length) continue;
+      for (const l of b.viewOfYou) if (!shared.includes(l)) { shared.push(l); moved += 1; }
+      this.store.patchBot(b.id, { viewOfYou: [] }, { growth: false });
+    }
+    if (moved) this.store.setSharedProfile(shared);
+    for (const b of this.store.data.bots) {
+      const f = this.memoryFile(b.id);
+      if (existsSync(f)) rmSync(f, { force: true });
+    }
+    if (moved) console.log(`[crew] 记忆：${moved} 条各 bot 私记的用户事实并进了共享事实`);
+  }
+
   /** Replace the whole list (after a background consolidation). */
   replace(botId: string, lines: string[], scope: 'private' | 'shared') {
     const clean = Array.from(new Set(lines.map((l) => l.trim()).filter(Boolean)));
@@ -79,9 +99,11 @@ export class MemoryStore {
   sync(botId?: string) {
     mkdirSync(this.sharedDir, { recursive: true });
     writeFileSync(join(this.sharedDir, 'PROFILE.md'), `# 关于用户\n\n${this.readShared().map((l) => `- ${l}`).join('\n')}\n`);
+    // Per-bot files only while a bot still has private lines (none after fold()); an empty file would suggest a place to write.
     const ids = botId ? [botId] : this.store.data.bots.map((b) => b.id);
     for (const id of ids) {
-      writeFileSync(this.memoryFile(id), `# 我对用户的认知\n\n${this.readPrivate(id).map((l) => `- ${l}`).join('\n')}\n`);
+      const lines = this.readPrivate(id);
+      if (lines.length) writeFileSync(this.memoryFile(id), `# 我对用户的认知\n\n${lines.map((l) => `- ${l}`).join('\n')}\n`);
     }
   }
 

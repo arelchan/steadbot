@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import type { IncomingMessage } from 'node:http';
 import { createRequire } from 'node:module';
 import { connect as tcpConnect } from 'node:net';
-import { platform } from 'node:os';
+import { homedir, platform } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { Duplex } from 'node:stream';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -14,18 +14,20 @@ import type { McpManager } from './integrations.ts';
 import type { Computer } from './types.ts';
 
 /*
- * The bots' computer: one Linux desktop on the machine the bots run on, shared by all of them — the way a team
- * shares one workstation. One browser, one profile (so a login done once is there for every bot), one screen the
- * user watches live in the App (and can use at the same time). Each bot drives the browser through its own
- * Playwright MCP process attached to the same browser over CDP; each process keeps its own current tab, so the
- * bots work side by side in their own tabs without locking each other out. Built from open-source pieces:
- *   - TigerVNC's Xvnc: an X display that is also a VNC server (loopback only);
- *   - openbox + tint2 on that display, so it looks and behaves like a desktop;
- *   - Playwright's Chromium, headed on that display, with remote debugging on;
- *   - Playwright MCP per bot, `--cdp-endpoint` to that Chromium: navigate, read the page as an accessibility
- *     snapshot, click, type, tabs… Snapshots are text, so a model without vision drives it fine.
- * noVNC in the App renders the screen over `/vnc`. Only a Linux machine with those packages (the cloud image ships
- * them) can host it; elsewhere the tool says so and the bot falls back to fetch_url / web_search.
+ * The bots' computer: one, on the machine the bots run on, shared by all of them — the way a team shares one
+ * workstation. One browser, one profile (so a login done once is there for every bot). Each bot drives the browser
+ * through its own Playwright MCP process attached to the same browser over CDP; each process keeps its own current
+ * tab, so the bots work side by side in their own tabs without locking each other out.
+ *
+ * Two layers, and everything a bot does lives in the second:
+ *   - the **screen** the browser's window is on. On a cloud machine there is none, so one is made — TigerVNC's Xvnc
+ *     (an X display that is also a VNC server), openbox + tint2 so it reads as a desktop — and the App watches it
+ *     live over `/vnc`. On the user's own computer the screen is the machine's own: the window is simply there on
+ *     their desktop, and the App shows a still of it instead of a stream.
+ *   - the **browser**: a Chromium with its own profile and remote debugging on, plus Playwright MCP per bot with
+ *     `--cdp-endpoint` to it (navigate, read the page as an accessibility snapshot, click, type, tabs…). Snapshots
+ *     are text, so a model without vision drives it fine. Nothing here knows which screen it is on; the harvest,
+ *     the login cards and the channel probe read pages over the same CDP port on either.
  */
 
 // The virtual screen is a laptop, because everything on it is read by a person watching the card and by a model
@@ -82,19 +84,34 @@ const execP = (cmd: string, args: string[], opts: { env?: NodeJS.ProcessEnv; max
     execFile(cmd, args, { encoding: 'buffer', maxBuffer: opts.maxBuffer ?? 8 * 1024 * 1024, env: opts.env, timeout: opts.timeout ?? 15_000 }, (err, out) => (err ? reject(err) : resolve(out as Buffer)));
   });
 
-/** Playwright's Chromium, so the dock's browser is the very one the bots drive (same profile, same logins). */
+/**
+ * The browser binary: Playwright's Chromium first (on the cloud image it is the only one, and the dock's browser
+ * icon opens the very instance the bots drive), then whatever Chromium-based browser the machine has.
+ */
 function chromiumBinary(): string | undefined {
-  const root = process.env.PLAYWRIGHT_BROWSERS_PATH ?? '/ms-playwright';
+  const os = platform();
+  const pwRoot = process.env.PLAYWRIGHT_BROWSERS_PATH ?? (os === 'linux' ? '/ms-playwright' : os === 'darwin' ? join(homedir(), 'Library/Caches/ms-playwright') : join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData/Local'), 'ms-playwright'));
+  const inside = os === 'linux' ? ['chrome-linux64/chrome', 'chrome-linux/chrome'] : os === 'darwin' ? ['chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium'] : ['chrome-win64/chrome.exe', 'chrome-win/chrome.exe'];
   try {
-    for (const dir of readdirSync(root).filter((d) => /^chromium-\d+$/.test(d)).sort().reverse())
-      for (const rel of ['chrome-linux64/chrome', 'chrome-linux/chrome']) {
-        const bin = join(root, dir, rel);
+    for (const dir of readdirSync(pwRoot).filter((d) => /^chromium-\d+$/.test(d)).sort().reverse())
+      for (const rel of inside) {
+        const bin = join(pwRoot, dir, rel);
         if (existsSync(bin)) return bin;
       }
   } catch {
     /* no Playwright browsers here */
   }
-  for (const bin of ['/opt/google/chrome/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome']) if (existsSync(bin)) return bin;
+  const installed =
+    os === 'linux'
+      ? ['/opt/google/chrome/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome']
+      : os === 'darwin'
+        ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge', '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser']
+        : [
+            join(process.env['ProgramFiles'] ?? 'C:\\Program Files', 'Google/Chrome/Application/chrome.exe'),
+            join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Google/Chrome/Application/chrome.exe'),
+            join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Microsoft/Edge/Application/msedge.exe'),
+          ];
+  for (const bin of installed) if (existsSync(bin)) return bin;
   return undefined;
 }
 
@@ -184,17 +201,104 @@ function writeDock(home: string) {
   writeFileSync(join(home, 'README.txt'), `这是 bot 们共用的电脑。每个 bot 的文件在 ${config.botsDir}/<bot>/workspace。\n`);
 }
 
+type Run = (cmd: string, args: string[]) => ChildProcess;
+
+/**
+ * The screen the browser window is on. Two of them exist; the rest of this file talks to this shape and does not
+ * know which one it has.
+ */
+interface Screen {
+  /** X display name, for processes on it and for the hands (gui.ts); the machine's own screen has none */
+  readonly display?: string;
+  /** whether the App can watch it live over /vnc */
+  readonly live: boolean;
+  /** why this machine cannot have this screen, or nothing if it can */
+  check(): Promise<string | undefined>;
+  /** bring the display up; `run` starts a process on it, `keep` one that is restarted if it dies */
+  start(run: Run, keep: Run): Promise<void>;
+  /** environment for processes on this screen */
+  env(): NodeJS.ProcessEnv;
+  /** browser flags this screen needs */
+  browserArgs(): string[];
+  /** a still of the whole screen, or undefined to fall back to a picture of the browser's page */
+  shot(width: number): Promise<Buffer> | undefined;
+  /** put the browser window in front of the user (own screen only) */
+  focus?(browser: string): Promise<void>;
+}
+
+/** A virtual X display we start ourselves, with a window manager and a dock, watchable over VNC. The cloud machine. */
+function virtualScreen(): Screen {
+  const display = `:${DISPLAY}`;
+  return {
+    display,
+    live: true,
+    async check() {
+      if (!(await which('Xvnc')) || !(await which('openbox'))) return '这台机器上没装桌面组件（tigervnc、openbox）；用最新的安装脚本重装一次就有';
+      return undefined;
+    },
+    env: () => ({ ...process.env, DISPLAY: display, HOME: config.computerDir, XDG_RUNTIME_DIR: config.computerDir }),
+    async start(run, keep) {
+      const home = config.computerDir;
+      run('Xvnc', [display, '-geometry', `${W}x${H}`, '-depth', '24', '-rfbport', String(VNC_PORT), '-SecurityTypes', 'None', '-localhost', '-AlwaysShared', '-desktop', 'EverBot 的电脑']);
+      const deadline = Date.now() + 10_000;
+      while (!(await portOpen(VNC_PORT))) {
+        if (Date.now() > deadline) throw new Error('显示器没起来（Xvnc 10 秒内没监听）');
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      // The desktop. It has to read as a computer at a glance: a wallpaper, a window manager, and a dock with the
+      // things a person expects to find — a browser, the bots' files, a terminal — all of which work for the user.
+      const wall = join(home, 'wallpaper.png');
+      if (!existsSync(wall)) await execP('convert', ['-size', `${W}x${H}`, 'radial-gradient:#f2f0eb-#b9b5ad', wall]).catch(() => undefined);
+      run('xsetroot', ['-solid', '#c9c5bd']);
+      if (existsSync(wall)) run('feh', ['--bg-fill', wall]);
+      keep('openbox', []);
+      writeDock(home);
+      keep('tint2', ['-c', join(home, 'tint2rc')]);
+    },
+    // Container + software-rendered X: no GPU (SwiftShader compositing is slower than plain CPU here), no reliance on
+    // the tiny /dev/shm, no smooth scrolling (dozens of in-between frames over VNC read as lag). Maximized, so the
+    // window follows the desktop when the viewer resizes it.
+    browserArgs: () => ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--disable-smooth-scrolling', '--force-device-scale-factor=1', '--start-maximized'],
+    shot: (width) => execP('import', ['-display', display, '-window', 'root', '-resize', `${width}x`, '-quality', '70', 'jpeg:-'], { env: { ...process.env, DISPLAY: display }, timeout: 5000 }),
+  };
+}
+
+/**
+ * The machine's own screen: the bots run on the user's computer and the browser window is on their desktop. Nothing
+ * to start, nothing to stream — the App shows a still of the browser's page, and 「切到窗口」 brings the window up.
+ */
+function ownScreen(): Screen {
+  return {
+    live: false,
+    check: async () => undefined,
+    env: () => ({ ...process.env }),
+    start: async () => undefined,
+    // A fresh profile on a Mac makes Chrome ask for the login keychain; the mock keychain is what Playwright uses too.
+    browserArgs: () => [`--window-size=${W},${H}`, ...(platform() === 'darwin' ? ['--use-mock-keychain'] : [])],
+    shot: () => undefined,
+    async focus(browser) {
+      if (platform() === 'darwin') {
+        const app = browser.match(/^(.*?\.app)\//)?.[1];
+        if (app) await execP('open', [app]).catch(() => undefined);
+      }
+    },
+  };
+}
+
 interface Live {
   procs: ChildProcess[];
+  browser: ChildProcess;
   viewers: number;
   /** bots whose browser tools are attached, with the time of their last call */
   bots: Map<string, number>;
 }
 
 export class DesktopManager {
-  /** whether this machine can host a desktop at all */
+  /** whether this machine can host a computer at all */
   capable = false;
   capableNote = '';
+  private screen: Screen = platform() === 'linux' ? virtualScreen() : ownScreen();
+  private browserBin: string | undefined;
   private live: Live | undefined;
   private wss = new WebSocketServer({ noServer: true });
   private sweep: ReturnType<typeof setInterval> | undefined;
@@ -215,13 +319,20 @@ export class DesktopManager {
   }
 
   async init() {
-    if (platform() !== 'linux') this.capableNote = 'bot 在用户自己的电脑上跑时没有独立桌面；用户把 bot 搬到云机器后才有电脑';
-    else if (!(await which('Xvnc')) || !(await which('openbox'))) this.capableNote = '这台机器上没装桌面组件（tigervnc、openbox）；用最新的安装脚本重装一次就有';
+    this.browserBin = chromiumBinary();
+    const screenNote = await this.screen.check();
+    if (screenNote) this.capableNote = screenNote;
+    else if (!this.browserBin) this.capableNote = platform() === 'linux' ? '这台机器上没有浏览器（Playwright 的 Chromium 没装上）' : '这台电脑上没有 Chrome / Chromium / Edge，装一个就有电脑';
     else this.capable = true;
     // Whatever was on before this process started is gone; say so.
     if (this.store.data.computer && this.store.data.computer.state !== 'off') this.patch({ state: 'off', note: undefined, since: undefined, users: [] });
     for (const i of this.store.data.integrations) if (/^desk-/.test(i.id) && i.status !== 'off') this.store.patchIntegration(i.id, { status: 'off', note: '电脑在休眠', tools: undefined });
     this.sweep = setInterval(() => this.sweepIdle(), 60_000);
+  }
+
+  /** Whether the App can watch this screen live (over /vnc); otherwise it shows stills and can bring the window up. */
+  get liveScreen() {
+    return this.screen.live;
   }
 
   integrationId(botId: string) {
@@ -271,6 +382,12 @@ export class DesktopManager {
     await this.booting;
   }
 
+  /** The browser window in front of the user — on their own screen. Wakes the computer first. */
+  async focus() {
+    await this.wake();
+    if (this.browserBin) await this.screen.focus?.(this.browserBin);
+  }
+
   private async boot() {
     const home = config.computerDir;
     const profile = join(home, 'chrome');
@@ -278,8 +395,8 @@ export class DesktopManager {
     inheritProfile(profile);
     this.patch({ state: 'starting', note: undefined, users: [] });
     const procs: ChildProcess[] = [];
-    const env = { ...process.env, DISPLAY: `:${DISPLAY}`, HOME: home, XDG_RUNTIME_DIR: home };
-    const run = (cmd: string, args: string[]) => {
+    const env = this.screen.env();
+    const run: Run = (cmd, args) => {
       const p = spawn(cmd, args, { env, stdio: 'ignore', detached: false });
       p.on('error', (e) => console.warn(`[crew] computer: ${cmd} failed: ${e.message}`));
       procs.push(p);
@@ -287,7 +404,7 @@ export class DesktopManager {
     };
     // The window manager and the dock are what make the screen read as a computer; tint2 in particular dies when
     // the desktop is resized (the viewer sets the resolution). Bring them back while the desktop is live.
-    const keep = (cmd: string, args: string[]) => {
+    const keep: Run = (cmd, args) => {
       const start = () => {
         const p = run(cmd, args);
         p.on('exit', (code) => {
@@ -302,37 +419,21 @@ export class DesktopManager {
       return start();
     };
     try {
-      run('Xvnc', [`:${DISPLAY}`, '-geometry', `${W}x${H}`, '-depth', '24', '-rfbport', String(VNC_PORT), '-SecurityTypes', 'None', '-localhost', '-AlwaysShared', '-desktop', 'EverBot 的电脑']);
-      const deadline = Date.now() + 10_000;
-      while (!(await portOpen(VNC_PORT))) {
-        if (Date.now() > deadline) throw new Error('显示器没起来（Xvnc 10 秒内没监听）');
-        await new Promise((r) => setTimeout(r, 200));
-      }
-      // The desktop. It has to read as a computer at a glance: a wallpaper, a window manager, and a dock with the
-      // things a person expects to find — a browser, the bots' files, a terminal — all of which work for the user.
-      const wall = join(home, 'wallpaper.png');
-      if (!existsSync(wall)) await execP('convert', ['-size', `${W}x${H}`, 'radial-gradient:#f2f0eb-#b9b5ad', wall]).catch(() => undefined);
-      run('xsetroot', ['-solid', '#c9c5bd']);
-      if (existsSync(wall)) run('feh', ['--bg-fill', wall]);
-      keep('openbox', []);
-      writeDock(home);
-      keep('tint2', ['-c', join(home, 'tint2rc')]);
+      await this.screen.start(run, keep);
       // One browser, started here and shared: every bot drives it over CDP (its own Playwright MCP attaches), and
-      // the dock's browser icon opens a window in this same instance, so what the user signs into every bot has.
-      // A profile lock left by a previous container (different hostname) would make Chrome refuse to start.
+      // on the virtual screen the dock's browser icon opens a window in this same instance, so what the user signs
+      // into every bot has. A profile lock left by a previous container (different hostname) would make Chrome
+      // refuse to start.
       for (const f of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) rmSync(join(profile, f), { force: true });
-      const chrome = chromiumBinary();
-      if (!chrome) throw new Error('这台机器上没有浏览器（Playwright 的 Chromium 没装上）');
-      // Container + software-rendered X: no GPU (SwiftShader compositing is slower than plain CPU here), no reliance on
-      // the tiny /dev/shm, no smooth scrolling (dozens of in-between frames over VNC read as lag). Maximized, so the
-      // window follows the desktop when the viewer resizes it.
-      run(chrome, ['--no-sandbox', `--user-data-dir=${profile}`, `--remote-debugging-port=${CDP_PORT}`, '--no-first-run', '--no-default-browser-check', '--hide-crash-restore-bubble', '--disable-features=TranslateUI', '--disable-gpu', '--disable-dev-shm-usage', '--disable-smooth-scrolling', '--force-device-scale-factor=1', '--start-maximized', 'about:blank']);
+      const chrome = this.browserBin;
+      if (!chrome) throw new Error('这台机器上没有浏览器');
+      const browser = run(chrome, [`--user-data-dir=${profile}`, `--remote-debugging-port=${CDP_PORT}`, '--no-first-run', '--no-default-browser-check', '--hide-crash-restore-bubble', '--disable-features=TranslateUI', ...this.screen.browserArgs(), 'about:blank']);
       const cdpDeadline = Date.now() + 20_000;
       while (!(await portOpen(CDP_PORT))) {
         if (Date.now() > cdpDeadline) throw new Error('浏览器 20 秒内没起来');
         await new Promise((r) => setTimeout(r, 250));
       }
-      this.live = { procs, viewers: 0, bots: new Map() };
+      this.live = { procs, browser, viewers: 0, bots: new Map() };
       // The port opens long before the browser is usable. Chrome brings back the session it was killed with — a
       // dozen heavy tabs (Feishu, Telegram, each with its own service and shared workers) all loading at once on a
       // two-core box — and a Playwright client has to attach to every one of those targets before it can do
@@ -342,7 +443,7 @@ export class DesktopManager {
       await this.tidyTabs().catch(() => undefined);
       await this.settle();
       this.patch({ state: 'on', since: Date.now(), lastUsed: Date.now(), note: undefined, users: [] });
-      console.log(`[crew] the computer is on (display :${DISPLAY})`);
+      console.log(`[crew] the computer is on (${this.screen.display ? `display ${this.screen.display}` : 'the machine\'s own screen'})`);
     } catch (e) {
       for (const p of procs) p.kill();
       const note = (e as Error).message.slice(0, 160);
@@ -367,8 +468,10 @@ export class DesktopManager {
     const fresh = !this.store.integration(id);
     const pw = playwrightMcp();
     const args = [...pw.args, '--cdp-endpoint', `http://127.0.0.1:${CDP_PORT}`, '--output-dir', join(botDir, 'workspace', '_browser'), '--image-responses', config.modelInfo?.vision ? 'allow' : 'omit', '--timeout-navigation', '30000'];
+    const env: Record<string, string> = {};
+    if (this.screen.display) Object.assign(env, { DISPLAY: this.screen.display, HOME: config.computerDir });
     // ASCII name: MCP tools are exposed to the model as `<name>__<tool>`, so this yields computer__browser_navigate etc.
-    const row = { kind: 'mcp' as const, name: 'computer', transport: 'stdio' as const, command: pw.command, args, env: { DISPLAY: `:${DISPLAY}`, HOME: config.computerDir }, owner: botId, status: 'connecting' as const, note: '接上电脑…' };
+    const row = { kind: 'mcp' as const, name: 'computer', transport: 'stdio' as const, command: pw.command, args, env, owner: botId, status: 'connecting' as const, note: '接上电脑…' };
     if (fresh) this.store.addIntegration({ id, ...row });
     else this.store.patchIntegration(id, row);
     if (!(bot.integrationIds ?? []).includes(id)) this.store.patchBot(botId, { integrationIds: [...(bot.integrationIds ?? []), id] }, { growth: false });
@@ -413,9 +516,9 @@ export class DesktopManager {
     return !!this.live;
   }
 
-  /** The X display while the computer is on (for the hands, gui.ts). */
+  /** The X display while the computer is on (for the hands, gui.ts); none on a machine's own screen. */
   get display(): string | undefined {
-    return this.live ? `:${DISPLAY}` : undefined;
+    return this.live ? this.screen.display : undefined;
   }
 
   /** A bot used the screen through something other than its browser tools (the hands); keeps the computer awake. */
@@ -453,15 +556,18 @@ export class DesktopManager {
   /** first time each target was seen, so "the oldest ones" means something without asking Chrome */
   private seenTabs = new Map<string, number>();
 
+  private async tabs(): Promise<{ id: string; type: string; url: string }[]> {
+    return fetch(`http://127.0.0.1:${CDP_PORT}/json/list`, { signal: AbortSignal.timeout(5000) })
+      .then((r) => r.json() as Promise<{ id: string; type: string; url: string }[]>)
+      .catch(() => []);
+  }
+
   /**
    * Hold the browser to a size a new client can attach to quickly. Blank tabs are pure residue (one per bot per
    * attach) — keep one to land on. Past the cap, the tabs that have been sitting around longest go first.
    */
   private async tidyTabs(cap = TAB_CAP) {
-    const list = await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`, { signal: AbortSignal.timeout(5000) })
-      .then((r) => r.json() as Promise<{ id: string; type: string; url: string }[]>)
-      .catch(() => []);
-    const pages = list.filter((t) => t.type === 'page');
+    const pages = (await this.tabs()).filter((t) => t.type === 'page');
     if (!pages.length) return;
     const now = Date.now();
     for (const p of pages) if (!this.seenTabs.has(p.id)) this.seenTabs.set(p.id, now);
@@ -479,19 +585,39 @@ export class DesktopManager {
     if (doomed.size) console.log(`[crew] computer: 关掉 ${doomed.size} 个标签页（还剩 ${pages.length - doomed.size} 个）`);
   }
 
-  /** How much memory the browser is holding, in MB. Chrome is one process per tab plus its own; sum them. */
+  /**
+   * How much memory the browser is holding, in MB: the process we started and everything under it (Chrome is one
+   * process per tab). Counted from the tree, not by name, so the user's own browser on the same machine is not it.
+   */
   private async chromeRssMb(): Promise<number> {
-    let total = 0;
-    for (const pid of readdirSync('/proc').filter((n) => /^\d+$/.test(n))) {
-      try {
-        if (!readFileSync(`/proc/${pid}/comm`, 'utf8').startsWith('chrome')) continue;
-        const rss = /VmRSS:\s+(\d+) kB/.exec(readFileSync(`/proc/${pid}/status`, 'utf8'))?.[1];
-        if (rss) total += Number(rss) / 1024;
-      } catch {
-        /* the process ended while we were reading it */
+    const root = this.live?.browser.pid;
+    if (!root) return 0;
+    const procs: { pid: number; ppid: number; rssKb: number }[] = [];
+    if (existsSync('/proc')) {
+      for (const pid of readdirSync('/proc').filter((n) => /^\d+$/.test(n))) {
+        try {
+          const status = readFileSync(`/proc/${pid}/status`, 'utf8');
+          const ppid = Number(/PPid:\s+(\d+)/.exec(status)?.[1] ?? 0);
+          const rss = Number(/VmRSS:\s+(\d+) kB/.exec(status)?.[1] ?? 0);
+          procs.push({ pid: Number(pid), ppid, rssKb: rss });
+        } catch {
+          /* the process ended while we were reading it */
+        }
+      }
+    } else {
+      const out = await execP('ps', ['-axo', 'pid=,ppid=,rss='], { timeout: 5000 }).catch(() => Buffer.alloc(0));
+      for (const line of out.toString().split('\n')) {
+        const [pid, ppid, rss] = line.trim().split(/\s+/).map(Number);
+        if (pid) procs.push({ pid, ppid, rssKb: rss || 0 });
       }
     }
-    return Math.round(total);
+    const tree = new Set([root]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const p of procs) if (!tree.has(p.pid) && tree.has(p.ppid)) (tree.add(p.pid), (grew = true));
+    }
+    return Math.round(procs.filter((p) => tree.has(p.pid)).reduce((s, p) => s + p.rssKb, 0) / 1024);
   }
 
   /** A bot has stopped using the computer: close its tab and let its browser process go. */
@@ -507,12 +633,8 @@ export class DesktopManager {
 
   private cdp: Promise<import('playwright-core').Browser> | undefined;
 
-  /**
-   * The server's own eyes on the shared browser (harvest, see index.ts): a playwright-core connection over the same
-   * CDP port the bots' MCP processes use. Pages are the bots' tabs; `match` picks one by a piece of its URL or
-   * title. Nothing read here goes through a model unless the caller passes it on.
-   */
-  async readPage<T>(match: { url?: string; title?: string }, fn: (page: import('playwright-core').Page) => Promise<T>): Promise<T> {
+  /** The server's own connection to the shared browser, made once and kept. */
+  private async browser(): Promise<import('playwright-core').Browser> {
     if (!this.live) throw new Error('电脑没开');
     if (!this.cdp) {
       this.cdp = (async () => {
@@ -528,7 +650,16 @@ export class DesktopManager {
         throw e;
       });
     }
-    const browser = await this.cdp;
+    return this.cdp;
+  }
+
+  /**
+   * The server's own eyes on the shared browser (harvest, see index.ts): a playwright-core connection over the same
+   * CDP port the bots' MCP processes use. Pages are the bots' tabs; `match` picks one by a piece of its URL or
+   * title. Nothing read here goes through a model unless the caller passes it on.
+   */
+  async readPage<T>(match: { url?: string; title?: string }, fn: (page: import('playwright-core').Page) => Promise<T>): Promise<T> {
+    const browser = await this.browser();
     const pages = browser.contexts().flatMap((c) => c.pages());
     const want = pages.filter((p) => (!match.url || p.url().includes(match.url)) && (!match.title || false));
     let picked = want;
@@ -551,9 +682,34 @@ export class DesktopManager {
     return join(config.computerDir, 'last.jpg');
   }
 
+  /**
+   * A picture of the computer: the whole screen where there is one of ours, otherwise the page most recently in
+   * front in the browser (Chrome lists targets most-recent first).
+   */
+  private async frame(width: number): Promise<Buffer> {
+    const whole = this.screen.shot(width);
+    if (whole) return whole;
+    const front = (await this.tabs()).find((t) => t.type === 'page' && t.url !== 'about:blank' && t.url !== 'chrome://newtab/');
+    const browser = await this.browser();
+    const pages = browser.contexts().flatMap((c) => c.pages());
+    const page = (front && pages.find((p) => p.url() === front.url)) ?? pages[0];
+    if (!page) throw new Error('浏览器里没有页面');
+    // Straight to CDP: Playwright's screenshot cannot scale, and a full-size frame every couple of seconds is
+    // twenty times the bytes the card needs.
+    // `scale` is on top of the device pixel ratio, so a Retina screen needs half of it for the same width.
+    const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio }));
+    const cdp = await page.context().newCDPSession(page);
+    try {
+      const { data } = await cdp.send('Page.captureScreenshot', { format: 'jpeg', quality: 70, clip: { x: 0, y: 0, width: size.width, height: size.height, scale: Math.min(1, width / (size.width * size.dpr)) } });
+      return Buffer.from(data, 'base64');
+    } finally {
+      await cdp.detach().catch(() => undefined);
+    }
+  }
+
   private async keepLastFrame() {
     try {
-      const jpeg = await execP('import', ['-display', `:${DISPLAY}`, '-window', 'root', '-resize', '640x', '-quality', '70', 'jpeg:-'], { env: { ...process.env, DISPLAY: `:${DISPLAY}` }, timeout: 5000 });
+      const jpeg = await this.frame(640);
       if (jpeg.length > 0) writeFileSync(this.lastFramePath(), jpeg);
     } catch {
       /* no frame to keep; the card falls back to a dark screen */
@@ -573,7 +729,7 @@ export class DesktopManager {
       return existsSync(last) ? readFile(last) : undefined;
     }
     if (this.shot && Date.now() - this.shot.at < 2000) return this.shot.jpeg;
-    const jpeg = execP('import', ['-display', `:${DISPLAY}`, '-window', 'root', '-resize', `${width}x`, '-quality', '70', 'jpeg:-'], { env: { ...process.env, DISPLAY: `:${DISPLAY}` } });
+    const jpeg = this.frame(width);
     this.shot = { at: Date.now(), jpeg };
     jpeg.catch(() => (this.shot = undefined));
     return jpeg;
@@ -582,7 +738,7 @@ export class DesktopManager {
   /** A viewer connects over WebSocket; bytes go straight to the VNC server on the display's loopback port. */
   proxy(req: IncomingMessage, socket: Duplex, head: Buffer) {
     const l = this.live;
-    if (!l) {
+    if (!l || !this.screen.live) {
       socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
       socket.destroy();
       return;

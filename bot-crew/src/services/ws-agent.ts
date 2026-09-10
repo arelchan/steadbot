@@ -196,6 +196,10 @@ export class WsAgentService implements AgentService {
     this.send({ type: 'computer_power', on });
   }
 
+  computerFocus() {
+    this.send({ type: 'computer_focus' });
+  }
+
   onPendingChoice(pendingId: string, optionId: string) {
     const p = getState().pendings.find((x) => x.id === pendingId);
     const label = p?.options.find((o) => o.id === optionId)?.label ?? optionId;

@@ -68,6 +68,7 @@ async function main() {
   const store = new CrewStore(config.dataFile, seedSnapshot);
   const events = new EventEmitter();
   const memory = new MemoryStore(store, config.botsDir, config.sharedDir);
+  memory.fold();
   memory.sync();
   const broker = new PendingBroker(store, config.askTimeoutMs);
   const skills = new SkillStore(join(config.piAgentDir, 'skills'));
@@ -109,7 +110,7 @@ async function main() {
   const hosts = new AgentHosts(store);
   runner.hosts = hosts;
   let hostClient: HostClient | undefined;
-  runtime.extra = () => ({ agentHost: hosts.status(), hostLink: hostClient ? hostClient.state : runtime.mode === 'moved' ? 'no_token' : undefined, desktops: active ? desktops.capable : undefined, desktopsNote: active && !desktops.capable ? desktops.capableNote : undefined, busy: active ? bots.busyNames() : undefined });
+  runtime.extra = () => ({ agentHost: hosts.status(), hostLink: hostClient ? hostClient.state : runtime.mode === 'moved' ? 'no_token' : undefined, desktops: active ? desktops.capable : undefined, desktopsLive: active && desktops.capable ? desktops.liveScreen : undefined, desktopsNote: active && !desktops.capable ? desktops.capableNote : undefined, busy: active ? bots.busyNames() : undefined });
   const startHostLink = () => {
     const t = loadMovedTarget(runtime.movedTo);
     hostClient?.stop();
@@ -1272,6 +1273,9 @@ async function main() {
           else await desktops.off();
           break;
         }
+        case 'computer_focus':
+          await desktops.focus();
+          break;
         case 'add_integration': {
           const i = store.addIntegration({ ...msg.integration, status: msg.integration.kind === 'mcp' ? 'connecting' : 'off' });
           if (i.kind === 'mcp') void mcp.connect(i.id);

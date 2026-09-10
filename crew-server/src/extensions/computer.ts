@@ -17,8 +17,8 @@ export function computerExtension(c: BotCtx, desktops: () => DesktopManager | un
         name: 'computer',
         label: '电脑',
         description:
-          'bot 们共用的一台电脑：bot 所在机器上的一个 Linux 桌面，带一个浏览器，所有 bot 共用它和它的登录态，用户在 App 里能实时看到屏幕、也能直接在上面操作。open = 接上它（睡着会先唤醒），接好后你会多出一组 computer__browser_* 工具（打开网址、把页面读成文字快照、点击、输入、切标签、截图…），用它们上网、登录网站、填表、下载文件；谁登录过的网站大家都能用。每个 bot 在自己的标签页里干活，互不影响。off = 让整台电脑休眠（登录态保留）。status = 看现在的状态。bot 在用户自己的电脑上跑时没有这台电脑，工具会告诉你，那就用 fetch_url / web_search。',
-        promptSnippet: '接上 bot 们共用的电脑（云机器上的桌面 + 浏览器，用户能实时看屏幕）：computer(open) 后用 computer__browser_* 工具上网、登录、填表，只动自己的标签',
+          'bot 们共用的一台电脑：bot 所在机器上的一个浏览器，所有 bot 共用它和它的登录态。在云机器上它有自己的桌面，用户在 App 里能实时看到屏幕、也能直接在上面操作；在用户自己的电脑上它就是用户桌面上的一个浏览器窗口，用户直接看得见。open = 接上它（睡着会先唤醒），接好后你会多出一组 computer__browser_* 工具（打开网址、把页面读成文字快照、点击、输入、切标签、截图…），用它们上网、登录网站、填表、下载文件；谁登录过的网站大家都能用。每个 bot 在自己的标签页里干活，互不影响。off = 让整台电脑休眠（登录态保留）。status = 看现在的状态。这台机器上开不了电脑时工具会告诉你，那就用 fetch_url / web_search。',
+        promptSnippet: '接上 bot 们共用的电脑（一个共用浏览器，用户看得见）：computer(open) 后用 computer__browser_* 工具上网、登录、填表，只动自己的标签',
         promptGuidelines: [
           '只读一个公开网页用 fetch_url 就够；要登录、要点来点去、要填表、要下载、要在网站里操作，才接电脑：computer(open)，然后用 computer__browser_* 工具。',
           '浏览器是大家共用的，标签页是你自己的：接上时系统已经给你开了一个，只在自己开的标签里操作，不要 close / select 别人的标签；要多开就 browser_tabs(new)。自己的标签被关了就再开一个。',

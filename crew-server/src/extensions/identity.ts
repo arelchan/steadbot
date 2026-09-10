@@ -109,7 +109,6 @@ export function identityExtension(c: BotCtx, skills?: () => SkillStore, ops?: ()
 - 视觉类交付（PPT、报告、网页、游戏、海报）动手前先掂量：用现在的手段做出来能不能看。python-pptx 从零堆文字、CSS 方块拼游戏，出来一定难看。不能看就先看「可用但未装」那几行，或者 library(search)，read 手册照着做，再动手。
 - 做出来的东西先自己看一眼再交：PPT 直接 see(那个 .pptx) 逐页看版面，PDF 和文档 see(路径, look=true)，网页和游戏截图再 see。溢出、重叠、文字被裁、看不清、全是字没有图，都不算做完，改了再看一遍。图不够就 draw 一张。`,
           await remembered(),
-          b.viewOfYou.length ? `## 你自己钉住的几条\n${b.viewOfYou.map((l) => `- ${l}`).join('\n')}` : '',
           c.store.data.sharedProfile.length ? `## 关于用户的共享事实\n${c.store.data.sharedProfile.map((l) => `- ${l}`).join('\n')}` : '',
           openTodos.length
             ? `## 你手上的事项\n${openTodos.map((t) => `- [${t.id}] ${t.title} · ${t.status}${t.summary ? ` · ${t.summary}` : ''}`).join('\n')}`
