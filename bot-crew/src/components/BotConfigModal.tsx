@@ -7,6 +7,7 @@ import { agent } from '../services/agent';
 import { Avatar } from './Avatar';
 import { Sk } from './Skeleton';
 import { Markdown } from './Markdown';
+import { Pick } from './Field';
 import { cx, fullDate, fmtTime, shortDay } from '../utils';
 import { useT, tn, t as tr } from '../i18n';
 
@@ -409,12 +410,11 @@ function Routines({ bot }: { bot: Bot }) {
   if (open) return <RoutineDetail bot={bot} r={open} onBack={back} />;
   return (
     <>
-      <Head title={t('cfg.routines')} right={<button className="icon-btn" onClick={add} title={t('cfg.rtNew')} aria-label={t('cfg.rtNew')}>+</button>} />
+      <Head title={t('cfg.routines')} />
       <ul className="routine-list">
         {bot.routines.map((r) => (
           <li key={r.id} className={cx(!r.enabled && 'off')}>
             <button className="rt-open" onClick={() => setOpenId(r.id)}>
-              <span className="rt-ic">◷</span>
               <span className="rt-main">
                 <span className="rt-t">{r.title.trim() || t('cfg.rtUntitled')}</span>
                 <span className="rt-s">{sayWhen(r.schedule)}</span>
@@ -423,8 +423,8 @@ function Routines({ bot }: { bot: Bot }) {
             </button>
           </li>
         ))}
-        {bot.routines.length === 0 && <li className="quiet">{t('common.none')}</li>}
       </ul>
+      <button className="rt-new" onClick={add}>+ {t('cfg.rtNew')}</button>
     </>
   );
 }
@@ -455,7 +455,10 @@ function RoutineDetail({ bot, r, onBack }: { bot: Bot; r: Routine; onBack: () =>
         <span className="sd-actions">
           <button className="link quiet-link" onClick={() => { patchBot(bot.id, { routines: bot.routines.filter((x) => x.id !== r.id) }); onBack(); }}>{t('common.delete')}</button>
           <button className="btn sm" onClick={run} disabled={ran}>{ran ? t('cfg.rtRan') : t('cfg.rtTest')}</button>
-          <button className={cx('tgl', r.enabled && 'on')} onClick={() => set({ enabled: !r.enabled })} role="switch" aria-checked={r.enabled} title={t(r.enabled ? 'ws.routineOn' : 'ws.routineOff')}><i /></button>
+          <span className="rt-en">
+            <button className={cx('tgl', r.enabled && 'on')} onClick={() => set({ enabled: !r.enabled })} role="switch" aria-checked={r.enabled}><i /></button>
+            {t(r.enabled ? 'ws.routineOn' : 'ws.routineOff')}
+          </span>
         </span>
       </div>
 
@@ -472,17 +475,17 @@ function RoutineDetail({ bot, r, onBack }: { bot: Bot; r: Routine; onBack: () =>
       <div className="fld">
         <span>{t('cfg.rtWhenLabel')}</span>
         <div className="rt-when">
-          <select className="fld-in sel" value={w.freq} onChange={(e) => setWhen({ freq: e.target.value as Freq })}>
+          <Pick value={w.freq} onChange={(v) => setWhen({ freq: v as Freq })}>
             {FREQS.map((f) => (
               <option key={f} value={f}>{t(`cfg.rtFreq.${f}`)}</option>
             ))}
-          </select>
+          </Pick>
           {w.freq === 'weekly' && (
-            <select className="fld-in sel" value={w.day} onChange={(e) => setWhen({ day: Number(e.target.value) })}>
+            <Pick value={String(w.day)} onChange={(v) => setWhen({ day: Number(v) })}>
               {WEEK.map((_, i) => (
                 <option key={i} value={i}>{t(`cfg.rtDay.${i}`)}</option>
               ))}
-            </select>
+            </Pick>
           )}
           {(w.freq === 'daily' || w.freq === 'weekdays' || w.freq === 'weekly') && (
             <input className="fld-in time" type="time" value={w.at} onChange={(e) => setWhen({ at: e.target.value || '09:00' })} />
@@ -493,18 +496,16 @@ function RoutineDetail({ bot, r, onBack }: { bot: Bot; r: Routine; onBack: () =>
         </div>
       </div>
 
-      {where.length > 1 && (
-        <div className="fld">
-          <span>{t('cfg.rtTo')}</span>
-          <div className="rt-ch">
-            {where.map((ch) => (
-              <button key={ch} className={cx('chip', (r.channels ?? where).includes(ch) && 'accent')} onClick={() => pick(ch)}>
-                {tr(`channel.${ch}`)}
-              </button>
-            ))}
-          </div>
+      <div className="fld">
+        <span>{t('cfg.rtTo')}</span>
+        <div className="rt-ch">
+          {where.map((ch) => (
+            <button key={ch} className={cx('chip', (r.channels ?? where).includes(ch) && 'accent')} onClick={() => pick(ch)}>
+              {tr(`channel.${ch}`)}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
       <div className="fld">
         <span>{t('cfg.rtHistory')}</span>

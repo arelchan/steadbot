@@ -72,7 +72,6 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
             title={t('ws.routines')}
             hint={routines.length ? tn('ws.routineLive', live) : undefined}
             startOpen={false}
-            action={<button className="icon-btn" onClick={() => setRoutines(true)} title={t('cfg.rtNew')} aria-label={t('cfg.rtNew')}>+</button>}
           >
             <RoutineList bot={bot} onOpen={() => setRoutines(true)} />
           </Section>
@@ -85,7 +84,7 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
 }
 
 /** One collapsible band of the workspace. `grow` gives the section the leftover height (the task list). */
-function Section({ title, hint, children, startOpen = true, grow, lead, action }: { title: string; hint?: string; children: ReactNode; startOpen?: boolean; grow?: boolean; lead?: ReactNode; action?: ReactNode }) {
+function Section({ title, hint, children, startOpen = true, grow, lead }: { title: string; hint?: string; children: ReactNode; startOpen?: boolean; grow?: boolean; lead?: ReactNode }) {
   const [open, setOpen] = useState(startOpen);
   return (
     <section className={cx('ws-sec', open && 'open', grow && open && 'grow')}>
@@ -98,7 +97,6 @@ function Section({ title, hint, children, startOpen = true, grow, lead, action }
             {hint && <span className="quiet">{hint}</span>}
           </span>
         )}
-        {action && open && <span onClick={(e) => e.stopPropagation()}>{action}</span>}
         <span className={cx('ws-chev', open && 'open')} aria-hidden>
           ›
         </span>
@@ -112,13 +110,12 @@ function Section({ title, hint, children, startOpen = true, grow, lead, action }
 function RoutineList({ bot, onOpen }: { bot: Bot; onOpen: () => void }) {
   const t = useT();
   const toggle = (id: string) => patchBot(bot.id, { routines: bot.routines.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)) });
-  if (!bot.routines.length) return <div className="quiet ws-empty">{t('common.none')}</div>;
   return (
+    <>
     <ul className="routine-list compact">
       {bot.routines.map((r) => (
         <li key={r.id} className={cx(!r.enabled && 'off')}>
           <button className="rt-open" onClick={onOpen}>
-            <span className="rt-ic">◷</span>
             <span className="rt-main">
               <span className="rt-t">{r.title.trim() || t('cfg.rtUntitled')}</span>
               <span className="rt-s">{sayWhen(r.schedule)}</span>
@@ -130,6 +127,8 @@ function RoutineList({ bot, onOpen }: { bot: Bot; onOpen: () => void }) {
         </li>
       ))}
     </ul>
+    <button className="rt-new" onClick={onOpen}>+ {t('cfg.rtNew')}</button>
+    </>
   );
 }
 

@@ -6,6 +6,7 @@ import { httpBase, authHeaders } from '../services/runtime';
 import { fetchUpgradeStatus, runUpgrade } from '../services/upgrade';
 import { ACCENTS, SCALES, THEMES, getAccent, getDesktopNotify, getScale, getTheme, notifySupported, setAccent, setDesktopNotify, setScale, setTheme, type Accent, type Scale, type Theme } from '../services/theme';
 import { RuntimeBody } from './RuntimeView';
+import { Row, Pick } from './Field';
 import { cx } from '../utils';
 import { LOCALES, useT, useLocale, setLocale, intlLocale, tn, t as tr, type Locale } from '../i18n';
 
@@ -34,7 +35,6 @@ export function SettingsModal({ tab: initial = 'general', onClose }: { tab?: Tab
         <aside className="cfg-side">
           <div className="cfg-who">
             <div className="cfg-name">{t('set.title')}</div>
-            <div className="cfg-tag">EverBot</div>
           </div>
           <nav className="cfg-nav">
             {TABS.map((x) => (
@@ -91,65 +91,52 @@ function General() {
   return (
     <>
       <Head title={t('set.general')} />
+      <div className="set-rows">
+        <Row label={t('set.language')}>
+          <Pick value={locale} onChange={(v) => pickLocale(v as Locale)}>
+            {LOCALES.map((l) => (
+              <option key={l.id} value={l.id}>{l.label}</option>
+            ))}
+          </Pick>
+        </Row>
 
-      <h4>{t('set.language')}</h4>
-      <select className="tz-pick lang-pick" value={locale} onChange={(e) => pickLocale(e.target.value as Locale)}>
-        {LOCALES.map((l) => (
-          <option key={l.id} value={l.id}>
-            {l.label}
-          </option>
-        ))}
-      </select>
+        <Row label={t('set.botReply')}>
+          <div className="seg tight">
+            <button className={cx(!followMe && 'on')} onClick={() => setSettings({ language: locale })}>{t('set.followUi')}</button>
+            <button className={cx(followMe && 'on')} onClick={() => setSettings({ language: 'auto' })}>{t('set.followMe')}</button>
+          </div>
+        </Row>
 
-      <h4>{t('set.botReply')}</h4>
-      <div className="seg">
-        <button className={cx(!followMe && 'on')} onClick={() => setSettings({ language: locale })}>
-          {t('set.followUi')}
-        </button>
-        <button className={cx(followMe && 'on')} onClick={() => setSettings({ language: 'auto' })}>
-          {t('set.followMe')}
-        </button>
+        <TimezoneRow />
+
+        <Row label={t('set.theme')}>
+          <div className="seg tight">
+            {THEMES.map((x) => (
+              <button key={x.id} className={cx(theme === x.id && 'on')} onClick={() => { setT(x.id); setTheme(x.id); }}>{t(`theme.${x.id}`)}</button>
+            ))}
+          </div>
+        </Row>
+
+        <Row label={t('set.accent')}>
+          <div className="dots">
+            {ACCENTS.map((a) => (
+              <button key={a.id} className={cx('dot', accent === a.id && 'on')} style={{ background: a.swatch }} onClick={() => { setA(a.id); setAccent(a.id); }} title={t(`accent.${a.id}`)} aria-label={t(`accent.${a.id}`)} />
+            ))}
+          </div>
+        </Row>
+
+        <Row label={t('set.density')}>
+          <div className="seg tight">
+            {SCALES.map((x) => (
+              <button key={x.id} className={cx(scale === x.id && 'on')} onClick={() => { setS(x.id); setScale(x.id); }}>{t(`scale.${x.id}`)}</button>
+            ))}
+          </div>
+        </Row>
+
+        <Row label={t('set.notifySwitch')} note={notifySupported() ? undefined : t('set.notifyUnsupported')}>
+          <button className={cx('tgl', notify && 'on')} onClick={() => void setDesktopNotify(!notify).then(setN)} role="switch" aria-checked={notify} disabled={!notifySupported()}><i /></button>
+        </Row>
       </div>
-
-      <h4>{t('set.timezone')}</h4>
-      <TimezoneRow />
-
-      <h4>{t('set.theme')}</h4>
-      <div className="seg">
-        {THEMES.map((x) => (
-          <button key={x.id} className={cx(theme === x.id && 'on')} onClick={() => { setT(x.id); setTheme(x.id); }}>
-            {t(`theme.${x.id}`)}
-          </button>
-        ))}
-      </div>
-
-      <h4>{t('set.accent')}</h4>
-      <div className="swatches">
-        {ACCENTS.map((a) => (
-          <button key={a.id} className={cx('swatch', accent === a.id && 'on')} onClick={() => { setA(a.id); setAccent(a.id); }} title={t(`accent.${a.id}`)}>
-            <i style={{ background: a.swatch }} />
-            <span>{t(`accent.${a.id}`)}</span>
-          </button>
-        ))}
-      </div>
-
-      <h4>{t('set.density')}</h4>
-      <div className="seg">
-        {SCALES.map((x) => (
-          <button key={x.id} className={cx(scale === x.id && 'on')} onClick={() => { setS(x.id); setScale(x.id); }}>
-            {t(`scale.${x.id}`)}
-          </button>
-        ))}
-      </div>
-
-      <h4>{t('set.notifications')}</h4>
-      <button className="tgl-row" onClick={() => void setDesktopNotify(!notify).then(setN)} role="switch" aria-checked={notify} disabled={!notifySupported()}>
-        <span className="tgl-l">
-          <span>{t('set.notifySwitch')}</span>
-          {!notifySupported() && <span className="tgl-h">{t('set.notifyUnsupported')}</span>}
-        </span>
-        <span className={cx('tgl', notify && 'on')}><i /></span>
-      </button>
     </>
   );
 }
@@ -254,32 +241,30 @@ function TimezoneRow() {
     }
   })();
   return (
-    <div className="tz-row">
-      <div className="tz-main">
-        <select className="tz-pick" value={current} onChange={(e) => setSettings({ timezone: e.target.value })}>
-          {groups.map((g) => (
-            <optgroup key={g.area} label={g.area}>
-              {g.items.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {z.label}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <div className="tz-s">
+    <Row
+      label={t('set.timezone')}
+      note={
+        <>
           {now}
           {current !== here && (
             <>
-              {' '}
-              <button className="link" onClick={() => setSettings({ timezone: here })}>
-                {t('set.useThisDevice', { tz: here })}
-              </button>
+              {' · '}
+              <button className="link" onClick={() => setSettings({ timezone: here })}>{t('set.useThisDevice', { tz: here })}</button>
             </>
           )}
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <Pick wide value={current} onChange={(v) => setSettings({ timezone: v })}>
+        {groups.map((g) => (
+          <optgroup key={g.area} label={g.area}>
+            {g.items.map((z) => (
+              <option key={z.id} value={z.id}>{z.label}</option>
+            ))}
+          </optgroup>
+        ))}
+      </Pick>
+    </Row>
   );
 }
 
