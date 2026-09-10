@@ -248,7 +248,13 @@ const ACT_TOOL: Tool = {
 
 const SYSTEM = `你在操作一台电脑，通过截图看屏幕，一次只做一个动作。每一步都调用 computer 工具给出这个动作，不要用文字描述动作。
 坐标以本次截图的像素为准，左上角是 (0,0)。
-规则：先看清再点，点之前确认目标就在这张截图里；系统会告诉你上一步之后画面有没有变化，说「画面没有变化」时不要原样再来一次，换个位置或换个办法；需要登录、验证码、付款、不可逆的删除，用 fail 说明并停下；不要输入任何密码或密钥；完成目标后立刻 done，不做多余的事。`;
+规则：
+- 先看清再点，点之前确认目标就在这张截图里。
+- 往已经有内容的输入框（地址栏、搜索框、表单）里输入之前，先点它，再 keypress ["ctrl","a"] 全选，否则新内容会接在旧内容后面。
+- 系统会告诉你上一步之后画面有没有变化。说「画面没有变化」时不要原样再来一次：换个位置、换个办法，或者先 wait 一下等页面加载。
+- 只根据这张截图里真正看得见的东西判断，不要假设上一步已经生效。
+- 需要登录、验证码、付款、不可逆的删除，用 fail 说明并停下；不要输入任何密码或密钥。
+- 目标达成后立刻 done，summary 写你在最后这张截图里看到的结果（页面标题、文件名、状态），不要写你的打算。`;
 
 let queue: Promise<unknown> = Promise.resolve();
 /** Who holds the screen right now, for the tool's own message. */
@@ -334,13 +340,12 @@ async function operateNow(hands: Hands, goal: string, opts: { display?: string; 
     // The schema-checked call is the contract; prose JSON is the fallback for a model that ignores tools.
     const parsed = call ? fromArgs(call.arguments) : parseStep(said);
     if (!parsed) {
-      // The native protocol ends a run by answering with a message instead of a call. A model that writes a real
-      // sentence here has almost always finished or given up, so take it at its word rather than looping.
-      if (!call && said.length > 12 && i > 1) return finish(true, said.slice(0, 600), i, lastShot, log, dir);
+      // Prose instead of a call is confusion, not completion: the native protocol's "a message ends the run" only
+      // holds for a model actually speaking it. Retry, and if it keeps talking, end with what it said, unfinished.
       log.push(`## ${i}\n模型没有给出可执行的动作：${said.slice(0, 300)}`);
-      history.push(`${i}. （模型输出无法解析，重试）`);
+      history.push(`${i}. （没有给出动作，重试）${said ? `：${said.slice(0, 60)}` : ''}`);
       unparsed++;
-      if (unparsed >= 3) return finish(false, '模型连续三次没有给出可执行的动作', i, lastShot, log, dir);
+      if (unparsed >= 3) return finish(false, said ? `模型只是在描述，没有真的操作：${said.slice(0, 300)}` : '模型连续三次没有给出可执行的动作', i, lastShot, log, dir);
       continue;
     }
     unparsed = 0;
