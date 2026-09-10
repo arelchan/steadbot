@@ -24,7 +24,6 @@ export function RuntimeView() {
         <span className="rt-hd-ic">{remote ? '☁' : '⌂'}</span>
         <div className="who">
           <span className="n">{t('rt.title')}</span>
-          <span className="t">{t('rt.sub')}</span>
         </div>
       </header>
       <div className="inbox rt-page">
@@ -36,7 +35,6 @@ export function RuntimeView() {
 
 /** Everything about where the bots live: the same cards whether shown as a page or inside 设置 › 云电脑. */
 export function RuntimeBody() {
-  const t = useT();
   const rt = useStore((s) => s.runtime);
   const online = useStore((s) => s.online);
   const target = getRuntime();
@@ -49,7 +47,6 @@ export function RuntimeBody() {
       {!remote && rt?.mode !== 'moved' && <MoveOutCard />}
       {remote && <MoveBackCard rt={rt} />}
       {!remote && cloudAvailable && <CloudLeftover />}
-      <div className="rt-fine">{t('rt.fine')}</div>
     </>
   );
 }
@@ -66,12 +63,9 @@ function CurrentCard({ rt, online, remote, name }: { rt?: RuntimeInfo; online?: 
           {tx('rt.nowOn', { name: <b>{label}</b> })}
           <span className={cx('rt-status', online === false ? 'off' : rt?.mode === 'active' ? 'ok' : 'warn')}>{status}</span>
         </div>
-        <div className="rt-desc">
-          {remote ? t('rt.descRemote') : t('rt.descLocal')}
-        </div>
         {rt && (
           <div className="rt-meta">
-            {rt.hostname} · {rt.platform === 'darwin' ? 'macOS' : rt.platform === 'linux' ? 'Linux' : rt.platform} · {t('rt.versionMeta', { v: rt.version })}
+            {rt.hostname} · {rt.platform === 'darwin' ? 'macOS' : rt.platform === 'linux' ? 'Linux' : rt.platform}
             {remote && rt.publicUrl ? ` · ${rt.publicUrl.replace(/^https?:\/\//, '')}` : ''}
           </div>
         )}
@@ -92,10 +86,8 @@ function HostLine({ rt }: { rt: RuntimeInfo }) {
       <span className={cx('rt-host-dot', h ? 'ok' : 'off')} />
       {h ? (
         <span>
-          {t('rt.hostOn', {
-            name: h.name,
-            agents: h.agents.length ? h.agents.map((a) => AGENT_NAMES[a] ?? a).join(t('common.listSep')) : t('rt.hostNoAgents'),
-          })}
+          {h.name}
+          <i>{h.agents.length ? h.agents.map((a) => AGENT_NAMES[a] ?? a).join(t('common.listSep')) : t('rt.hostNoAgents')}</i>
         </span>
       ) : (
         <span>{t('rt.hostOff')}</span>
@@ -137,7 +129,6 @@ function MovedNotice({ rt }: { rt: RuntimeInfo }) {
       <div className="rt-ic">→</div>
       <div className="rt-main">
         <div className="rt-title">{tx('rt.movedTo', { name: <b>{rt.movedTo?.replace(/^https?:\/\//, '') || t('rt.anotherMachine')}</b> })}</div>
-        <div className="rt-desc">{t('rt.movedDesc')}</div>
         <LendingLine rt={rt} />
         <div className="rt-row">
           <input className="mem-add" placeholder={t('rt.pairingCode')} value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} />
@@ -265,7 +256,6 @@ function MoveOutCard() {
       <div className="rt-ic">☁</div>
       <div className="rt-main">
         <div className="rt-title">{t('rt.moveOut')}</div>
-        <div className="rt-desc">{t('rt.moveOutDesc')}</div>
         {!open ? (
           <div className="rt-row">
             <button className="btn sm primary" disabled={summoning} onClick={() => void summon()}>{summoning ? t('rt.summoning') : t('rt.summon')}</button>
@@ -444,7 +434,7 @@ function MoveBackCard({ rt }: { rt?: RuntimeInfo }) {
       <div className="rt-ic">⌂</div>
       <div className="rt-main">
         <div className="rt-title">{t('rt.backTitle')}</div>
-        <div className="rt-desc">{localOk === false ? t('rt.backNoLocal') : t('rt.backDesc')}</div>
+        {localOk === false && <div className="rt-desc">{t('rt.backNoLocal')}</div>}
         <div className="rt-row">
           <button className="btn sm" disabled={!localOk || step !== 'idle'} onClick={() => setStep('confirm')}>
             {step === 'moving' ? t('rt.backing') : step === 'done' ? t('rt.switching') : t('rt.back')}
@@ -491,7 +481,6 @@ function HostedCard() {
       <div className="rt-ic">☁</div>
       <div className="rt-main">
         <div className="rt-title">{t('rt.hostedTitle')} <span className="rt-tag">{t('rt.recommended')}</span></div>
-        <div className="rt-desc">{t('rt.hostedDesc')}</div>
         <div className="rt-row">
           <button className="btn sm primary" disabled={step !== 'idle'} onClick={() => setStep('confirm')}>
             {step === 'moving' ? t('rt.hostedBooting') : step === 'done' ? t('rt.switching') : t('rt.hostedStart')}
@@ -528,7 +517,7 @@ function CloudLeftover() {
       <div className="rt-ic">☁</div>
       <div className="rt-main">
         <div className="rt-title">{t('rt.leftoverTitle')}</div>
-        <div className="rt-desc">{t('rt.leftoverDesc', { state: home.running ? t('rt.leftoverOn') : t('rt.leftoverOff') })}</div>
+        <div className="rt-meta">{home.name} · {home.running ? t('rt.leftoverOn') : t('rt.leftoverOff')}</div>
         <div className="rt-row"><button className="btn sm" onClick={() => setAsk(true)}>{t('rt.leftoverBtn')}</button></div>
         {err && <div className="rt-err">{err}</div>}
       </div>

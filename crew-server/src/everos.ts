@@ -12,7 +12,8 @@
  * the agent track — which is why a bot's own id is what we later read back as `agent_id`.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import YAML from 'yaml';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { config } from './config.ts';
@@ -122,6 +123,10 @@ function childEnv(root: string): Record<string, string> {
     EVEROS_EMBEDDING__MODEL: process.env.CREW_EMBEDDING_MODEL ?? 'baai/bge-m3',
     EVEROS_EMBEDDING__API_KEY: key,
     EVEROS_EMBEDDING__BASE_URL: 'https://openrouter.ai/api/v1',
+    // Parsing an uploaded document (knowledge) goes through a model that can read pages, not the text model.
+    EVEROS_MULTIMODAL__MODEL: (config.visionModel ?? 'openrouter/google/gemini-2.5-flash').replace(/^openrouter\//, ''),
+    EVEROS_MULTIMODAL__API_KEY: key,
+    EVEROS_MULTIMODAL__BASE_URL: 'https://openrouter.ai/api/v1',
     // Both tracks: what the user is like, and how a bot got something done.
     EVEROS_MEMORIZE__MODE: 'agent',
     EVEROS_MEMORY__TIMEZONE: process.env.TZ || 'Asia/Shanghai',
@@ -499,8 +504,379 @@ export async function skillsOf(botId: string): Promise<{ name: string; text: str
   }));
 }
 
-/** What the settings panel shows: one shared profile, and what this bot has worked out for itself. */
-export async function overview(botId?: string): Promise<{ alive: boolean; profile: string[]; skills: { name: string; text: string; at: string }[] }> {
-  if (!up) return { alive: false, profile: [], skills: [] };
-  return { alive: true, profile: profileCache, skills: botId ? await skillsOf(botId) : [] };
+
+// ── the profile as a document ─────────────────────────────────────────────────
+//
+// md is the engine's truth and it watches the files: editing `user.md` *is* editing memory, and the
+// index follows. Nothing else in the product touches these files (the read tools refuse them).
+
+const profilePath = () => join(memoryRoot(), APP, SPACE, 'users', HUMAN, 'user.md');
+
+export interface ProfileEntry {
+  category?: string;
+  description: string;
+  evidence?: string;
+}
+export interface TraitEntry {
+  trait?: string;
+  description: string;
+  basis?: string;
+  evidence?: string;
+}
+export interface ProfileDoc {
+  summary: string;
+  explicit: ProfileEntry[];
+  traits: TraitEntry[];
+  /** the engine's own stamp: the newest conversation that fed this synthesis */
+  at: number;
+}
+
+function readProfileFile(): { fm: Record<string, unknown>; body: string } | undefined {
+  const f = profilePath();
+  if (!existsSync(f)) return undefined;
+  const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(readFileSync(f, 'utf8'));
+  if (!m) return undefined;
+  try {
+    return { fm: (YAML.parse(m[1]) as Record<string, unknown>) ?? {}, body: m[2] };
+  } catch {
+    return undefined;
+  }
+}
+
+const str = (v: unknown) => (typeof v === 'string' ? v : '');
+
+export function profileDoc(): ProfileDoc | undefined {
+  const r = readProfileFile();
+  if (!r) return undefined;
+  const ex = Array.isArray(r.fm.explicit_info) ? (r.fm.explicit_info as Record<string, unknown>[]) : [];
+  const tr = Array.isArray(r.fm.implicit_traits) ? (r.fm.implicit_traits as Record<string, unknown>[]) : [];
+  return {
+    summary: str(r.fm.summary),
+    explicit: ex.map((e) => ({ category: str(e.category) || undefined, description: str(e.description), evidence: str(e.evidence) || undefined })),
+    traits: tr.map((e) => ({ trait: str(e.trait) || undefined, description: str(e.description), basis: str(e.basis) || undefined, evidence: str(e.evidence) || undefined })),
+    at: Number(r.fm.profile_timestamp_ms ?? 0) || 0,
+  };
+}
+
+/**
+ * Change or drop one line of the profile. Two things happen, because the engine re-synthesises this
+ * document from its clusters and would otherwise say the same thing again next time: the file is
+ * rewritten now (the watcher re-indexes it), and the correction is said to the engine as the user
+ * saying it, so the next synthesis has the counter-evidence.
+ */
+export async function editProfile(kind: 'explicit' | 'trait', index: number, text: string | null): Promise<boolean> {
+  const r = readProfileFile();
+  if (!r) return false;
+  const key = kind === 'explicit' ? 'explicit_info' : 'implicit_traits';
+  const list = Array.isArray(r.fm[key]) ? ([...(r.fm[key] as Record<string, unknown>[])] as Record<string, unknown>[]) : [];
+  const cur = list[index];
+  if (!cur) return false;
+  const old = str(cur.description);
+  const next = text?.trim() ?? '';
+  if (next) list[index] = { ...cur, description: next };
+  else list.splice(index, 1);
+  r.fm[key] = list;
+  writeFileSync(profilePath(), `---\n${YAML.stringify(r.fm)}---\n${r.body}`);
+  void statedFact('user_edits', next ? `（更正）「${old}」这条不准确，应该是：${next}` : `（更正）「${old}」这条不对，作废。`);
+  void flush('user_edits');
+  return true;
+}
+
+/** A fact the user typed in by hand. It goes through the engine like anything else the user says. */
+export async function addFact(text: string): Promise<boolean> {
+  if (!up || !text.trim()) return false;
+  await statedFact('user_edits', text.trim());
+  await flush('user_edits');
+  return true;
+}
+
+/** "This is wrong" on a memory that is not editable as a line (an episode): said back as a correction. */
+export async function correct(text: string): Promise<boolean> {
+  if (!up || !text.trim()) return false;
+  await statedFact('user_edits', `（更正）${text.trim()}`);
+  void flush('user_edits');
+  return true;
+}
+
+// ── listings for the memory page ──────────────────────────────────────────────
+
+export interface EpisodeItem {
+  id: string;
+  subject: string;
+  summary: string;
+  content: string;
+  at: string;
+  senders: string[];
+  session: string;
+}
+interface RawEpisode {
+  id?: string;
+  subject?: string;
+  summary?: string;
+  episode?: string;
+  timestamp?: string;
+  sender_ids?: string[];
+  session_id?: string;
+}
+const toEpisode = (e: RawEpisode): EpisodeItem => ({
+  id: e.id ?? '',
+  subject: e.subject ?? '',
+  summary: e.summary ?? '',
+  content: e.episode ?? '',
+  at: e.timestamp ?? '',
+  senders: e.sender_ids ?? [],
+  session: e.session_id ?? '',
+});
+
+/** Newest first; or, with a query, what the engine's hybrid search finds. */
+export async function episodes(query: string, page = 1, size = 30): Promise<{ items: EpisodeItem[]; total: number }> {
+  if (!up) return { items: [], total: 0 };
+  const q = query.trim();
+  if (q) {
+    const d = await call<{ episodes?: RawEpisode[] }>('search', { ...readUser(), query: trim(q, 300), top_k: 30, method: 'hybrid' }, 30_000);
+    const items = (d?.episodes ?? []).map(toEpisode);
+    return { items, total: items.length };
+  }
+  const d = await call<{ episodes?: RawEpisode[]; total_count?: number }>('get', { ...readUser(), memory_type: 'episode', page, page_size: Math.min(100, size), sort_by: 'timestamp', sort_order: 'desc' }, 15_000);
+  return { items: (d?.episodes ?? []).map(toEpisode), total: d?.total_count ?? 0 };
+}
+
+export interface CaseItem {
+  id: string;
+  botId: string;
+  intent: string;
+  approach: string;
+  insight: string;
+  quality: number;
+  at: string;
+  session: string;
+}
+export interface SkillItem {
+  id: string;
+  botId: string;
+  name: string;
+  description: string;
+  content: string;
+  confidence: number;
+  maturity: number;
+  sources: string[];
+}
+
+/** Every bot's cases (or one bot's), newest first. One call per bot: the engine partitions by owner. */
+export async function cases(botIds: string[]): Promise<CaseItem[]> {
+  if (!up) return [];
+  const per = await Promise.all(
+    botIds.map(async (botId) => {
+      const d = await call<{ agent_cases?: Record<string, unknown>[] }>('get', { ...readBot(botId), memory_type: 'agent_case', page: 1, page_size: 100, sort_by: 'timestamp', sort_order: 'desc' }, 15_000);
+      return (d?.agent_cases ?? []).map((k) => ({
+        id: str(k.id),
+        botId,
+        intent: str(k.task_intent),
+        approach: str(k.approach),
+        insight: str(k.key_insight),
+        quality: Number(k.quality_score ?? 0) || 0,
+        at: str(k.timestamp),
+        session: str(k.session_id),
+      }));
+    }),
+  );
+  return per.flat().sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+
+export async function skills(botIds: string[]): Promise<SkillItem[]> {
+  if (!up) return [];
+  const per = await Promise.all(
+    botIds.map(async (botId) => {
+      const d = await call<{ agent_skills?: Record<string, unknown>[] }>('get', { ...readBot(botId), memory_type: 'agent_skill', page: 1, page_size: 100, sort_by: 'updated_at', sort_order: 'desc' }, 15_000);
+      return (d?.agent_skills ?? []).map((k) => ({
+        id: str(k.id),
+        botId,
+        name: str(k.name),
+        description: str(k.description),
+        content: str(k.content),
+        confidence: Number(k.confidence ?? 0) || 0,
+        maturity: Number(k.maturity_score ?? 0) || 0,
+        sources: Array.isArray(k.source_case_ids) ? (k.source_case_ids as string[]) : [],
+      }));
+    }),
+  );
+  return per.flat();
+}
+
+/** The team's shared ways of working (owner `crew`), for the same page. */
+export const crewSkills = () => skills([CREW]);
+export const CREW_ID = CREW;
+
+// ── knowledge ────────────────────────────────────────────────────────────────
+//
+// The other half of what a bot knows, and the opposite shape from memory: memory grows out of the
+// conversation, knowledge is a document the user hands over. The engine splits an upload into a tree
+// of topics (each with a summary and its full text), classifies it into one of its own categories, and
+// keeps it under `knowledge/<category>/<title>/`. No owner: a document is the whole crew's.
+//
+// It is also the one kind the engine can really delete, so "remove" here means removed.
+
+const kBase = `${BASE}/api/v1/knowledge`;
+const kScope = `app_id=${APP}&project_id=${SPACE}`;
+
+export interface KDoc {
+  docId: string;
+  category: string;
+  title: string;
+  topics: number;
+  at: string;
+}
+export interface KTopic {
+  id: string;
+  name: string;
+  path: string;
+  depth: number;
+  summary: string;
+  content?: string;
+}
+export interface KDocDetail {
+  docId: string;
+  category: string;
+  title: string;
+  summary: string;
+  source?: string;
+  topics: KTopic[];
+}
+
+async function kcall<T>(path: string, init?: RequestInit, ms = 20_000): Promise<T | undefined> {
+  if (!up) return undefined;
+  try {
+    const r = await fetch(`${kBase}${path}`, { ...init, signal: AbortSignal.timeout(ms) });
+    const j = (await r.json()) as { data?: T; error?: { message?: string } };
+    if (!r.ok || j.error) {
+      console.warn(`[crew] 知识 ${path}：${j.error?.message ?? r.status}`);
+      return undefined;
+    }
+    return j.data;
+  } catch (e) {
+    if ((e as Error).name !== 'TimeoutError') console.warn(`[crew] 知识 ${path}：${(e as Error).message}`);
+    return undefined;
+  }
+}
+
+const str2 = (v: unknown) => (typeof v === 'string' ? v : '');
+
+export async function kDocs(): Promise<{ items: KDoc[]; categories: { id: string; docs: number }[] }> {
+  const [d, c] = await Promise.all([
+    kcall<{ documents?: Record<string, unknown>[] }>(`/documents?${kScope}&page_size=100`),
+    kcall<{ categories?: Record<string, unknown>[] }>(`/categories?${kScope}`),
+  ]);
+  return {
+    items: (d?.documents ?? []).map((x) => ({ docId: str2(x.doc_id), category: str2(x.category_id), title: str2(x.title), topics: Number(x.topic_count ?? 0) || 0, at: str2(x.created_at) })),
+    // Only the categories that actually hold something: the engine ships a whole taxonomy.
+    categories: (c?.categories ?? []).map((x) => ({ id: str2(x.category_id), docs: Number(x.document_count ?? 0) || 0 })).filter((x) => x.docs > 0),
+  };
+}
+
+export async function kDoc(docId: string): Promise<KDocDetail | undefined> {
+  const d = await kcall<Record<string, unknown>>(`/documents/${encodeURIComponent(docId)}?${kScope}`);
+  if (!d) return undefined;
+  const topics = Array.isArray(d.topics) ? (d.topics as Record<string, unknown>[]) : [];
+  return {
+    docId: str2(d.doc_id),
+    category: str2(d.category_id),
+    title: str2(d.title),
+    summary: str2(d.summary),
+    source: str2(d.source_name) || undefined,
+    topics: topics.map((t) => ({ id: str2(t.topic_id), name: str2(t.topic_name), path: str2(t.topic_path), depth: Number(t.depth ?? 1) || 1, summary: str2(t.summary) })),
+  };
+}
+
+export async function kTopic(topicId: string): Promise<KTopic | undefined> {
+  const d = await kcall<Record<string, unknown>>(`/topics/${encodeURIComponent(topicId)}?${kScope}`);
+  if (!d) return undefined;
+  return { id: str2(d.topic_id), name: str2(d.topic_name), path: str2(d.topic_path), depth: Number(d.depth ?? 1) || 1, summary: str2(d.summary), content: str2(d.content) };
+}
+
+/**
+ * Hand a file to the engine. Slow — splitting a 30 KB design doc into 25 topics took 109 s — so this is
+ * never awaited by a turn; the caller reports "在读" and the document shows up when it is done.
+ */
+export async function kAdd(name: string, bytes: Buffer, title: string, category?: string): Promise<{ docId: string; topics: number } | undefined> {
+  if (!up) return undefined;
+  const form = new FormData();
+  form.set('file', new Blob([new Uint8Array(bytes)]), name);
+  form.set('title', title.trim() || name);
+  form.set('app_id', APP);
+  form.set('project_id', SPACE);
+  if (category) form.set('category_id', category);
+  const d = await kcall<{ doc_id?: string; topic_count?: number }>('/documents', { method: 'POST', body: form }, 600_000);
+  return d ? { docId: str2(d.doc_id), topics: Number(d.topic_count ?? 0) || 0 } : undefined;
+}
+
+/** Really gone, unlike a memory: the document and every topic under it. */
+export async function kRemove(docId: string): Promise<boolean> {
+  const d = await kcall<{ doc_id?: string }>(`/documents/${encodeURIComponent(docId)}?${kScope}`, { method: 'DELETE' });
+  return !!d;
+}
+
+/**
+ * Retrieval over the topics.
+ *
+ * The engine's own `/knowledge/search` needs a rerank provider for every method (`_require_search_providers`),
+ * and there is none configured here — OpenRouter has no rerank endpoint. So we ask it first and, when it
+ * refuses, fall back to matching the query's words against topic names and summaries we already hold. That
+ * is weaker than a vector search but it is honest, free, and enough to put three lines in front of a turn.
+ */
+let kIndex: { at: number; rows: { topic: KTopic; doc: string }[] } | undefined;
+
+async function kAllTopics(): Promise<{ topic: KTopic; doc: string }[]> {
+  if (kIndex && Date.now() - kIndex.at < 120_000) return kIndex.rows;
+  const { items } = await kDocs();
+  const detail = await Promise.all(items.slice(0, 40).map((d) => kDoc(d.docId)));
+  const rows = detail.flatMap((d) => (d ? d.topics.map((topic) => ({ topic, doc: d.title })) : []));
+  kIndex = { at: Date.now(), rows };
+  return rows;
+}
+
+export async function kSearch(query: string, k = 8): Promise<{ topic: KTopic; doc: string; score: number }[]> {
+  if (!up) return [];
+  const q = trim(query.replace(/\s+/g, ' ').trim(), 300);
+  if (q.length < 2) return [];
+  const d = await kcall<{ hits?: Record<string, unknown>[] }>('/search', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ query: q, app_id: APP, project_id: SPACE, top_k: k, method: 'hybrid', include_content: false }),
+  }, 30_000);
+  if (d?.hits?.length) {
+    return d.hits.map((h) => ({
+      topic: { id: str2(h.topic_id), name: str2(h.topic_name), path: str2(h.topic_path), depth: Number(h.depth ?? 1) || 1, summary: str2(h.summary) },
+      doc: str2((h.document as Record<string, unknown> | undefined)?.title),
+      score: Number(h.score ?? 0) || 0,
+    }));
+  }
+  // Word overlap over what we hold. CJK has no spaces, so a query is also cut into 2-grams.
+  const rows = await kAllTopics();
+  const words = new Set<string>();
+  for (const w of q.toLowerCase().split(/[\s,，。、;；:：?？!！()（）]+/)) {
+    if (!w) continue;
+    if (/[a-z0-9]/i.test(w) && w.length > 1) words.add(w);
+    for (let i = 0; i < w.length - 1; i++) if (/[\u4e00-\u9fa5]/.test(w[i])) words.add(w.slice(i, i + 2));
+  }
+  if (!words.size) return [];
+  return rows
+    .map((r) => {
+      const name = r.topic.name.toLowerCase();
+      const hay = `${name} ${r.topic.summary} ${r.doc}`.toLowerCase();
+      let hit = 0;
+      for (const w of words) if (hay.includes(w)) hit += (name.includes(w) ? 2 : 1);
+      return { ...r, score: hit / (words.size * 2) };
+    })
+    // Ranked by how much of the query a topic actually contains, not by a ratio threshold: a two-word
+    // query about one section matches only a fraction of its own grams and would fail any fixed floor.
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k);
+}
+
+/** The段 that goes in front of a turn: three topic summaries and which document they came from. */
+export async function knowledgeFor(query: string, budgetMs = 2500): Promise<string[]> {
+  if (!up || query.trim().length < 4) return [];
+  const hits = await Promise.race([kSearch(query, 3), new Promise<never[]>((r) => setTimeout(() => r([]), budgetMs))]).catch(() => []);
+  return hits.slice(0, 3).map((h) => `${h.doc}｜${h.topic.name}：${trim(h.topic.summary.replace(/\s+/g, ' ').trim(), 160)}`);
 }

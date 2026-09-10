@@ -26,7 +26,6 @@ export function Inbox() {
       <header className="hd">
         <div className="who">
           <span className="n">{t('inbox.title')}</span>
-          <span className="t">{t('inbox.sub')}</span>
         </div>
       </header>
       <div className="inbox">
@@ -65,7 +64,7 @@ export function Inbox() {
           );
         })}
 
-        {waiting.length === 0 && <div className="empty">{t('inbox.allClear')}</div>}
+        {waiting.length === 0 && <div className="empty">{t('side.clear')}</div>}
 
         {doneRecently.length > 0 && (
           <div className="inbox-group">

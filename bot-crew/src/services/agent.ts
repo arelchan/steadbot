@@ -50,6 +50,8 @@ export interface AgentService {
   computerPower(on: boolean): void;
   /** 把电脑的浏览器窗口切到用户面前（bot 跑在用户自己电脑上时） */
   computerFocus(): void;
+  /** 例行任务试跑：不等到点，现在就让它跑一次 */
+  runRoutine(botId: string, routineId: string): void;
   start(): void;
   stop(): void;
 }
@@ -423,6 +425,9 @@ export class MockAgentService implements AgentService {
   computerFocus() {
     /* mock: no computer */
   }
+  runRoutine() {
+    /* mock: no scheduler */
+  }
 
   onPendingChoice(pendingId: string, optionId: string) {
     const s = getState();
@@ -575,32 +580,69 @@ export async function uploadFile(threadId: ThreadId, file: File): Promise<FileRe
   if (!r.ok) throw new Error(j.error || `上传失败（${r.status}）`);
   return j;
 }
-/**
- * What memory holds, for the bot's settings panel. The user's profile is one shared thing; the ways of
- * working belong to the bot that worked them out. Empty (and `alive: false`) on a machine with no memory
- * engine — the panel then shows only what the user pinned by hand.
- */
-export async function memoryOverview(botId?: string): Promise<{ alive: boolean; profile: string[]; skills: { name: string; text: string; at: string }[] }> {
-  if (!HTTP_BASE) return { alive: false, profile: [], skills: [] };
+/* ── memory (MemoryView): four kinds the engine keeps, read from it; the few writes go back through it ── */
+export interface ProfileEntry { category?: string; description: string; evidence?: string }
+export interface TraitEntry { trait?: string; description: string; basis?: string; evidence?: string }
+export interface ProfileDoc { summary: string; explicit: ProfileEntry[]; traits: TraitEntry[]; at: number }
+export interface EpisodeItem { id: string; subject: string; summary: string; content: string; at: string; senders: string[]; session: string }
+export interface CaseItem { id: string; botId: string; intent: string; approach: string; insight: string; quality: number; at: string; session: string }
+export interface SkillItem { id: string; botId: string; name: string; description: string; content: string; confidence: number; maturity: number; sources: string[] }
+
+async function memGet<T>(path: string, fallback: T): Promise<T> {
+  if (!HTTP_BASE) return fallback;
   try {
-    const r = await fetch(`${HTTP_BASE}/memory/overview${botId ? `?bot=${encodeURIComponent(botId)}` : ''}`, { headers: authHeaders() });
-    if (!r.ok) return { alive: false, profile: [], skills: [] };
-    return (await r.json()) as { alive: boolean; profile: string[]; skills: { name: string; text: string; at: string }[] };
+    const r = await fetch(`${HTTP_BASE}/memory/${path}`, { headers: authHeaders() });
+    return r.ok ? ((await r.json()) as T) : fallback;
   } catch {
-    return { alive: false, profile: [], skills: [] };
+    return fallback;
   }
 }
-
-/** Make one bot's way of working the whole crew's. */
-export async function promoteSkill(botId: string, name: string): Promise<boolean> {
+async function memPost(path: string, body: unknown): Promise<boolean> {
   if (!HTTP_BASE) return false;
   try {
-    const r = await fetch(`${HTTP_BASE}/memory/promote`, { method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() }, body: JSON.stringify({ botId, name }) });
+    const r = await fetch(`${HTTP_BASE}/memory/${path}`, { method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() }, body: JSON.stringify(body) });
     return r.ok;
   } catch {
     return false;
   }
 }
+export interface KDoc { docId: string; category: string; title: string; topics: number; at: string }
+export interface KTopic { id: string; name: string; path: string; depth: number; summary: string; content?: string }
+export interface KDocDetail { docId: string; category: string; title: string; summary: string; source?: string; topics: KTopic[] }
+
+export const knowledge = {
+  docs: () => memGet<{ alive: boolean; items: KDoc[]; categories: { id: string; docs: number }[] }>('knowledge', { alive: false, items: [], categories: [] }),
+  doc: (id: string) => memGet<{ doc: KDocDetail | null }>(`knowledge/doc?id=${encodeURIComponent(id)}`, { doc: null }),
+  topic: (id: string) => memGet<{ topic: KTopic | null }>(`knowledge/topic?id=${encodeURIComponent(id)}`, { topic: null }),
+  search: (q: string) => memGet<{ hits: { topic: KTopic; doc: string; score: number }[] }>(`knowledge/search?q=${encodeURIComponent(q)}`, { hits: [] }),
+  remove: (docId: string) => memPost('knowledge/remove', { docId }),
+  /** Splitting a document takes a minute or more, so this resolves when the engine has taken it, not when it is done. */
+  add: async (file: File, title: string): Promise<boolean> => {
+    if (!HTTP_BASE) return false;
+    try {
+      const r = await fetch(`${HTTP_BASE}/memory/knowledge/add?name=${encodeURIComponent(file.name)}&title=${encodeURIComponent(title || file.name)}`, {
+        method: 'POST',
+        headers: { 'content-type': file.type || 'application/octet-stream', ...authHeaders() },
+        body: file,
+      });
+      return r.ok;
+    } catch {
+      return false;
+    }
+  },
+};
+
+export const memory = {
+  profile: () => memGet<{ alive: boolean; profile: ProfileDoc | null }>('profile', { alive: false, profile: null }),
+  editProfile: (kind: 'explicit' | 'trait', index: number, text: string | null) => memPost('profile', { kind, index, text }),
+  addFact: (text: string) => memPost('fact', { text }),
+  correct: (text: string) => memPost('correct', { text }),
+  episodes: (q: string, page = 1) => memGet<{ items: EpisodeItem[]; total: number }>(`episodes?q=${encodeURIComponent(q)}&page=${page}`, { items: [], total: 0 }),
+  cases: (bot?: string) => memGet<{ items: CaseItem[] }>(`cases${bot ? `?bot=${encodeURIComponent(bot)}` : ''}`, { items: [] }),
+  skills: (bot?: string) => memGet<{ items: SkillItem[]; crew: SkillItem[] }>(`skills${bot ? `?bot=${encodeURIComponent(bot)}` : ''}`, { items: [], crew: [] }),
+  promote: (botId: string, name: string) => memPost('promote', { botId, name }),
+  adopt: (botId: string, name: string) => memPost('adopt', { botId, name }),
+};
 
 // One instance per page, surviving Vite HMR: a re-evaluated module must not create a second,
 // never-started client that swallows clicks.

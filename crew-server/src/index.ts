@@ -15,7 +15,7 @@ import { FakeBrain } from './fake-brain.ts';
 import { fromTemplate, inferBot, inferSkillDocs, inferSoul } from './infer-bot.ts';
 import { SkillStore } from './skills.ts';
 import { KIND_LABEL, Library, LIBRARY_CATEGORIES } from './library.ts';
-import { buildLabel, pickupSkills, runBuild, runMemory } from './builder.ts';
+import { buildLabel, pickupSkills, runBuild } from './builder.ts';
 import { ConnectorManager, POPULAR_TOOLKITS, isChinesePlatform } from './connectors.ts';
 import { AgentRunner, McpManager, seedIntegrations } from './integrations.ts';
 import { ChannelManager, CHANNEL_KEYS, CHANNEL_PATTERNS, CHANNEL_PUBLIC_KEYS, IMS, IM_NAME, connectCard, missingChannelCreds, saveBotChannelCreds, wecomCallback, whatsappCallback, type Im } from './channels.ts';
@@ -68,8 +68,6 @@ async function main() {
   const store = new CrewStore(config.dataFile, seedSnapshot);
   const events = new EventEmitter();
   const memory = new MemoryStore(store, config.botsDir, config.sharedDir);
-  memory.fold();
-  memory.sync();
   const broker = new PendingBroker(store, config.askTimeoutMs);
   const skills = new SkillStore(join(config.piAgentDir, 'skills'));
   const library = new Library(config.libraryDir);
@@ -86,14 +84,21 @@ async function main() {
     onExtract: (botId) =>
       void pickupSkills({ store, botsDir: config.botsDir, skillsOf: everos.skillsOf, build: async (id, spec) => bots.ops?.build(id, spec) }, botId),
   });
-  void everos.startMemory();
+  void everos.startMemory().then((ok) => {
+    // The two plain-text lists memory used to be: said to the engine once, as the user saying them, and gone.
+    if (!ok) return;
+    const legacy = memory.drain();
+    if (!legacy.length) return;
+    console.log(`[crew] 记忆：${legacy.length} 条旧清单里的事实交给引擎`);
+    void everos.turnDone('legacy_lists', legacy.map((text, i) => ({ role: 'user' as const, senderId: everos.HUMAN_ID, text, ts: Date.now() + i }))).then(() => everos.flush('legacy_lists'));
+  });
   void restoreAll()
     .catch((e: Error) => console.warn('[crew] tools restore failed:', e.message))
     .then(() => reconcileDeps('启动'));
   const mcp = new McpManager(store);
   const runner = new AgentRunner();
   const connectors = new ConnectorManager(store);
-  const bots = new BotManager(store, broker, memory, events, skills, mcp, runner, connectors);
+  const bots = new BotManager(store, broker, events, skills, mcp, runner, connectors);
   await seedIntegrations(store);
   // The bots share one computer here (a desktop + browser the user watches live), if this machine can host one.
   const desktops = new DesktopManager(store, mcp, (id) => bots.refreshTools(id));
@@ -235,6 +240,8 @@ async function main() {
       }
     }
   };
+  // 助理是产品自带的：第一次启动就把它建出来，置顶。头像在下面那个循环里一起生成。
+  if (active) ensureSteward(store);
   for (const b of store.data.bots) {
     // A build interrupted by a restart is gone; don't leave the UI saying building… forever.
     if (b.building?.length) store.patchBot(b.id, { building: [] });
@@ -376,7 +383,6 @@ async function main() {
   }
 
   // Memory consolidations for one list run strictly one after another; two in flight would clobber each other.
-  const memoryQueues = new Map<string, Promise<void>>();
   connectors.on('connected', async ({ integration, state }: { integration: Integration; state: { botId: string; threadId: ThreadId } }) => {
     const bot = store.bot(state.botId);
     if (bot && !(bot.integrationIds ?? []).includes(integration.id)) store.patchBot(bot.id, { integrationIds: [...(bot.integrationIds ?? []), integration.id] });
@@ -700,18 +706,6 @@ async function main() {
       void msg;
       return { status: 'card', text: `授权卡已发到对话里。用户授权完成后系统会通知你，届时 ${c.name} 的工具会出现在你的列表里；现在不要追问，先说一句让他点卡片，然后继续别的事或结束这一轮。` };
     },
-    async remember(botId, spec) {
-      const bot = store.bot(botId);
-      if (!bot) throw new Error('找不到这个 bot');
-      const job = { id: `mem_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, aspect: 'memory' as const, label: '记忆', since: Date.now() };
-      store.patchBot(botId, { building: [...(bot.building ?? []), job] });
-      const key = spec.scope === 'shared' ? 'shared' : botId;
-      const prev = memoryQueues.get(key) ?? Promise.resolve();
-      const next = prev.then(() => runMemory({ store, skills, memory, runtime: bots.modelRuntime, model: bots.lightModel }, botId, job, spec));
-      memoryQueues.set(key, next);
-      void next.finally(() => { if (memoryQueues.get(key) === next) memoryQueues.delete(key); });
-      return job;
-    },
     removeIntegration(id) {
       const i = store.integration(id);
       void (i?.connector ? connectors.disconnect(id) : mcp.disconnect(id));
@@ -894,29 +888,78 @@ async function main() {
           return true;
         }
       }
-      if (url.pathname === '/memory/overview') {
-        // What the settings panel shows: one profile for the whole crew, plus what this bot worked out for itself.
-        const botId = url.searchParams.get('bot') ?? undefined;
-        res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
-        res.end(JSON.stringify(await everos.overview(botId)));
-        return true;
-      }
-      if (url.pathname === '/memory/promote' && req.method === 'POST') {
-        // The user deciding that one bot's way of working is now everyone's. Sharing is this act and nothing else:
-        // no turn promotes anything by itself.
-        const chunks: Buffer[] = [];
-        await new Promise<void>((resolve, reject) => {
-          req.on('data', (c: Buffer) => chunks.push(c));
-          req.on('end', resolve);
-          req.on('error', reject);
-        });
-        const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { botId?: string; name?: string };
-        const bot = body.botId ? store.bot(body.botId) : undefined;
-        const found = bot ? (await everos.skillsOf(bot.id)).find((x) => x.name === body.name) : undefined;
-        const ok = found && bot ? await everos.promote(found.text, bot.name) : false;
-        res.writeHead(ok ? 200 : 409, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
-        res.end(JSON.stringify({ ok }));
-        return true;
+      if (url.pathname.startsWith('/memory/')) {
+        // The memory page (MemoryView): four kinds the engine keeps, read straight from it; the few writes there are
+        // (edit a profile line, add a fact, promote or adopt a skill, say "this is wrong") all go back through it.
+        const json = (code: number, body: unknown) => {
+          res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+          res.end(JSON.stringify(body));
+          return true;
+        };
+        const readBody = async <T,>(): Promise<T> => {
+          const chunks: Buffer[] = [];
+          await new Promise<void>((resolve, reject) => {
+            req.on('data', (c: Buffer) => chunks.push(c));
+            req.on('end', resolve);
+            req.on('error', reject);
+          });
+          return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as T;
+        };
+        const botIds = () => {
+          const one = url.searchParams.get('bot');
+          return one ? [one] : store.data.bots.map((b) => b.id);
+        };
+        const p = url.pathname;
+        if (p === '/memory/profile' && req.method === 'GET') return json(200, { alive: everos.alive(), profile: everos.profileDoc() ?? null });
+        if (p === '/memory/profile' && req.method === 'POST') {
+          const b = await readBody<{ kind?: 'explicit' | 'trait'; index?: number; text?: string | null }>();
+          const ok = b.kind && typeof b.index === 'number' ? await everos.editProfile(b.kind, b.index, b.text ?? null) : false;
+          return json(ok ? 200 : 409, { ok });
+        }
+        if (p === '/memory/fact' && req.method === 'POST') return json(200, { ok: await everos.addFact((await readBody<{ text?: string }>()).text ?? '') });
+        if (p === '/memory/correct' && req.method === 'POST') return json(200, { ok: await everos.correct((await readBody<{ text?: string }>()).text ?? '') });
+        if (p === '/memory/knowledge' && req.method === 'GET') return json(200, { alive: everos.alive(), ...(await everos.kDocs()) });
+        if (p === '/memory/knowledge/doc') return json(200, { doc: (await everos.kDoc(url.searchParams.get('id') ?? '')) ?? null });
+        if (p === '/memory/knowledge/topic') return json(200, { topic: (await everos.kTopic(url.searchParams.get('id') ?? '')) ?? null });
+        if (p === '/memory/knowledge/search') return json(200, { hits: await everos.kSearch(url.searchParams.get('q') ?? '', 20) });
+        if (p === '/memory/knowledge/remove' && req.method === 'POST') return json(200, { ok: await everos.kRemove((await readBody<{ docId?: string }>()).docId ?? '') });
+        if (p === '/memory/knowledge/add' && req.method === 'POST') {
+          // The file comes up as raw bytes with its name in the query, the way an attachment upload does.
+          // Splitting a document takes a minute or more, so the client is told it started, not that it finished.
+          const chunks: Buffer[] = [];
+          await new Promise<void>((resolve, reject) => {
+            req.on('data', (c: Buffer) => chunks.push(c));
+            req.on('end', resolve);
+            req.on('error', reject);
+          });
+          const name = decodeURIComponent(url.searchParams.get('name') ?? 'file');
+          const title = decodeURIComponent(url.searchParams.get('title') ?? name).replace(/\.[a-z0-9]+$/i, '');
+          void everos
+            .kAdd(name, Buffer.concat(chunks), title)
+            .then((r) => console.log(r ? `[crew] 知识：「${title}」切成 ${r.topics} 个主题` : `[crew] 知识：「${title}」没读进去`))
+            .catch((e: Error) => console.warn('[crew] 知识：', e.message));
+          return json(202, { started: true });
+        }
+        if (p === '/memory/episodes') return json(200, await everos.episodes(url.searchParams.get('q') ?? '', Number(url.searchParams.get('page') ?? 1)));
+        if (p === '/memory/cases') return json(200, { items: await everos.cases(botIds()) });
+        if (p === '/memory/skills') return json(200, { items: await everos.skills(botIds()), crew: await everos.crewSkills() });
+        if (p === '/memory/promote' && req.method === 'POST') {
+          // The user deciding that one bot's way of working is now everyone's. Sharing is this act and nothing else.
+          const b = await readBody<{ botId?: string; name?: string }>();
+          const bot = b.botId ? store.bot(b.botId) : undefined;
+          const found = bot ? (await everos.skills([bot.id])).find((x) => x.name === b.name) : undefined;
+          return json(200, { ok: found && bot ? await everos.promote(found.content || found.description, bot.name) : false });
+        }
+        if (p === '/memory/adopt' && req.method === 'POST') {
+          // "Write this into how you work": the same build a user's correction takes, so it can be seen and reverted.
+          const b = await readBody<{ botId?: string; name?: string }>();
+          const bot = b.botId ? store.bot(b.botId) : undefined;
+          const found = bot ? (await everos.skills([bot.id])).find((x) => x.name === b.name) : undefined;
+          if (!found || !bot || !bots.ops) return json(409, { ok: false });
+          await bots.ops.build(bot.id, { aspect: 'instructions', trigger: `用户把记忆里的做法「${found.name}」定为你的工作方式`, change: `把这条做法写进你的工作方式，用你自己的话：\n${(found.content || found.description).slice(0, 1500)}` });
+          return json(200, { ok: true });
+        }
+        return json(404, { error: 'not found' });
       }
       if (url.pathname === '/usage') {
         res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
@@ -1082,9 +1125,12 @@ async function main() {
           const before = store.bot(msg.id);
           const bot = store.patchBot(msg.id, msg.patch);
           if (bot && before && msg.patch.avatarSeed && msg.patch.avatarSeed !== before.avatarSeed && !msg.patch.avatarUrl) void ensureAvatar({ ...bot, avatarUrl: undefined });
-          if (bot && (msg.patch.viewOfYou || msg.patch.name)) memory.sync(bot.id);
           if (bot && msg.patch.skills) void ensureSkills(bot);
           if (bot && msg.patch.integrationIds) void bots.refreshTools(bot.id);
+          break;
+        }
+        case 'run_routine': {
+          if (!scheduler.runNow(msg.botId, msg.routineId)) throw new Error('这条例行任务不在了');
           break;
         }
         case 'remote_install': {
@@ -1109,12 +1155,7 @@ async function main() {
           // The product's own bot for "where do the bots live": make sure it exists, then say the first sentence for the user.
           const { bot, created } = ensureSteward(store);
           const threadId = botThread(bot.id);
-          if (created) {
-            store.addMessage({ threadId, author: 'system', botId: bot.id, text: '产品自带的管家。负责把 bot 们安顿到一台不关机的机器上，之后照看它。', ts: Date.now() - 1, status: 'born' });
-            store.grow(bot.id, 'born', '由你创建', bot.createdAt);
-            store.grow(bot.id, 'skill', `沉淀技能【${STEWARD_SKILL_NAME}】`);
-            void ensureAvatar(bot);
-          }
+          if (created) void ensureAvatar(bot);
           reply({ type: 'steward', botId: bot.id });
           router.onUserMessage(threadId, STEWARD_FIRST_QUERY[msg.intent], 'app');
           break;
@@ -1320,7 +1361,6 @@ async function main() {
           break;
         case 'set_shared_profile':
           store.setSharedProfile(msg.lines);
-          memory.sync();
           break;
         case 'undo_action':
           router.undoAction(msg.actionId);
@@ -1358,6 +1398,9 @@ async function main() {
           break;
         }
         case 'delete_bot': {
+          // 助理是产品自带的：删不掉。删了下次启动又会生成一个空的，那比留着更莫名其妙。
+          // 改名、取消置顶、关通知、清聊天记录都行。
+          if (store.bot(msg.id)?.kind === 'steward') throw new Error('助理是产品自带的，删不掉');
           const bot = store.deleteBot(msg.id);
           if (!bot) break;
           await bots.retire(bot.id);

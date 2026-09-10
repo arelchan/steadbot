@@ -30,9 +30,14 @@ export interface Connection {
 export interface Routine {
   id: string;
   title: string;
+  /** 到点了让它做什么；空着就照标题和职责办 */
+  prompt?: string;
   schedule: string; // human readable, e.g. 每天 20:30
   enabled: boolean;
+  /** 处理到哪个时间点了：新建或改了时间表时置为当下，所以一条下午建的「每天 09:00」等明天，不会立刻补跑 */
   lastRun?: number;
+  /** 最近几次跑的时间，新的在前，最多十条 */
+  runs?: number[];
   /** 结果发到哪几处；不填 = 它在的地方都发 */
   channels?: Channel[];
 }
@@ -465,7 +470,7 @@ export interface LibraryEntry {
 export const LIBRARY_CATEGORY_IDS = ['dev', 'docs', 'writing', 'research', 'productivity', 'business', 'design', 'meta'];
 
 export type ThreadId = `bot:${string}` | `matter:${string}`;
-export type Selection = ThreadId | 'inbox' | 'profile' | 'draft-bot' | 'runtime';
+export type Selection = ThreadId | 'week' | 'inbox' | 'profile' | 'draft-bot' | 'runtime';
 
 export interface Toast {
   id: string;

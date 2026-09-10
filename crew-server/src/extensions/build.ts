@@ -174,8 +174,8 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
                 if (!t) throw new Error('remove routine 需要任务标题');
                 patch.routines = b.routines.filter((r) => r.title !== t && r.id !== t);
               } else {
-                const v = p.value as { title?: string; schedule?: string; enabled?: boolean; channels?: string[] } | undefined;
-                if (!v?.title || !v?.schedule) throw new Error('set routine 需要 value={title, schedule}，schedule 如「每天 20:30」「每周一 09:00」「工作日 18:00」「每 30 分钟」');
+                const v = p.value as { title?: string; prompt?: string; schedule?: string; enabled?: boolean; channels?: string[] } | undefined;
+                if (!v?.title || !v?.schedule) throw new Error('set routine 需要 value={title, schedule}，schedule 如「每天 20:30」「每周一 09:00」「工作日 18:00」「每 30 分钟」；到点了要做的事可以另外写在 prompt 里');
                 // Where the result goes. 'app' is always available; an IM only if this bot is actually on it.
                 const here: Channel[] = ['app', ...IMS.filter((ch) => b.im?.[ch]?.status === 'ok')];
                 const channels = v.channels?.length
@@ -187,9 +187,14 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
                     })
                   : undefined;
                 const existing = b.routines.find((r) => r.title === v.title);
+                // `lastRun` starts at now: a schedule whose time already passed today should wait for tomorrow.
                 patch.routines = existing
-                  ? b.routines.map((r) => (r.title === v.title ? { ...r, schedule: v.schedule!, enabled: v.enabled ?? r.enabled, channels: channels ?? r.channels } : r))
-                  : [...b.routines, { id: Math.random().toString(36).slice(2, 10), title: v.title, schedule: v.schedule, enabled: v.enabled ?? true, ...(channels ? { channels } : {}) }];
+                  ? b.routines.map((r) =>
+                      r.title === v.title
+                        ? { ...r, schedule: v.schedule!, prompt: v.prompt ?? r.prompt, enabled: v.enabled ?? r.enabled, channels: channels ?? r.channels, lastRun: v.schedule === r.schedule ? r.lastRun : Date.now() }
+                        : r,
+                    )
+                  : [...b.routines, { id: Math.random().toString(36).slice(2, 10), title: v.title, schedule: v.schedule, ...(v.prompt ? { prompt: v.prompt } : {}), enabled: v.enabled ?? true, lastRun: Date.now(), ...(channels ? { channels } : {}) }];
               }
               break;
             }

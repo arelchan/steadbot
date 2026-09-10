@@ -111,6 +111,9 @@ const forward = () => (applyingRemote ? null : remote);
 
 /* ---------- mutations ---------- */
 
+/** The four kinds the memory engine keeps, as the memory view's tabs (MemoryView). */
+export type MemoryTab = 'profile' | 'episode' | 'case' | 'skill';
+
 export const select = (selection: Selection) =>
   setState((s) => (s.selection === selection ? { selection } : { selection, panel: { mode: 'board' }, panels: { identity: false, tasks: true } }));
 export const setPanel = (panel: Panel) => setState({ panel });
@@ -193,6 +196,8 @@ export const addBot = (b: Omit<Bot, 'id' | 'createdAt'>): Bot => {
 
 /** Remove a bot locally (its thread, todos, pendings, actions go with it) and tell the backend. */
 export const removeBot = (id: string) => {
+  // 助理是产品自带的，删不掉（界面上也没有这一项）。
+  if (getState().bots.find((b) => b.id === id)?.kind === 'steward') return;
   const thread = `bot:${id}`;
   setState((s) => ({
     bots: s.bots.filter((b) => b.id !== id),

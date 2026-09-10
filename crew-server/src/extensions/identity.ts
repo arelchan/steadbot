@@ -71,8 +71,10 @@ export function identityExtension(c: BotCtx, skills?: () => SkillStore, ops?: ()
         if (!everos.alive()) return '';
         const got = await everos.forTurn(c.botId, ask()).catch(() => undefined);
         if (!got) return '';
+        const docs = await everos.knowledgeFor(ask()).catch(() => []);
         const parts = [
           got.profile.length ? `## 关于用户（常驻）\n${got.profile.map((l) => `- ${l}`).join('\n')}` : '',
+          docs.length ? `## 资料里相关的（用 knowledge 看全文）\n${docs.map((l) => `- ${l}`).join('\n')}` : '',
           got.episodes.length ? `## 可能相关的往事（这轮召回，记录是英文的，你照常用中文说话）\n${got.episodes.map((l) => `- ${l}`).join('\n')}` : '',
           got.skills.length ? `## 你以前怎么做这类活\n${got.skills.map((l) => `- ${l}`).join('\n')}` : '',
         ].filter(Boolean);
@@ -109,7 +111,6 @@ export function identityExtension(c: BotCtx, skills?: () => SkillStore, ops?: ()
 - 视觉类交付（PPT、报告、网页、游戏、海报）动手前先掂量：用现在的手段做出来能不能看。python-pptx 从零堆文字、CSS 方块拼游戏，出来一定难看。不能看就先看「可用但未装」那几行，或者 library(search)，read 手册照着做，再动手。
 - 做出来的东西先自己看一眼再交：PPT 直接 see(那个 .pptx) 逐页看版面，PDF 和文档 see(路径, look=true)，网页和游戏截图再 see。溢出、重叠、文字被裁、看不清、全是字没有图，都不算做完，改了再看一遍。图不够就 draw 一张。`,
           await remembered(),
-          c.store.data.sharedProfile.length ? `## 关于用户的共享事实\n${c.store.data.sharedProfile.map((l) => `- ${l}`).join('\n')}` : '',
           openTodos.length
             ? `## 你手上的事项\n${openTodos.map((t) => `- [${t.id}] ${t.title} · ${t.status}${t.summary ? ` · ${t.summary}` : ''}`).join('\n')}`
             : '## 你手上的事项\n（暂无）',

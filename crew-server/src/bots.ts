@@ -16,7 +16,6 @@ import { config } from './config.ts';
 import type { CrewStore } from './store.ts';
 import type { PendingBroker } from './broker.ts';
 import { createBotUiContext } from './broker.ts';
-import type { MemoryStore } from './memory.ts';
 import type { FakeBrain } from './fake-brain.ts';
 import type { SkillStore } from './skills.ts';
 import type { AgentRunner, McpManager } from './integrations.ts';
@@ -134,7 +133,6 @@ export class BotManager extends EventEmitter {
   constructor(
     private store: CrewStore,
     private broker: PendingBroker,
-    private memory: MemoryStore,
     private events: EventEmitter,
     private skills: SkillStore,
     private mcp: McpManager,
@@ -219,7 +217,6 @@ export class BotManager extends EventEmitter {
       bot: () => this.store.bot(botId)!,
       store: this.store,
       broker: this.broker,
-      memory: this.memory,
       events: this.events,
       current: () => runtime()?.current,
       fake: !!this.fake,
@@ -242,7 +239,6 @@ export class BotManager extends EventEmitter {
     const botDir = join(config.botsDir, botId);
     const sessionsDir = join(botDir, 'sessions');
     mkdirSync(sessionsDir, { recursive: true });
-    this.memory.sync(botId);
 
     let rt: BotRuntime | undefined;
     const ctx = this.ctxFor(botId, () => rt);
@@ -270,10 +266,7 @@ export class BotManager extends EventEmitter {
         todoExtension(ctx),
         askExtension(ctx),
         actExtension(ctx, perform),
-        rememberExtension(ctx, () => {
-          if (!this.ops) throw new Error('crew ops not ready');
-          return this.ops;
-        }),
+        rememberExtension(ctx),
         webExtension(),
         harvestExtension(ctx, () => {
           if (!this.ops) throw new Error('crew ops not ready');

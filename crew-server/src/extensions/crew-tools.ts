@@ -3,6 +3,7 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import type { BotCtx } from './ctx.ts';
 import { CHANNEL_LABEL, type Bot, type BuildAspect, type BuildJob, type Channel, type Matter, type ThreadId, type LibraryEntry } from '../types.ts';
+import * as everos from '../everos.ts';
 
 /** Product operations the tools need; implemented in index.ts where the whole system is wired. */
 export interface CrewOps {
@@ -20,8 +21,6 @@ export interface CrewOps {
   build(botId: string, spec: BuildSpec): Promise<BuildJob>;
   /** hand the user an authorization card for a built-in connector (or report it's already connected / unavailable) */
   connect(botId: string, threadId: ThreadId, service: string, why?: string): Promise<{ status: 'connected' | 'card' | 'unavailable' | 'unknown'; text: string }>;
-  /** start an asynchronous memory update (consolidated in the background); resolves once registered */
-  remember(botId: string, spec: MemorySpec): Promise<BuildJob>;
   /** lexical search over the curated skill library; empty query lists everything */
   librarySearch(query: string, limit?: number): (LibraryEntry & { categoryLabel: string; kindLabel: string })[];
   /** copy a library skill onto a bot (idempotent) */
@@ -49,12 +48,6 @@ export interface CrewOps {
 export interface MachineStatus {
   here: { hostname: string; platform: string; mode: string; bots: number; local: boolean };
   target?: { name: string; host: string; user: string; connectedAt: number; url?: string; port?: string; pairedAt?: number; reachable?: boolean; note?: string };
-}
-
-export interface MemorySpec {
-  action: 'add' | 'forget';
-  fact: string;
-  scope: 'private' | 'shared';
 }
 
 export interface BuildSpec {
@@ -109,7 +102,7 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
           .map(([ch, l]) => `${{ feishu: '飞书', telegram: 'Telegram', slack: 'Slack', wechat: '企业微信', app: 'App' }[ch] ?? ch}（${l?.status === 'ok' ? `已接${l.account ? `，那边叫「${l.account}」` : ''}` : l?.status === 'connecting' ? '连接中' : `没接上：${l?.note ?? ''}`}）`)
           .join('；') || '（没接任何 IM；用 build(aspect=channel, action=add, value="飞书") 接）'
       }`,
-      `关于用户（全员共用）: ${c.store.data.sharedProfile.join('；') || '（无）'}`,
+      `关于用户（全员共用的画像）: ${(everos.profileDoc()?.explicit ?? []).map((e) => e.description).join('；') || '（还没聚出来）'}`,
     ].join('\n');
   };
 
@@ -189,9 +182,10 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
           const str = (v: unknown) => (typeof v === 'string' ? v : JSON.stringify(v));
 
           if (p.target === 'profile') {
-            const lines = c.store.data.sharedProfile;
-            if (p.action === 'get') return ok(lines.length ? lines.map((l, i) => `${i + 1}. ${l}`).join('\n') : '（共享记忆为空）');
-            throw new Error('共享记忆用 remember(scope=shared) 记或忘，configure 只读');
+            const doc = everos.profileDoc();
+            const lines = [...(doc?.explicit ?? []).map((e) => e.description), ...(doc?.traits ?? []).map((e) => `（推断）${e.description}`)];
+            if (p.action === 'get') return ok(lines.length ? lines.map((l, i) => `${i + 1}. ${l}`).join('\n') : '（画像还没聚出来）');
+            throw new Error('画像是引擎从对话里合成的，configure 只读；要记一条事实用 remember');
           }
 
           if (p.target === 'matter') {

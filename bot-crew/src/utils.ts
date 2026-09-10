@@ -1,4 +1,4 @@
-import { getLocale, intlLocale, t } from './i18n';
+import { getLocale, intlLocale, t, tn } from './i18n';
 
 /** Intl formatters are expensive to build and get called per message: keep one of each per language. */
 const cache = new Map<string, Intl.DateTimeFormat>();
@@ -64,3 +64,12 @@ export const shortDay = (ts: number) => {
 };
 
 export const cx = (...xs: (string | false | null | undefined)[]) => xs.filter(Boolean).join(' ');
+
+/** 等了多久。只给一个量级——一件事等了三小时二十分，重点是「三小时」。 */
+export const waited = (ts: number) => {
+  const min = Math.max(0, Math.round((Date.now() - ts) / 60_000));
+  if (min < 60) return tn('wait.min', min);
+  const h = Math.floor(min / 60);
+  if (h < 48) return tn('wait.hour', h);
+  return tn('wait.day', Math.floor(h / 24));
+};
