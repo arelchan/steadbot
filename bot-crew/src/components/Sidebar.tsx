@@ -9,7 +9,6 @@ import { Resizer } from './Resizer';
 import { GroupAvatar, membersOf } from './GroupAvatar';
 import { cx, shortDay } from '../utils';
 import { NewGroupModal } from './NewGroupModal';
-import { getRuntime } from '../services/runtime';
 import { fetchUpgradeStatus } from '../services/upgrade';
 import { SettingsModal } from './SettingsModal';
 import { useT, tn } from '../i18n';
@@ -125,7 +124,6 @@ export function Sidebar() {
             <div className="menu">
               <button className="menu-item" onClick={() => { setMenu(false); select('draft-bot'); }}>
                 <span className="mi-t">{t('side.newBot')}</span>
-                <span className="mi-s">{t('side.newBotSub')}</span>
               </button>
               <button className="menu-item" onClick={() => { setMenu(false); setNewGroup(true); }}>
                 <span className="mi-t">{t('side.newGroup')}</span>
@@ -138,10 +136,10 @@ export function Sidebar() {
       <div className="side-body">
         <button className={cx('filter', s.selection === 'inbox' && 'active')} onClick={() => select('inbox')}>
           <span>{t('side.inbox')}</span>
+          {totalWaiting > 0 ? <span className="badge">{totalWaiting}</span> : <span className="quiet" style={{ color: 'var(--muted)', fontSize: 11 }}>{t('side.clear')}</span>}
+        </button>
         <button className={cx('filter', s.selection === 'profile' && 'active')} onClick={() => select('profile')}>
           <span>{t('profile.title')}</span>
-        </button>
-          {totalWaiting > 0 ? <span className="badge">{totalWaiting}</span> : <span className="quiet" style={{ color: 'var(--muted)', fontSize: 11 }}>{t('side.clear')}</span>}
         </button>
 
         {rows.map((r) => (r.kind === 'bot' ? renderBotRow(r.bot) : renderMatterRow(r.matter)))}
@@ -153,8 +151,8 @@ export function Sidebar() {
 }
 
 /**
- * 设置：one entry at the bottom of the list. It doubles as the status line — where the bots run — and carries the
- * badge when there is a newer version to upgrade to.
+ * 设置：one entry at the bottom of the list. Just the word — a dot appears only when the machine running the bots
+ * is not answering, and the accent dot when there is a newer version to upgrade to.
  */
 function RuntimeFoot() {
   const t = useT();
@@ -172,17 +170,13 @@ function RuntimeFoot() {
       clearInterval(t);
     };
   }, []);
-  const remote = getRuntime().kind === 'remote';
-  const label = remote ? (getRuntime() as { name?: string }).name || rt?.hostname || t('side.cloudMachine') : t('side.thisComputer');
-  const tone = online === false ? 'off' : rt?.mode === 'active' ? 'ok' : rt ? 'warn' : 'off';
+  const down = online === false || (rt && rt.mode !== 'active');
   return (
     <>
-      <button className={cx('rt-foot', open && 'active')} onClick={() => setOpen(true)} title={t('side.settings')}>
-        <span className={cx('rt-dot', tone)} />
-        <span className="rt-foot-t">
-          {t('side.settings')}<span className="quiet">{t('side.botsOn', { where: label })}</span>
-        </span>
-        {stale ? <span className="up-dot" title={t('side.newVersion')} /> : <span className="chev">›</span>}
+      <button className={cx('rt-foot', open && 'active')} onClick={() => setOpen(true)}>
+        <span className="rt-foot-t">{t('side.settings')}</span>
+        {down && <span className={cx('rt-dot', online === false ? 'off' : 'warn')} />}
+        {stale && <span className="up-dot" title={t('side.newVersion')} />}
       </button>
       {open && <SettingsModal tab={stale ? 'about' : 'general'} onClose={() => setOpen(false)} />}
     </>

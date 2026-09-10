@@ -1105,6 +1105,10 @@ async function main() {
           if (bot && msg.patch.integrationIds) void bots.refreshTools(bot.id);
           break;
         }
+        case 'run_routine': {
+          if (!scheduler.runNow(msg.botId, msg.routineId)) throw new Error('这条例行任务不在了');
+          break;
+        }
         case 'remote_install': {
           // Only the user's own machine does this (loopback, no token): it holds the code and the ssh session.
           if (config.authToken) throw new Error('只能从本机发起安装');

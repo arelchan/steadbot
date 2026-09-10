@@ -12,6 +12,15 @@ function routeFor(bot: Bot, r: Routine) {
   return live.length ? live : undefined;
 }
 
+/** What the bot is told when a routine fires: its own instruction if it has one, else just the title. */
+function fire(r: Routine, why: string) {
+  const what = r.prompt?.trim() ? `${r.prompt.trim()}\n` : '';
+  return `【例行任务】「${r.title}」${why}。${what}按职责执行；只有需要用户拍板或有值得说的结果时才说话。`;
+}
+
+/** Keep the last ten runs; the routine's own page shows them. */
+const withRun = (r: Routine, at: number): Routine => ({ ...r, lastRun: at, runs: [at, ...(r.runs ?? [])].slice(0, 10) });
+
 const WEEK: Record<string, number> = { 日: 0, 天: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6 };
 
 /*
@@ -101,21 +110,21 @@ export class Scheduler {
           threadId: botThread(bot.id),
           kind: 'routine',
           to: routeFor(bot, r),
-          text: `【例行任务】「${r.title}」到点了（${r.schedule}）。按职责执行；只有需要用户拍板或有值得说的结果时才说话。`,
+          text: fire(r, `到点了（${r.schedule}）`),
         });
-        return { ...r, lastRun: now.getTime() };
+        return withRun(r, now.getTime());
       });
       if (changed) this.store.patchBot(bot.id, { routines });
     }
   }
 
-  /** Run one routine now (used by the UI's "立即执行"). */
+  /** Run one routine now (the routine's own page has a 试跑 button). */
   runNow(botId: string, routineId: string) {
     const bot = this.store.bot(botId);
     const r = bot?.routines.find((x) => x.id === routineId);
     if (!bot || !r) return false;
-    void this.bots.send(bot.id, { threadId: botThread(bot.id), kind: 'routine', to: routeFor(bot, r), text: `【例行任务】「${r.title}」由用户手动触发。按职责执行。` });
-    this.store.patchBot(bot.id, { routines: bot.routines.map((x) => (x.id === r.id ? { ...x, lastRun: Date.now() } : x)) });
+    void this.bots.send(bot.id, { threadId: botThread(bot.id), kind: 'routine', to: routeFor(bot, r), text: fire(r, '由你手动触发') });
+    this.store.patchBot(bot.id, { routines: bot.routines.map((x) => (x.id === r.id ? withRun(x, Date.now()) : x)) });
     return true;
   }
 }

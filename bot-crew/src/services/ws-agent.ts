@@ -196,6 +196,10 @@ export class WsAgentService implements AgentService {
     this.send({ type: 'computer_power', on });
   }
 
+  runRoutine(botId: string, routineId: string) {
+    this.send({ type: 'run_routine', botId, routineId });
+  }
+
   computerFocus() {
     this.send({ type: 'computer_focus' });
   }

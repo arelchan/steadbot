@@ -17,9 +17,13 @@ export interface Connection {
 export interface Routine {
   id: string;
   title: string;
+  /** 到点了让它做什么；空着就照标题和职责办 */
+  prompt?: string;
   schedule: string;
   enabled: boolean;
   lastRun?: number;
+  /** 最近几次跑的时间，新的在前，最多十条 */
+  runs?: number[];
   /** 结果发到哪几处：'app' 是应用内提醒，其余是这个 bot 在的 IM。不填 = 它在的地方都发。 */
   channels?: Channel[];
 }
@@ -475,6 +479,8 @@ export type ClientMessage =
   | { type: 'draft_message'; id?: string; text: string }
   | { type: 'pending_choice'; pendingId: string; optionId: string }
   | { type: 'patch_bot'; id: string; patch: Partial<Bot> }
+  /** 例行任务的「试跑」：不等到点，现在就让它跑一次 */
+  | { type: 'run_routine'; botId: string; routineId: string }
   | { type: 'patch_matter'; id: string; patch: Partial<Matter> }
   | { type: 'create_matter'; id?: string; title: string; summary?: string; memberIds: string[]; leadId: string }
   | { type: 'set_shared_profile'; lines: string[] }

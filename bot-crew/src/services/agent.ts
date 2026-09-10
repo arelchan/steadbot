@@ -50,6 +50,8 @@ export interface AgentService {
   computerPower(on: boolean): void;
   /** 把电脑的浏览器窗口切到用户面前（bot 跑在用户自己电脑上时） */
   computerFocus(): void;
+  /** 例行任务试跑：不等到点，现在就让它跑一次 */
+  runRoutine(botId: string, routineId: string): void;
   start(): void;
   stop(): void;
 }
@@ -423,6 +425,9 @@ export class MockAgentService implements AgentService {
   computerFocus() {
     /* mock: no computer */
   }
+  runRoutine() {
+    /* mock: no scheduler */
+  }
 
   onPendingChoice(pendingId: string, optionId: string) {
     const s = getState();
@@ -612,12 +617,12 @@ export const memory = {
   promote: (botId: string, name: string) => memPost('promote', { botId, name }),
   adopt: (botId: string, name: string) => memPost('adopt', { botId, name }),
 };
+
+// One instance per page, surviving Vite HMR: a re-evaluated module must not create a second,
+// never-started client that swallows clicks.
 const g = globalThis as unknown as { __crewAgent?: AgentService };
 export const agent: AgentService = g.__crewAgent ?? (g.__crewAgent = WS_URL ? new WsAgentService(WS_URL) : new MockAgentService());
 
 // Module-level singletons (state, listeners, the WS client) cannot be hot-swapped safely: a stale
 // copy would keep receiving server events while React renders from the new one. Reload instead.
-
-// One instance per page, surviving Vite HMR: a re-evaluated module must not create a second,
-// never-started client that swallows clicks.
 if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());

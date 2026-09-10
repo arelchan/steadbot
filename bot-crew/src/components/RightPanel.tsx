@@ -10,7 +10,7 @@ import { Avatar } from './Avatar';
 import { Sk } from './Skeleton';
 import { avatarService, fileToAvatar } from '../services/avatar';
 import { PendingActions } from './Cards';
-import { BotConfigModal } from './BotConfigModal';
+import { BotConfigModal, sayWhen } from './BotConfigModal';
 import { ScreenCard } from './Screen';
 import { statusLabel } from '../services/agent';
 import { cx, fmtTime, shortDay } from '../utils';
@@ -41,6 +41,7 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
   const using = (computer?.state === 'on' ? (computer.users ?? []) : []).map((id) => s.bots.find((b) => b.id === id)?.name).filter((n): n is string => !!n);
   const routines = bot?.routines ?? [];
   const live = routines.filter((r) => r.enabled).length;
+  const [routineCfg, setRoutines] = useState(false);
   return (
     <>
     {identity && (
@@ -67,18 +68,24 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
           <TasksPanel bot={bot} matter={matter} />
         </Section>
         {bot && (
-          <Section title={t('ws.routines')} hint={routines.length ? tn('ws.routineLive', live) : t('ws.noneYet')} startOpen={false}>
-            <RoutineList bot={bot} />
+          <Section
+            title={t('ws.routines')}
+            hint={routines.length ? tn('ws.routineLive', live) : undefined}
+            startOpen={false}
+            action={<button className="icon-btn" onClick={() => setRoutines(true)} title={t('cfg.rtNew')} aria-label={t('cfg.rtNew')}>+</button>}
+          >
+            <RoutineList bot={bot} onOpen={() => setRoutines(true)} />
           </Section>
         )}
       </div>
+      {bot && routineCfg && <BotConfigModal bot={bot} tab="routines" onClose={() => setRoutines(false)} />}
     </aside>
     </>
   );
 }
 
 /** One collapsible band of the workspace. `grow` gives the section the leftover height (the task list). */
-function Section({ title, hint, children, startOpen = true, grow, lead }: { title: string; hint?: string; children: ReactNode; startOpen?: boolean; grow?: boolean; lead?: ReactNode }) {
+function Section({ title, hint, children, startOpen = true, grow, lead, action }: { title: string; hint?: string; children: ReactNode; startOpen?: boolean; grow?: boolean; lead?: ReactNode; action?: ReactNode }) {
   const [open, setOpen] = useState(startOpen);
   return (
     <section className={cx('ws-sec', open && 'open', grow && open && 'grow')}>
@@ -91,6 +98,7 @@ function Section({ title, hint, children, startOpen = true, grow, lead }: { titl
             {hint && <span className="quiet">{hint}</span>}
           </span>
         )}
+        {action && open && <span onClick={(e) => e.stopPropagation()}>{action}</span>}
         <span className={cx('ws-chev', open && 'open')} aria-hidden>
           ›
         </span>
@@ -100,23 +108,22 @@ function Section({ title, hint, children, startOpen = true, grow, lead }: { titl
   );
 }
 
-/** The bot's routines, live: toggle one off, or drop it. Adding one is still 「Bot 配置 › 例行」. */
-function RoutineList({ bot }: { bot: Bot }) {
+/** The bot's routines, beside the conversation: name, when, and a switch. One click opens its own page. */
+function RoutineList({ bot, onOpen }: { bot: Bot; onOpen: () => void }) {
   const t = useT();
   const toggle = (id: string) => patchBot(bot.id, { routines: bot.routines.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)) });
-  if (!bot.routines.length) return <div className="quiet ws-empty">{t('ws.noRoutines')}</div>;
+  if (!bot.routines.length) return <div className="quiet ws-empty">{t('common.none')}</div>;
   return (
     <ul className="routine-list compact">
       {bot.routines.map((r) => (
         <li key={r.id} className={cx(!r.enabled && 'off')}>
-          <div className="rt-main">
-            <div className="rt-t">{r.title}</div>
-            <div className="rt-s">
-              {r.schedule}
-              {r.channels?.length ? ` · ${r.channels.map((ch) => tr(`channel.${ch}`)).join('、')}` : ''}
-              {r.lastRun ? t('ws.lastRun', { when: when(r.lastRun) }) : ''}
-            </div>
-          </div>
+          <button className="rt-open" onClick={onOpen}>
+            <span className="rt-ic">◷</span>
+            <span className="rt-main">
+              <span className="rt-t">{r.title.trim() || t('cfg.rtUntitled')}</span>
+              <span className="rt-s">{sayWhen(r.schedule)}</span>
+            </span>
+          </button>
           <button className={cx('tgl', r.enabled && 'on')} onClick={() => toggle(r.id)} role="switch" aria-checked={r.enabled} title={r.enabled ? t('ws.routineOn') : t('ws.routineOff')}>
             <i />
           </button>
@@ -232,7 +239,6 @@ function BotIdentity({ bot }: { bot: Bot }) {
           placeholder={t('ident.rolePlaceholder')}
           value={bot.role}
           onChange={(e) => patchBot(bot.id, { role: e.target.value })}
-          title={t('ident.roleTitle')}
         />
       )}
       </section>

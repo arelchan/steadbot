@@ -24,9 +24,9 @@ const TABS: { id: Tab; key: string }[] = [
 ];
 
 /** Bot detail: identity on the left, one section at a time on the right. Opens on 成长. */
-export function BotConfigModal({ bot, onClose }: { bot: Bot; onClose: () => void }) {
+export function BotConfigModal({ bot, tab: initial = 'growth', onClose }: { bot: Bot; tab?: Tab; onClose: () => void }) {
   const t = useT();
-  const [tab, setTab] = useState<Tab>('growth');
+  const [tab, setTab] = useState<Tab>(initial);
   const integrations = useStore((s) => s.integrations);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -185,7 +185,6 @@ function Skills({ bot }: { bot: Bot }) {
     <>
       <Head
         title={t('cfg.skills')}
-        sub={t('cfg.skillsSub')}
         right={library.length > 0 ? <button className="btn sm" onClick={() => setPicking(true)}>{t('cfg.library')}</button> : undefined}
       />
       <ul className="skill-list">
@@ -339,54 +338,187 @@ function SkillDetail({ name, doc, onBack }: { name: string; doc?: SkillDoc; onBa
 
 /* ---------------- 例行 ---------------- */
 
+/*
+ * 例行任务：a list you can point at, and one page per routine — name, instruction, when, where it lands, and the
+ * runs it has had. The schedule is picked, not typed: the strings the scheduler understands are Chinese, so a
+ * free-text field silently never fires for anyone writing in another language.
+ */
+
+type Freq = 'daily' | 'weekdays' | 'weekly' | 'hourly' | 'minutes';
+const FREQS: Freq[] = ['daily', 'weekdays', 'weekly', 'hourly', 'minutes'];
+const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+
+interface When {
+  freq: Freq;
+  /** 'HH:MM' for the clock ones */
+  at: string;
+  /** weekday index for 每周 */
+  day: number;
+  /** step for 每 N 分钟 */
+  every: number;
+}
+
+const DEFAULT_WHEN: When = { freq: 'daily', at: '09:00', day: 1, every: 30 };
+
+function readWhen(schedule: string): When {
+  const s = schedule.replace(/\s+/g, ' ').trim();
+  let m: RegExpExecArray | null;
+  if ((m = /^每天 ?(\d{1,2}:\d{2})$/.exec(s))) return { ...DEFAULT_WHEN, freq: 'daily', at: m[1] };
+  if ((m = /^工作日 ?(\d{1,2}:\d{2})$/.exec(s))) return { ...DEFAULT_WHEN, freq: 'weekdays', at: m[1] };
+  if ((m = /^每周([日一二三四五六]) ?(\d{1,2}:\d{2})$/.exec(s))) return { ...DEFAULT_WHEN, freq: 'weekly', day: WEEK.indexOf(m[1]), at: m[2] };
+  if (/^每小时$/.test(s)) return { ...DEFAULT_WHEN, freq: 'hourly' };
+  if ((m = /^每 ?(\d+) ?分钟$/.exec(s))) return { ...DEFAULT_WHEN, freq: 'minutes', every: Number(m[1]) };
+  return DEFAULT_WHEN;
+}
+
+/** The canonical schedule string the scheduler parses (always Chinese, whatever language the UI is in). */
+function writeWhen(w: When): string {
+  if (w.freq === 'daily') return `每天 ${w.at}`;
+  if (w.freq === 'weekdays') return `工作日 ${w.at}`;
+  if (w.freq === 'weekly') return `每周${WEEK[w.day] ?? '一'} ${w.at}`;
+  if (w.freq === 'hourly') return '每小时';
+  return `每 ${Math.max(1, w.every)} 分钟`;
+}
+
+/** The same schedule said in the reader's language, for the list row. */
+export function sayWhen(schedule: string): string {
+  const w = readWhen(schedule);
+  if (w.freq === 'daily') return tr('cfg.rtSay.daily', { at: w.at });
+  if (w.freq === 'weekdays') return tr('cfg.rtSay.weekdays', { at: w.at });
+  if (w.freq === 'weekly') return tr('cfg.rtSay.weekly', { day: tr(`cfg.rtDay.${w.day}`), at: w.at });
+  if (w.freq === 'hourly') return tr('cfg.rtSay.hourly');
+  return tr('cfg.rtSay.minutes', { n: String(w.every) });
+}
+
 function Routines({ bot }: { bot: Bot }) {
   const t = useT();
-  const [title, setTitle] = useState('');
-  const [schedule, setSchedule] = useState('');
-  // Where a routine's result goes. Only offered once the bot is somewhere other than here.
-  const where: Channel[] = ['app', ...(['feishu', 'wechat', 'slack', 'telegram'] as Channel[]).filter((ch) => bot.im?.[ch]?.status === 'ok')];
-  const pick = (r: Routine, ch: Channel) => {
-    const on = r.channels ?? where;
-    const next = on.includes(ch) ? on.filter((x) => x !== ch) : [...where.filter((x) => on.includes(x) || x === ch)];
-    if (!next.length) return;
-    const channels = next.length === where.length ? undefined : next;
-    patchBot(bot.id, { routines: bot.routines.map((x) => (x.id === r.id ? { ...x, channels } : x)) });
-  };
-  const toggle = (id: string) => patchBot(bot.id, { routines: bot.routines.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)) });
-  const remove = (id: string) => patchBot(bot.id, { routines: bot.routines.filter((r) => r.id !== id) });
+  const [openId, setOpenId] = useState<string | undefined>();
+  const open = bot.routines.find((r) => r.id === openId);
   const add = () => {
-    if (!title.trim() || !schedule.trim()) return;
-    patchBot(bot.id, { routines: [...bot.routines, { id: uid(), title: title.trim(), schedule: schedule.trim(), enabled: true }] });
-    setTitle('');
-    setSchedule('');
+    const r: Routine = { id: uid(), title: '', schedule: writeWhen(DEFAULT_WHEN), enabled: true };
+    patchBot(bot.id, { routines: [...bot.routines, r] });
+    setOpenId(r.id);
   };
-  const last = (ts: number) => (shortDay(ts) === fmtTime(ts) ? fmtTime(ts) : `${shortDay(ts)} ${fmtTime(ts)}`);
+  // An untouched new routine leaves nothing behind.
+  const back = () => {
+    if (open && !open.title.trim() && !open.prompt?.trim()) patchBot(bot.id, { routines: bot.routines.filter((x) => x.id !== open.id) });
+    setOpenId(undefined);
+  };
+  if (open) return <RoutineDetail bot={bot} r={open} onBack={back} />;
   return (
     <>
-      <Head title={t('cfg.routines')} />
+      <Head title={t('cfg.routines')} right={<button className="icon-btn" onClick={add} title={t('cfg.rtNew')} aria-label={t('cfg.rtNew')}>+</button>} />
       <ul className="routine-list">
         {bot.routines.map((r) => (
           <li key={r.id} className={cx(!r.enabled && 'off')}>
-            <div className="rt-main">
-              <div className="rt-t">{r.title}</div>
-              <div className="rt-s">{r.schedule}{r.lastRun ? t('ws.lastRun', { when: last(r.lastRun) }) : ''}</div>
-              {where.length > 1 && (
-                <div className="rt-ch">
-                  {where.map((ch) => (
-                    <button key={ch} className={cx('chip', (r.channels ?? where).includes(ch) && 'accent')} onClick={() => pick(r, ch)}>
-                      {tr(`channel.${ch}`)}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button className={cx('tgl', r.enabled && 'on')} onClick={() => toggle(r.id)} role="switch" aria-checked={r.enabled}><i /></button>
-            <button className="del" onClick={() => remove(r.id)} title={t('common.delete')}>✕</button>
+            <button className="rt-open" onClick={() => setOpenId(r.id)}>
+              <span className="rt-ic">◷</span>
+              <span className="rt-main">
+                <span className="rt-t">{r.title.trim() || t('cfg.rtUntitled')}</span>
+                <span className="rt-s">{sayWhen(r.schedule)}</span>
+              </span>
+              <span className="chev">›</span>
+            </button>
           </li>
         ))}
         {bot.routines.length === 0 && <li className="quiet">{t('common.none')}</li>}
       </ul>
     </>
+  );
+}
+
+function RoutineDetail({ bot, r, onBack }: { bot: Bot; r: Routine; onBack: () => void }) {
+  const t = useT();
+  const [ran, setRan] = useState(false);
+  const w = readWhen(r.schedule);
+  const set = (patch: Partial<Routine>) => patchBot(bot.id, { routines: bot.routines.map((x) => (x.id === r.id ? { ...x, ...patch } : x)) });
+  const setWhen = (next: Partial<When>) => set({ schedule: writeWhen({ ...w, ...next }) });
+  // Where a routine's result goes; only worth showing once the bot is somewhere other than here.
+  const where: Channel[] = ['app', ...(['feishu', 'wechat', 'slack', 'telegram', 'discord', 'whatsapp'] as Channel[]).filter((ch) => bot.im?.[ch]?.status === 'ok')];
+  const pick = (ch: Channel) => {
+    const on = r.channels ?? where;
+    const next = on.includes(ch) ? on.filter((x) => x !== ch) : where.filter((x) => on.includes(x) || x === ch);
+    if (!next.length) return;
+    set({ channels: next.length === where.length ? undefined : next });
+  };
+  const run = () => {
+    agent.runRoutine(bot.id, r.id);
+    setRan(true);
+    setTimeout(() => setRan(false), 2500);
+  };
+  return (
+    <div className="rt-detail">
+      <div className="sd-top">
+        <button className="back" onClick={onBack}>‹ {t('cfg.routines')}</button>
+        <span className="sd-actions">
+          <button className="link quiet-link" onClick={() => { patchBot(bot.id, { routines: bot.routines.filter((x) => x.id !== r.id) }); onBack(); }}>{t('common.delete')}</button>
+          <button className="btn sm" onClick={run} disabled={ran}>{ran ? t('cfg.rtRan') : t('cfg.rtTest')}</button>
+          <button className={cx('tgl', r.enabled && 'on')} onClick={() => set({ enabled: !r.enabled })} role="switch" aria-checked={r.enabled} title={t(r.enabled ? 'ws.routineOn' : 'ws.routineOff')}><i /></button>
+        </span>
+      </div>
+
+      <label className="fld">
+        <span>{t('cfg.rtName')}</span>
+        <input className="fld-in" autoFocus={!r.title} value={r.title} onChange={(e) => set({ title: e.target.value })} />
+      </label>
+
+      <label className="fld">
+        <span>{t('cfg.rtPrompt')}</span>
+        <textarea className="fld-in" rows={3} value={r.prompt ?? ''} onChange={(e) => set({ prompt: e.target.value })} spellCheck={false} />
+      </label>
+
+      <div className="fld">
+        <span>{t('cfg.rtWhenLabel')}</span>
+        <div className="rt-when">
+          <select className="fld-in sel" value={w.freq} onChange={(e) => setWhen({ freq: e.target.value as Freq })}>
+            {FREQS.map((f) => (
+              <option key={f} value={f}>{t(`cfg.rtFreq.${f}`)}</option>
+            ))}
+          </select>
+          {w.freq === 'weekly' && (
+            <select className="fld-in sel" value={w.day} onChange={(e) => setWhen({ day: Number(e.target.value) })}>
+              {WEEK.map((_, i) => (
+                <option key={i} value={i}>{t(`cfg.rtDay.${i}`)}</option>
+              ))}
+            </select>
+          )}
+          {(w.freq === 'daily' || w.freq === 'weekdays' || w.freq === 'weekly') && (
+            <input className="fld-in time" type="time" value={w.at} onChange={(e) => setWhen({ at: e.target.value || '09:00' })} />
+          )}
+          {w.freq === 'minutes' && (
+            <input className="fld-in num" type="number" min={1} max={720} value={w.every} onChange={(e) => setWhen({ every: Number(e.target.value) || 1 })} />
+          )}
+        </div>
+      </div>
+
+      {where.length > 1 && (
+        <div className="fld">
+          <span>{t('cfg.rtTo')}</span>
+          <div className="rt-ch">
+            {where.map((ch) => (
+              <button key={ch} className={cx('chip', (r.channels ?? where).includes(ch) && 'accent')} onClick={() => pick(ch)}>
+                {tr(`channel.${ch}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="fld">
+        <span>{t('cfg.rtHistory')}</span>
+        {r.runs?.length ? (
+          <ul className="rt-runs">
+            {r.runs.map((ts) => (
+              <li key={ts}>
+                <b>{shortDay(ts)}</b> {fmtTime(ts)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="quiet">{t('common.none')}</div>
+        )}
+      </div>
+    </div>
   );
 }
 

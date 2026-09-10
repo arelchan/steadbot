@@ -30,9 +30,13 @@ export interface Connection {
 export interface Routine {
   id: string;
   title: string;
+  /** 到点了让它做什么；空着就照标题和职责办 */
+  prompt?: string;
   schedule: string; // human readable, e.g. 每天 20:30
   enabled: boolean;
   lastRun?: number;
+  /** 最近几次跑的时间，新的在前，最多十条 */
+  runs?: number[];
   /** 结果发到哪几处；不填 = 它在的地方都发 */
   channels?: Channel[];
 }

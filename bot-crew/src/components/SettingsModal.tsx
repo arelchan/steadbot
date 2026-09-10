@@ -146,7 +146,7 @@ function General() {
       <button className="tgl-row" onClick={() => void setDesktopNotify(!notify).then(setN)} role="switch" aria-checked={notify} disabled={!notifySupported()}>
         <span className="tgl-l">
           <span>{t('set.notifySwitch')}</span>
-          <span className="tgl-h">{notifySupported() ? t('set.notifyHint') : t('set.notifyUnsupported')}</span>
+          {!notifySupported() && <span className="tgl-h">{t('set.notifyUnsupported')}</span>}
         </span>
         <span className={cx('tgl', notify && 'on')}><i /></span>
       </button>
@@ -327,7 +327,7 @@ function Usage() {
   const total = report.total;
   return (
     <>
-      <Head title={t('set.usage')} sub={t('usage.sub', { n: report.days })} />
+      <Head title={t('set.usage')} />
       <div className="usage-top">
         <div className="ut-cell"><span className="ut-n">{fmtMoney(total.cost)}</span><span className="ut-l">{t('usage.cost')}</span></div>
         <div className="ut-cell"><span className="ut-n">{fmtNum(total.input + total.output)}</span><span className="ut-l">{t('usage.tokens')}</span></div>
