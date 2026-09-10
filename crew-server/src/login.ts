@@ -78,14 +78,44 @@ export class LoginDesk {
       : '登录卡已经发到对话里了，用户填的账号密码由系统直接打进页面，不经过你、也不会存下来。填完系统会告诉你。现在不要追问，先做别的。';
   }
 
-  /** The current picture of what has to be scanned. Cropped to the element when the bot named one. */
+  /**
+   * The current picture of what has to be scanned. A whole login page is useless on a phone — the code ends up
+   * fifty pixels wide in the card — so the crop matters: the element the bot named, else the squarish box that a
+   * QR always is, else the page.
+   */
   async shot(id: string): Promise<Buffer> {
     const ask = this.asks.get(id);
     if (!ask) throw new Error('这张卡已经过期了');
     return this.desktops.readPage(ask.match, async (page) => {
+      const crop = async (sel: string) => {
+        const el = page.locator(sel).first();
+        if (!(await el.count())) return undefined;
+        const box = await el.boundingBox().catch(() => null);
+        if (!box || box.width < 100 || box.height < 100) return undefined;
+        return Buffer.from(await el.screenshot({ type: 'png' }));
+      };
       if (ask.selector) {
-        const el = page.locator(ask.selector).first();
-        if (await el.count()) return Buffer.from(await el.screenshot({ type: 'png' }));
+        const named = await crop(ask.selector).catch(() => undefined);
+        if (named) return named;
+      }
+      if (ask.kind === 'qr') {
+        // A QR is a square, and every site draws it as a canvas, an svg or an image — that is enough to find it.
+        const found = await page
+          .evaluate(() => {
+            const els = Array.from(document.querySelectorAll('canvas, svg, img'));
+            const fit = els
+              .map((e) => ({ e, r: e.getBoundingClientRect() }))
+              .filter(({ r }) => r.width >= 120 && r.width <= 640 && Math.abs(r.width - r.height) / Math.max(r.width, r.height) < 0.2)
+              .sort((a, b) => b.r.width - a.r.width)[0];
+            if (!fit) return null;
+            fit.e.setAttribute('data-everbot-qr', '1');
+            return true;
+          })
+          .catch(() => null);
+        if (found) {
+          const auto = await crop('[data-everbot-qr="1"]').catch(() => undefined);
+          if (auto) return auto;
+        }
       }
       return Buffer.from(await page.screenshot({ type: 'png' }));
     });
