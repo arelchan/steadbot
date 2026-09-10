@@ -3619,6 +3619,65 @@
         "pip": "office-powerpoint-mcp-server",
         "tools": "建/开/存演示文稿、加删页、文本框与占位符、图片、表格、图表、形状、主题与模板、批量替换文字。"
       }
+    },
+    {
+      "slug": "word-mcp",
+      "kind": "mcp",
+      "category": "docs",
+      "description": "直接操作 .docx 的一组工具：建文档、加段落和标题、表格、图片、页眉页脚、查找替换、批注和修订、转 PDF。基于 python-docx，本机跑，不要密钥。改现成 Word 文件时比拆 XML 省事。",
+      "tags": [
+        "Word",
+        "docx",
+        "文档",
+        "表格",
+        "批注",
+        "修订",
+        "MCP",
+        "公文"
+      ],
+      "title": "Word MCP",
+      "source": "https://github.com/GongRzhe/Office-Word-MCP-Server",
+      "license": "MIT",
+      "mcp": {
+        "transport": "stdio",
+        "command": "uvx",
+        "args": [
+          "--from",
+          "office-word-mcp-server",
+          "word_mcp_server"
+        ],
+        "pip": "office-word-mcp-server",
+        "tools": "建/开/存文档、段落与标题、表格、图片、页眉页脚、样式、查找替换、批注与修订、合并文档、转 PDF。"
+      }
+    },
+    {
+      "slug": "excel-mcp",
+      "kind": "mcp",
+      "category": "docs",
+      "description": "直接操作 .xlsx 的一组工具：读写单元格区域、公式、格式、图表、数据透视表、Excel 表格。基于 openpyxl，本机跑，不要密钥。注意公式写完仍要用 xlsx 手册里的 recalc 重算一遍才有缓存值。",
+      "tags": [
+        "Excel",
+        "xlsx",
+        "表格",
+        "公式",
+        "图表",
+        "透视表",
+        "MCP",
+        "报表"
+      ],
+      "title": "Excel MCP",
+      "source": "https://github.com/haris-musa/excel-mcp-server",
+      "license": "MIT",
+      "mcp": {
+        "transport": "stdio",
+        "command": "uvx",
+        "args": [
+          "excel-mcp-server",
+          "stdio"
+        ],
+        "pip": "excel-mcp-server",
+        "tools": "建/读/写工作簿与工作表、区域读写、公式、单元格格式、图表、数据透视表、Excel 表格、数据校验。"
+      }
     }
   ]
 }
