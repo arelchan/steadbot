@@ -222,8 +222,6 @@ interface Screen {
   browserArgs(): string[];
   /** a still of the whole screen, or undefined to fall back to a picture of the browser's page */
   shot(width: number): Promise<Buffer> | undefined;
-  /** put the browser window in front of the user (own screen only) */
-  focus?(browser: string): Promise<void>;
 }
 
 /** A virtual X display we start ourselves, with a window manager and a dock, watchable over VNC. The cloud machine. */
@@ -276,12 +274,6 @@ function ownScreen(): Screen {
     // A fresh profile on a Mac makes Chrome ask for the login keychain; the mock keychain is what Playwright uses too.
     browserArgs: () => [`--window-size=${W},${H}`, ...(platform() === 'darwin' ? ['--use-mock-keychain'] : [])],
     shot: () => undefined,
-    async focus(browser) {
-      if (platform() === 'darwin') {
-        const app = browser.match(/^(.*?\.app)\//)?.[1];
-        if (app) await execP('open', [app]).catch(() => undefined);
-      }
-    },
   };
 }
 
@@ -382,10 +374,15 @@ export class DesktopManager {
     await this.booting;
   }
 
-  /** The browser window in front of the user — on their own screen. Wakes the computer first. */
+  /**
+   * The browser window in front of the user, on their own screen. Through the browser itself (CDP's bringToFront
+   * activates the window at the OS level), so it needs no OS permission and is the same on every system — and it
+   * finds *our* instance, where `open Google Chrome.app` would raise whichever Chrome the user has running.
+   */
   async focus() {
     await this.wake();
-    if (this.browserBin) await this.screen.focus?.(this.browserBin);
+    const page = await this.frontPage();
+    await page.bringToFront();
   }
 
   private async boot() {
@@ -427,7 +424,7 @@ export class DesktopManager {
       for (const f of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) rmSync(join(profile, f), { force: true });
       const chrome = this.browserBin;
       if (!chrome) throw new Error('这台机器上没有浏览器');
-      const browser = run(chrome, [`--user-data-dir=${profile}`, `--remote-debugging-port=${CDP_PORT}`, '--no-first-run', '--no-default-browser-check', '--hide-crash-restore-bubble', '--disable-features=TranslateUI', ...this.screen.browserArgs(), 'about:blank']);
+      const browser = run(chrome, [`--user-data-dir=${profile}`, `--remote-debugging-port=${CDP_PORT}`, '--no-first-run', '--no-default-browser-check', '--hide-crash-restore-bubble', '--disable-features=TranslateUI,Translate', ...this.screen.browserArgs(), 'about:blank']);
       const cdpDeadline = Date.now() + 20_000;
       while (!(await portOpen(CDP_PORT))) {
         if (Date.now() > cdpDeadline) throw new Error('浏览器 20 秒内没起来');
@@ -682,18 +679,21 @@ export class DesktopManager {
     return join(config.computerDir, 'last.jpg');
   }
 
-  /**
-   * A picture of the computer: the whole screen where there is one of ours, otherwise the page most recently in
-   * front in the browser (Chrome lists targets most-recent first).
-   */
-  private async frame(width: number): Promise<Buffer> {
-    const whole = this.screen.shot(width);
-    if (whole) return whole;
+  /** The page most recently in front in the browser (Chrome lists targets most-recent first), else any page. */
+  private async frontPage(): Promise<import('playwright-core').Page> {
     const front = (await this.tabs()).find((t) => t.type === 'page' && t.url !== 'about:blank' && t.url !== 'chrome://newtab/');
     const browser = await this.browser();
     const pages = browser.contexts().flatMap((c) => c.pages());
     const page = (front && pages.find((p) => p.url() === front.url)) ?? pages[0];
     if (!page) throw new Error('浏览器里没有页面');
+    return page;
+  }
+
+  /** A picture of the computer: the whole screen where there is one of ours, otherwise the page in front in the browser. */
+  private async frame(width: number): Promise<Buffer> {
+    const whole = this.screen.shot(width);
+    if (whole) return whole;
+    const page = await this.frontPage();
     // Straight to CDP: Playwright's screenshot cannot scale, and a full-size frame every couple of seconds is
     // twenty times the bytes the card needs.
     // `scale` is on top of the device pixel ratio, so a Retina screen needs half of it for the same width.
