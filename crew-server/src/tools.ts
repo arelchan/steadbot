@@ -159,9 +159,9 @@ export interface Ready {
 }
 
 /**
- * Make `req` available here, installing what can be installed. System binaries are not installed: on the user's own
- * computer that would be taking over their machine, and in the container they are the image's job (recorded in
- * system.json so a rebuilt machine can put them back).
+ * Make `req` available here, installing what can be installed. System binaries go through whichever package manager
+ * is ours to run on this machine (installSystem) and are recorded in system.json either way, so a rebuilt or new
+ * machine can put them back.
  */
 const COOLDOWN = 7 * 24 * 60 * 60_000;
 
@@ -170,7 +170,7 @@ export async function ensure(req: Requires, forEntry: string): Promise<Ready> {
   // Something that failed to install a moment ago will fail again; retrying it on every mount only burns minutes.
   const failed = manifest().failed ?? {};
   const fresh = (kind: string, n: string) => !(failed[`${kind}:${n}`] && Date.now() - failed[`${kind}:${n}`].at < COOLDOWN);
-  const need: Requires = { pip: (all.pip ?? []).filter((n) => fresh('pip', n)), npm: (all.npm ?? []).filter((n) => fresh('npm', n)), bin: all.bin };
+  const need: Requires = { pip: (all.pip ?? []).filter((n) => fresh('pip', n)), npm: (all.npm ?? []).filter((n) => fresh('npm', n)), bin: (all.bin ?? []).filter((n) => fresh('bin', n)) };
   const installed = { pip: [] as string[], npm: [] as string[] };
   const errors: string[] = [];
 
@@ -240,7 +240,10 @@ export async function ensure(req: Requires, forEntry: string): Promise<Ready> {
     save(manifestFile, m);
   }
   if (installed.pip.length || installed.npm.length) dropCaches();
-  if (need.bin?.length) recordSystem(need.bin, forEntry);
+  if (need.bin?.length) {
+    recordSystem(need.bin, forEntry);
+    await installSystem(need.bin);
+  }
 
   const left = await missing(req);
   const ok = !left.pip?.length && !left.npm?.length && !left.bin?.length;
@@ -250,9 +253,9 @@ export async function ensure(req: Requires, forEntry: string): Promise<Ready> {
 
 /**
  * Command names are not package names: `soffice` comes from libreoffice, `pdftoppm` from poppler-utils. Only the
- * common ones are worth a table; anything unknown is recorded under its own name and simply reported.
+ * common ones are worth a table; anything unknown is installed under its own name and, failing that, reported.
  */
-const APT_FOR: Record<string, string> = {
+const PKG_FOR: Record<string, string> = {
   soffice: 'libreoffice',
   libreoffice: 'libreoffice',
   pdftoppm: 'poppler-utils',
@@ -268,7 +271,54 @@ const APT_FOR: Record<string, string> = {
   inkscape: 'inkscape',
   chromium: 'chromium',
   tesseract: 'tesseract-ocr',
+  import: 'imagemagick',
+  identify: 'imagemagick',
+  xdotool: 'xdotool',
+  cliclick: 'cliclick',
 };
+/** Where Homebrew names differ from Debian's. */
+const BREW_FOR: Record<string, string> = { 'poppler-utils': 'poppler', 'tesseract-ocr': 'tesseract', libreoffice: 'libreoffice', chromium: 'chromium' };
+
+/**
+ * Install OS-level tools with the package manager that is ours to run here: apt as root in the container (the image
+ * is rebuilt from scratch, so this is putting back what it dropped), Homebrew on a Mac (adds a tool, changes nothing
+ * else). Nowhere else — returns what is still missing.
+ */
+export async function installSystem(bins: string[]): Promise<string[]> {
+  const gone: string[] = [];
+  // What failed to install a week ago will fail again (no formula, no such package): once is enough.
+  const failed = manifest().failed ?? {};
+  for (const b of bins) if (!(await hasBin(b)) && !(failed[`bin:${b}`] && Date.now() - failed[`bin:${b}`].at < COOLDOWN)) gone.push(b);
+  if (!gone.length) return [];
+  const rootLinux = platform() === 'linux' && typeof process.getuid === 'function' && process.getuid() === 0;
+  const brew = platform() === 'darwin' && (await hasBin('brew'));
+  if (!rootLinux && !brew) {
+    console.log(`[crew] tools: 这台机器上没有 ${gone.join('、')}，需要的技能会说明缺什么`);
+    return gone;
+  }
+  const debs = [...new Set(gone.map((b) => PKG_FOR[b] ?? b))];
+  const pkgs = brew ? debs.map((p) => BREW_FOR[p] ?? p) : debs;
+  console.log(`[crew] tools: 补装系统包 ${pkgs.join(', ')}…`);
+  try {
+    // Formulae only: a command-line tool is an addition, a cask (LibreOffice, a browser) is an application on the
+    // user's Mac — that stays their call, and the skill says what it is missing.
+    if (brew) await run('/bin/sh', ['-lc', `HOMEBREW_NO_AUTO_UPDATE=1 brew install --formula ${pkgs.join(' ')}`], 20 * 60_000);
+    else await run('/bin/sh', ['-lc', `apt-get update && apt-get install -y --no-install-recommends ${pkgs.join(' ')} && rm -rf /var/lib/apt/lists/*`], 20 * 60_000);
+    console.log('[crew] tools: 系统包补装完成');
+  } catch (e) {
+    console.warn('[crew] tools: 系统包补装失败 —', (e as Error).message.split('\n').slice(-1)[0].slice(0, 200));
+  }
+  dropCaches();
+  const still: string[] = [];
+  for (const b of gone) if (!(await hasBin(b))) still.push(b);
+  if (still.length) {
+    const m = manifest();
+    m.failed = m.failed ?? {};
+    for (const n of still) m.failed[`bin:${n}`] = { kind: 'bin', at: Date.now() };
+    save(manifestFile, m);
+  }
+  return still;
+}
 
 /** Remember an OS-level dependency so a rebuilt machine can put it back. Never installs on the user's computer. */
 export function recordSystem(bins: string[], forEntry: string) {
@@ -286,27 +336,8 @@ export function recordSystem(bins: string[], forEntry: string) {
  * the records travel, the binaries do not.
  */
 export async function restoreSystem(): Promise<void> {
-  const s = systemNeeds();
-  const wanted = Object.keys(s.apt);
-  if (!wanted.length) return;
-  const gone: string[] = [];
-  for (const b of wanted) if (!(await hasBin(b))) gone.push(b);
-  if (!gone.length) return;
-  // Only where a package manager is ours to use: the container runs as root and is rebuilt from an image, so
-  // installing there is putting back what the image dropped. The user's own computer is not ours to change.
-  const rootLinux = platform() === 'linux' && typeof process.getuid === 'function' && process.getuid() === 0;
-  if (!rootLinux) {
-    console.log(`[crew] tools: 这台机器上没有 ${gone.join('、')}，需要的技能会说明缺什么`);
-    return;
-  }
-  const pkgs = [...new Set(gone.map((b) => APT_FOR[b] ?? b))];
-  console.log(`[crew] tools: 补装系统包 ${pkgs.join(', ')}…`);
-  try {
-    await run('/bin/sh', ['-lc', `apt-get update && apt-get install -y --no-install-recommends ${pkgs.join(' ')} && rm -rf /var/lib/apt/lists/*`], 20 * 60_000);
-    console.log('[crew] tools: 系统包补装完成');
-  } catch (e) {
-    console.warn('[crew] tools: 系统包补装失败 —', (e as Error).message.split('\n').slice(-1)[0].slice(0, 200));
-  }
+  const wanted = Object.keys(systemNeeds().apt);
+  if (wanted.length) await installSystem(wanted);
 }
 
 /** One line about whether this machine can run something, for the bot's own skill list. */
