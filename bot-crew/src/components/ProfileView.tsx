@@ -22,7 +22,7 @@ export function ProfileView() {
         <Avatar you />
         <div className="who">
           <span className="n">{t('profile.title')}</span>
-          <span className="t">{t('profile.sub')}</span>
+          {t('profile.sub') ? <span className="t">{t('profile.sub')}</span> : null}
         </div>
       </header>
       <div className="inbox" style={{ maxWidth: 720 }}>

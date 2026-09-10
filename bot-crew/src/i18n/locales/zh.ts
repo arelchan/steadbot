@@ -91,12 +91,12 @@ export const zh: Record<string, string> = {
   'draft.sub': '比如「帮我盯竞品动态，每周五给我一页纸」',
   'draft.placeholder': '第一句话，说清它管什么…',
 
-  /* ---- 它们眼中的你 ---- */
-  'profile.title': '它们眼中的你',
-  'profile.sub': '所有 bot 共用一份',
-  'profile.shared': '你告诉它们的',
+  /* ---- 档案 ---- */
+  'profile.title': '档案',
+  'profile.sub': '',
+  'profile.shared': '记录',
   'profile.addShared': '加一条所有 bot 都该知道的事…',
-  'profile.engine': '它们看出来的',
+  'profile.engine': '画像',
 
   /* ---- 新建群聊 ---- */
   'group.new': '新建群聊',
@@ -254,10 +254,10 @@ export const zh: Record<string, string> = {
   'cfg.memDelete': '删掉',
   'cfg.memAdd': '加一条，回车',
   'cfg.sharedMem': '所有 bot 共享',
-  'cfg.memAbout': '关于用户',
-  'cfg.memSeen': '它看出来的',
-  'cfg.memTold': '你告诉它的',
-  'cfg.memCraft': '它的手艺',
+  'cfg.memAbout': '档案',
+  'cfg.memSeen': '画像',
+  'cfg.memTold': '记录',
+  'cfg.memCraft': '经验',
   'cfg.memPromote': '设为团队通用',
   'cfg.memShared': '已通用',
   'cfg.skillsSub': '每个技能是一份它照着做的手册',
