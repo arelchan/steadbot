@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, patchBot, patchSkill, mountLibrarySkill, select, uid, addIntegration, removeIntegration, testIntegration } from '../store';
 import { LIBRARY_CATEGORY_IDS, botThread, type Bot, type Channel, type GrowthEvent, type GrowthKind, type Integration, type Routine, type SkillDoc } from '../types';
-import { agent } from '../services/agent';
+import { agent, memoryOverview, promoteSkill } from '../services/agent';
 import { Avatar } from './Avatar';
 import { Sk } from './Skeleton';
 import { Markdown } from './Markdown';
@@ -174,13 +174,52 @@ function Instructions({ bot }: { bot: Bot }) {
 
 /* ---------------- 记忆 ---------------- */
 
+/**
+ * Three things, in the order they matter. The profile is one shared thing — the user is one person,
+ * and every bot reads the same picture of him. The ways of working belong to this bot alone: it
+ * worked them out of its own trouble, and they only spread when the user says so. What the user
+ * pinned by hand stays last and stays editable; on a machine with no memory engine it is all there is.
+ */
 function Memory({ bot, onClose }: { bot: Bot; onClose: () => void }) {
   const t = useT();
   const shared = useStore((s) => s.sharedProfile);
   const [draft, setDraft] = useState('');
+  const [mem, setMem] = useState<{ alive: boolean; profile: string[]; skills: { name: string; text: string; at: string }[] }>({ alive: false, profile: [], skills: [] });
+  const [sent, setSent] = useState<string[]>([]);
+  useEffect(() => {
+    let live = true;
+    void memoryOverview(bot.id).then((m) => { if (live) setMem(m); });
+    return () => { live = false; };
+  }, [bot.id]);
+  const about = [...mem.profile, ...shared];
   return (
     <>
       <Head title={t('cfg.memory')} />
+      <h4>{t('cfg.memAbout')} <button className="link" onClick={() => { select('profile'); onClose(); }}>{t('common.edit')}</button></h4>
+      <ul className="mem readonly">
+        {about.map((v, i) => <li key={i}><span>{v}</span></li>)}
+        {about.length === 0 && <li className="quiet">{t('common.none')}</li>}
+      </ul>
+      {mem.skills.length > 0 && (
+        <>
+          <h4>{t('cfg.memLearned')}</h4>
+          <ul className="mem readonly">
+            {mem.skills.map((k) => (
+              <li key={k.name}>
+                <span><b className="memk">{k.name}</b><span className="memt">{k.text}</span></span>
+                <button
+                  className="link"
+                  disabled={sent.includes(k.name)}
+                  onClick={() => { setSent((p) => [...p, k.name]); void promoteSkill(bot.id, k.name); }}
+                >
+                  {sent.includes(k.name) ? t('cfg.memShared') : t('cfg.memPromote')}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <h4>{t('cfg.memPinned')}</h4>
       <ul className="mem">
         {bot.viewOfYou.map((v, i) => (
           <li key={i}>
@@ -202,11 +241,6 @@ function Memory({ bot, onClose }: { bot: Bot; onClose: () => void }) {
           }
         }}
       />
-      <h4>{t('cfg.sharedMem')} <button className="link" onClick={() => { select('profile'); onClose(); }}>{t('common.edit')}</button></h4>
-      <ul className="mem readonly">
-        {shared.map((v, i) => <li key={i}><span>{v}</span></li>)}
-        {shared.length === 0 && <li className="quiet">{t('common.none')}</li>}
-      </ul>
     </>
   );
 }
@@ -512,8 +546,9 @@ function ImRow({ i, bot, channel }: { i: Integration; bot: Bot; channel: Channel
   const link = bot.im?.[channel];
   const st: RowState = link?.status ?? 'off';
   const state = st === 'connecting' ? t('cfg.connecting') : st === 'ok' ? (link?.account ? `@${link.account.replace(/^@/, '')}` : '') : st === 'error' ? link?.note ?? '' : '';
+  // 接入 is a request to the bot, not a form: it runs the IM skill (asks which route, does the work, verifies).
   const connect = () => {
-    agent.connectChannel(bot.id, channel);
+    agent.onUserMessage(botThread(bot.id), t(st === 'error' ? 'cfg.imRefillAsk' : 'cfg.imConnectAsk', { im: i.name }));
     select(botThread(bot.id));
   };
   const disconnect = () => {

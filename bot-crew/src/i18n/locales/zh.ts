@@ -93,10 +93,11 @@ export const zh: Record<string, string> = {
 
   /* ---- 它们眼中的你 ---- */
   'profile.title': '它们眼中的你',
-  'profile.sub': '共享的一层所有 bot 都看得到，每个 bot 自己的那层只影响它',
+  'profile.sub': '所有 bot 共用一份，各自另钉了几条',
   'profile.shared': '所有 bot 共享',
   'profile.addShared': '加一条所有 bot 都该知道的事…',
-  'profile.own': '{name} 自己记的',
+  'profile.engine': '它们看出来的',
+  'profile.own': '{name} 钉住的',
   'profile.goSee': '去看它',
 
   /* ---- 新建群聊 ---- */
@@ -254,6 +255,11 @@ export const zh: Record<string, string> = {
   'cfg.memDelete': '删掉',
   'cfg.memAdd': '加一条，回车',
   'cfg.sharedMem': '所有 bot 共享',
+  'cfg.memAbout': '关于用户',
+  'cfg.memLearned': '它学到的做法',
+  'cfg.memPinned': '钉住的几条',
+  'cfg.memPromote': '设为团队通用',
+  'cfg.memShared': '已通用',
   'cfg.skillsSub': '每个技能是一份它照着做的手册',
   'cfg.library': '技能库',
   'cfg.skillRemove': '移除',
@@ -277,6 +283,8 @@ export const zh: Record<string, string> = {
   'cfg.hostOff': '电脑离线',
   'cfg.connecting': '连接中…',
   'cfg.imConnect': '接入',
+  'cfg.imConnectAsk': '帮我把你接进{im}',
+  'cfg.imRefillAsk': '之前{im}没接上，帮我重新接一下',
   'cfg.imRefill': '重填',
   'cfg.imDisconnect': '断开',
   'cfg.imDisconnectAsk': '把「{bot}」从{im}断开？那边的机器人会停，凭据会删掉。',

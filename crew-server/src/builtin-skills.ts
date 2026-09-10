@@ -19,9 +19,11 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
 ## 模型：一个 bot 就是 IM 里的一个机器人
 你在 Telegram / Discord / WhatsApp / Slack / 飞书 / 企业微信里是**独立的机器人**，有自己的名字和头像、自己的凭据。用户私聊那个机器人就是在和你说话；把几个机器人拉进同一个群，你们就在群里一起干活（@谁谁回，群在这里对应一个「群聊」）。没有「先接渠道再绑会话」这回事，也没有 /bind 命令。
 
-## 两条路线，先走第一条
-**路线一：你自己接自己。** 用电脑（computer(open)）打开对方平台的后台，自己建机器人、开权限、订事件，凭据用 harvest 直接收进配置，全程用户只需要在登录那一步帮一下（在屏幕上登录）。这是默认路线：所有平台都这样接。
-**路线二：引导用户。** 电脑不可用（bot 在用户自己的机器上跑、或电脑开不起来）、或平台后台在虚拟机里登不上（要手机扫码且用户不在），才走这条：build(aspect=channel, action=add, value="飞书") 发系统标准凭据卡，用户按卡上的步骤建机器人、填凭据。
+## 两条路线，由用户定
+**路线一：你自己接自己。** 用电脑（computer(open)）打开对方平台的后台，自己建机器人、开权限、订事件，凭据用 harvest 直接收进配置，用户只在登录那一步帮一下（扫码卡 / 密码卡）。
+**路线二：用户自己建、填卡。** build(aspect=channel, action=add, value="飞书") 发系统标准凭据卡，用户按卡上的步骤在平台后台建机器人、把凭据填在卡上。
+**先问一句再动手**：用 ask_user 给两个选项——「我自己去后台接（要你登录一次）」「你按卡上的步骤建，我来接上」——顺带说清这个平台哪条更顺（比如 Telegram 建议路线二、飞书两条都行）。例外：recall 一下用户对接 IM 路线的偏好，**之前每次都选同一条**就直接走那条、不再问；用户这次选了，用 remember 记下「接 IM 偏好路线 X」，选过几次不一致就还是问。
+电脑不可用（bot 在用户自己的机器上跑、或电脑开不起来）时只有路线二，不用问。
 两条路线里凭据都不经过对话：不问用户要 token / Secret，不让他贴在对话里，不让他改配置文件，你也不自己去改配置。
 
 ## 路线一：具体怎么做
@@ -39,7 +41,7 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
 6. 跑通后，用 build(aspect=skill, action=set) 给自己写一份「接入 X 实操」手册：实际点了哪些菜单、哪些按钮文案、哪一步卡过、怎么绕。不写任何凭据。下次你或同事再接就照它走。
 
 ### 各平台的倾向
-- **Telegram**：**例外，默认走路线二。** 它没有独立的开放平台后台，建机器人就是在用户自己的账号里找 @BotFather 聊天——路线一意味着把用户的个人 Telegram 整个登进这台共用的电脑，而且它的登录码只认 Telegram App 内 Settings → Devices → Add Device 的扫码器，用户经常卡在这一步。所以直接 build(aspect=channel, action=add, value="Telegram") 发凭据卡，让用户在手机 Telegram 里找 @BotFather：/newbot → 显示名用你的名字、用户名以 bot 结尾 → 把它回的 token 填在卡上，一分钟的事。用户明确要你自己动手才走路线一（web.telegram.org 扫码登录 → 和 @BotFather 对话 → harvest(field=Bot Token)）。拉进群后默认只看得到 @它 的消息，正好。
+- **Telegram**：**问的时候建议路线二。** 它没有独立的开放平台后台，建机器人就是在用户自己的账号里找 @BotFather 聊天——路线一意味着把用户的个人 Telegram 整个登进这台共用的电脑，而且它的登录码只认 Telegram App 内 Settings → Devices → Add Device 的扫码器，用户经常卡在这一步。所以直接 build(aspect=channel, action=add, value="Telegram") 发凭据卡，让用户在手机 Telegram 里找 @BotFather：/newbot → 显示名用你的名字、用户名以 bot 结尾 → 把它回的 token 填在卡上，一分钟的事。用户明确要你自己动手才走路线一（web.telegram.org 扫码登录 → 和 @BotFather 对话 → harvest(field=Bot Token)）。拉进群后默认只看得到 @它 的消息，正好。
 - **飞书**：open.feishu.cn/app → 创建企业自建应用（名字用你的名字）→ 添加应用能力：机器人 → 权限管理开 im:message、im:message:send_as_bot、im:chat:readonly → 事件与回调：选「长连接」，加「接收消息」「机器人进群」「机器人被移出群」→ 凭证与基础信息：App ID 直接 harvest；App Secret 点「查看」后 harvest → **版本管理与发布：创建版本 → 可用范围要包含这个用户（默认「全员可用」最省事）→ 发布，等管理员审核通过**。不需要公网地址。
   - 发布这一步不是可选的：不发布，凭据照样连得上、后台一切正常，但用户在飞书里根本搜不到这个机器人，消息也进不来。所以必须走完第 4 步验收。
   - 审核要企业管理员点同意。用户自己就是管理员的话让他去「管理后台 → 应用管理」通过一下；不是的话，告诉他找谁审，别在这儿干等。
@@ -51,8 +53,8 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
 - **飞书国际版（Lark）**：和飞书是同一套东西的两朵云，后台在 open.larksuite.com。凭据形态一样，系统会自动判断该连哪一朵，你照飞书的步骤走即可。
 - **个人微信**：没有官方接口，只有第三方协议，有封号风险，本产品不接。用户问就直说，推荐企业微信或飞书。
 
-## 路线二：引导用户
-build(aspect=channel, action=add, value="飞书")。系统发凭据卡，卡上有步骤和要填的项。你只说一句「按卡上的步骤建一个机器人，凭据填在卡上」。用户填完系统自动接上并通知你。失败就把原因说成人话，让他核对后重填：request_credentials，integration 填平台名（如「飞书」），系统会重发标准卡（字段是固定的，不用你定）。
+## 路线二：用户自己建、填卡
+build(aspect=channel, action=add, value="飞书")。系统发凭据卡，卡上有步骤和要填的项。你只说一句「按卡上的步骤建一个机器人，凭据填在卡上」。接上后同样要走第 4 步验收。用户填完系统自动接上并通知你。失败就把原因说成人话，让他核对后重填：request_credentials，integration 填平台名（如「飞书」），系统会重发标准卡（字段是固定的，不用你定）。
 
 ## 收尾
 - 没跑过 channel_check 就不要说「接好了」。凭据能连 ≠ 用户找得到你，这两件事分开判断。
