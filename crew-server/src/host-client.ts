@@ -13,6 +13,8 @@ import type { Integration } from './types.ts';
  * here, and run the tasks it sends using this computer's agents and logins. Reconnects on its own; stops when the
  * bots come back home.
  */
+const HEARTBEAT_MS = 20_000;
+
 export class HostClient {
   private ws: WebSocket | undefined;
   private stopped = false;
@@ -54,11 +56,27 @@ export class HostClient {
     const url = `${this.target.url.replace(/^http/, 'ws')}/host?token=${encodeURIComponent(this.target.token)}`;
     const ws = new WebSocket(url, { handshakeTimeout: 10_000 });
     this.ws = ws;
+    // Keepalive from this side too. The machine over there restarts on every upgrade, and a container going away
+    // does not always close its TCP connections: this end then sits on a socket nobody is listening to, believes
+    // it is connected, and never says hello again — the App shows the computer offline while this log says
+    // otherwise. A ping the other side does not answer within a period is the only way to notice.
+    let alive = true;
+    const beat = setInterval(() => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      if (!alive) return ws.terminate();
+      alive = false;
+      try {
+        ws.ping();
+      } catch {
+        ws.terminate();
+      }
+    }, HEARTBEAT_MS);
+    ws.on('pong', () => (alive = true));
     ws.on('open', async () => {
       this.retry = 0;
       this.set('connected');
       console.log(`[crew] lending this computer's agents to ${this.target.name ?? this.target.url}`);
-      send(ws, await this.hello());
+      send(ws, await this.hello().catch((e) => { console.warn('[crew] agent host hello failed:', (e as Error).message); return { type: 'hello' as const, name: hostname().replace(/\.local$/, ''), platform: platform(), agents: [] }; }));
     });
     ws.on('message', (raw) => {
       let m: RuntimeToHost;
@@ -70,6 +88,7 @@ export class HostClient {
       void this.handle(ws, m);
     });
     const gone = () => {
+      clearInterval(beat);
       if (this.ws !== ws) return;
       this.ws = undefined;
       for (const r of this.runs.values()) r.abort.abort();

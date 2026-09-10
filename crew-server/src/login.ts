@@ -32,7 +32,26 @@ export interface LoginAsk {
 }
 
 const POLL_MS = 3000;
-const GIVE_UP_MS = 10 * 60_000;
+const GIVE_UP_MS = 30 * 60_000;
+
+/**
+ * How the code on the card is actually scanned, per site.
+ *
+ * Every IM's login QR carries a deep link that only its own app will act on, and each of them refuses a scan that
+ * did not come from its own scanner — Telegram answers a camera scan with "go to Settings > Devices > Add Device"
+ * and nothing else. So "扫一下" is never enough, the path differs per platform, and the model guesses it wrong
+ * (it told the user twice that the popup was normal). The card says it instead, from this table.
+ */
+const HOW: { at: RegExp; how: string }[] = [
+  { at: /telegram\./i, how: '手机上打开 Telegram → Settings → Devices → Add Device，用那里的扫码器扫。系统相机扫不了这个码（只会弹一句让你去 Add Device）。' },
+  { at: /web\.whatsapp\./i, how: '手机上打开 WhatsApp → 设置 → 已链接的设备 → 链接设备，用那里的扫码器扫。' },
+  { at: /feishu\.|larksuite\./i, how: '用手机上的飞书/Lark App——扫一扫，扫这个码。' },
+  { at: /wechat\.|weixin\.|qq\.com/i, how: '用手机上的微信——扫一扫，扫这个码。' },
+  { at: /slack\./i, how: '用手机上的 Slack App 里的扫码入口扫。' },
+];
+const howFor = (url: string) => HOW.find((h) => h.at.test(url))?.how;
+/** The card is scanned by a phone, so it has to be on some other screen than that phone. */
+const TWO_SCREENS = '这张卡要在电脑（或另一块屏）上看，手机对着它扫；在同一部手机上是扫不了自己屏幕的。';
 
 export class LoginDesk {
   private asks = new Map<string, LoginAsk>();
@@ -50,11 +69,12 @@ export class LoginDesk {
   /** Put the login in front of the user and watch the page until it is past it. Returns what to tell the bot. */
   async ask(o: Omit<LoginAsk, 'id' | 'at'> & { note?: string; title?: string }): Promise<string> {
     // Fail here rather than after the card is posted: a card pointing at a tab that is not there is worse than a no.
-    await this.desktops.readPage(o.match, async (p) => p.title());
+    const at = await this.desktops.readPage(o.match, async (p) => p.url());
     const id = randomBytes(6).toString('hex');
     const ask: LoginAsk = { id, botId: o.botId, threadId: o.threadId, kind: o.kind, match: o.match, selector: o.selector, fields: o.fields, at: Date.now() };
     this.asks.set(id, ask);
     const title = o.title ?? (o.kind === 'qr' ? '扫一下这个码' : '登录一下');
+    const how = o.kind === 'qr' ? [howFor(at), TWO_SCREENS].filter(Boolean).join('') : undefined;
     this.store.addMessage({
       threadId: o.threadId,
       author: 'bot',
@@ -63,7 +83,7 @@ export class LoginDesk {
       ts: Date.now(),
       card:
         o.kind === 'qr'
-          ? { type: 'login', askId: id, kind: 'qr', title }
+          ? { type: 'login', askId: id, kind: 'qr', title, how }
           : {
               type: 'login',
               askId: id,
@@ -74,7 +94,7 @@ export class LoginDesk {
     });
     void this.watch(ask);
     return o.kind === 'qr'
-      ? '二维码卡已经发到对话里了，码是实时的（会自己刷新），用户扫完系统会告诉你。现在不要追问、也不要自己去点屏幕，先结束这一轮或者去做别的。'
+      ? `二维码卡已经发到对话里了，码是实时的（会自己刷新），用户扫完系统会告诉你。卡上已经写了该怎么扫（${how ?? TWO_SCREENS}）——你不要再自己编一套扫码步骤，也不要向用户要手机号、验证码或登录码。现在不要追问、也不要自己去点屏幕，先结束这一轮或者去做别的。`
       : '登录卡已经发到对话里了，用户填的账号密码由系统直接打进页面，不经过你、也不会存下来。填完系统会告诉你。现在不要追问，先做别的。';
   }
 
@@ -145,6 +165,9 @@ export class LoginDesk {
     while (!ask.done && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, POLL_MS));
       if (!this.asks.has(ask.id)) return;
+      // The page under the card is the bot's own tab, and an idle bot's tab gets closed (desktop.ts). A user
+      // fumbling with their phone for twenty minutes is idle by that measure — so an open card counts as use.
+      this.desktops.touch(ask.botId);
       const gone = await this.desktops
         .readPage(ask.match, async (page) => (watched ? (await page.locator(watched).first().count()) === 0 : false))
         .catch(() => false);
@@ -156,9 +179,9 @@ export class LoginDesk {
       return;
     }
     if (!ask.done) {
-      this.markDone(ask, '等超时了');
+      this.markDone(ask, '等了半小时，没等到登录成功');
       this.asks.delete(ask.id);
-      this.tellBot(ask.botId, '【系统】登录卡等了十分钟没有等到登录成功。看一眼页面现在是什么样子，再决定是重新发一张卡还是换条路。');
+      this.tellBot(ask.botId, '【系统】登录卡等了半小时没有等到登录成功。看一眼页面现在是什么样子，再决定是重新发一张卡还是换条路。');
     }
   }
 

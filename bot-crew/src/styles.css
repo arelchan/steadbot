@@ -405,7 +405,7 @@ body.resizing * { transition: none !important; }
 .card.connect.dead .c-sub { color: var(--warn); }
 .card.connect .btn { text-decoration: none; display: inline-flex; align-items: center; }
 .env-add { resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; }
-.cn-chip { margin-left: 6px; font-size: 10px; padding: 1px 6px; vertical-align: 1px; }
+.cn-chip { font-size: 10px; padding: 1px 6px; }
 .card.blocked { background: var(--warn-bg); box-shadow: var(--sh-1), 0 0 0 1px rgba(178, 106, 28, 0.18); }
 .card.blocked .c-title { color: var(--warn); }
 
@@ -927,23 +927,23 @@ textarea.ident-desc:focus { outline: 0; border-color: var(--accent-hair); backgr
 
 /* ---- integrations ---- */
 .integ-list { list-style: none; margin: 0; padding: 0; }
-.integ-row { display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid var(--hair-2); }
-.integ-row.disabled .integ-main { opacity: 0.55; }
+/* 连接的一行：点 · 名字 ······ 状态 · 操作 · 开关。点就是状态；旁边的字只说点说不了的（连成了谁、为什么失败） */
+.integ-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 2px; border-bottom: 1px solid var(--hair-2); }
+.integ-row.dim .integ-name { color: var(--muted); font-weight: 500; }
 .integ-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--hair); flex: 0 0 auto; }
 .integ-dot.ok { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
 .integ-dot.error { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-bg); }
 .integ-dot.connecting { background: var(--warn); animation: sk-breathe 1s ease-in-out infinite; }
-.integ-main { flex: 1; min-width: 0; }
-.integ-name { font-weight: 600; }
-.integ-note { color: var(--muted); font-size: 11.5px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.integ-hint { color: var(--accent); font-size: 11.5px; margin-top: 3px; }
+.integ-name { font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.integ-n { color: var(--muted); font-size: 11.5px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.integ-state { flex: 1; min-width: 0; text-align: right; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.integ-state.error { color: var(--danger); }
 .integ-actions { display: inline-flex; gap: 10px; visibility: hidden; }
 .integ-row:hover .integ-actions { visibility: visible; }
-/* an IM row's one action (接入 / 断开) is the point of the row: always visible */
-.integ-actions.im-actions { visibility: visible; }
 .integ-row .tgl { flex: 0 0 auto; }
-.integ-row .tgl:disabled { opacity: 0.4; cursor: default; }
-.integ-empty { padding: 8px 2px; font-size: 12px; }
+.integ-row .integ-spacer { width: 34px; flex: 0 0 auto; }
+.cfg-content h4 .h4-aside { margin-left: auto; font-weight: 400; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.cfg-content h4 .h4-aside.ok { color: var(--ok); }
 .add-integ { display: inline-block; margin-top: 8px; }
 .add-integ-form { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
 .add-integ-form .mem-add { margin-top: 0; }
@@ -1033,6 +1033,7 @@ li.md-task.done { color: var(--text-2); }
 .login-qr-wrap { position: relative; display: flex; justify-content: center; }
 .login-qr { display: block; margin: 10px auto 2px; width: 100%; max-width: 260px; border-radius: var(--r-sm); background: #fff; }
 .login-qr-wrap.dead .login-qr { filter: grayscale(1) brightness(0.55); }
+.login-how { margin: 8px 2px 2px; font-size: 12px; line-height: 1.5; color: var(--text-2); }
 .login-dead { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 12px; letter-spacing: 0.02em; }
 .bubble .md-hr, .md .md-hr { border: 0; border-top: 1px solid var(--hair); margin: 8px 0; }
 .bubble ol.md-list { margin: 3px 0 3px 1.3em; padding: 0; }
@@ -1313,8 +1314,6 @@ li.md-task.done { color: var(--text-2); }
 .rt-host-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; background: var(--muted); }
 .rt-host-dot.ok { background: #3f9d5a; }
 .rt-host-dot.wait { background: var(--warn); animation: breathe 1.4s ease-in-out infinite; }
-.integ-lead { margin: -2px 0 8px; font-size: 12px; line-height: 1.55; color: var(--text-2); }
-.integ-lead.off { color: var(--muted); }
 
 /* ---- 工作区: one column beside the conversation — the bot's screen, its tasks, its routines ---- */
 .workspace { display: flex; flex-direction: column; gap: 10px; max-height: 100%; overflow: hidden; }

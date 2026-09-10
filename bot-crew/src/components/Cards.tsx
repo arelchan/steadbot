@@ -168,10 +168,13 @@ function LoginCard({ card, messageId }: { card: Extract<Card, { type: 'login' }>
         <span className="cn-mark" aria-hidden>⌁</span>
       </div>
       {card.kind === 'qr' ? (
-        <div className={cx('login-qr-wrap', dead && 'dead')}>
-          <img className="login-qr" src={withToken(`${httpBase || window.location.origin}/login/${card.askId}.png?t=${tick}`)} alt={card.title} onError={() => setDead(true)} />
-          {dead && <span className="login-dead">{t('card.loginStale')}</span>}
-        </div>
+        <>
+          <div className={cx('login-qr-wrap', dead && 'dead')}>
+            <img className="login-qr" src={withToken(`${httpBase || window.location.origin}/login/${card.askId}.png?t=${tick}`)} alt={card.title} onError={() => setDead(true)} />
+            {dead && <span className="login-dead">{t('card.loginStale')}</span>}
+          </div>
+          {card.how && !dead && <div className="login-how">{card.how}</div>}
+        </>
       ) : (
         <>
           <div className="sc-fields">

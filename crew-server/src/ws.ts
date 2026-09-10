@@ -84,7 +84,6 @@ export function startServer(store: CrewStore, port: number, avatarsDir: string, 
     }
     target.handleUpgrade(req, socket, head, (ws) => target.emit('connection', ws, req));
   });
-  hostWss.on('connection', (socket) => handlers.onHost?.(socket));
 
   // Credentials live in integration env; clients only ever see the key names.
   const redact = <T extends { env?: Record<string, string> }>(i: T): T => (i.env ? { ...i, env: Object.fromEntries(Object.keys(i.env).map((k) => [k, '••••'])) } : i);
@@ -103,7 +102,7 @@ export function startServer(store: CrewStore, port: number, avatarsDir: string, 
   // speak, and looks disconnected for no reason. Ping every 30 s and drop peers that stop answering.
   const alive = new WeakSet<WebSocket>();
   const heartbeat = setInterval(() => {
-    for (const c of wss.clients) {
+    for (const c of [...wss.clients, ...hostWss.clients]) {
       if (c.readyState !== WebSocket.OPEN) continue;
       if (!alive.has(c)) {
         c.terminate();
@@ -118,6 +117,13 @@ export function startServer(store: CrewStore, port: number, avatarsDir: string, 
     }
   }, 30_000);
   heartbeat.unref?.();
+  hostWss.on('connection', (socket) => {
+    // The computer lending its agents is on the same kind of long-haul link as the Apps: same heartbeat, so a
+    // laptop that went to sleep stops counting as online within a minute instead of until its TCP times out.
+    alive.add(socket);
+    socket.on('pong', () => alive.add(socket));
+    handlers.onHost?.(socket);
+  });
 
   store.on('change', (e: StoreEvent) => broadcast(e as ServerMessage));
 

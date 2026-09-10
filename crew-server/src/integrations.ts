@@ -5,19 +5,15 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { CrewStore } from './store.ts';
-import { CHANNEL_HOWTO } from './channels.ts';
+import { CHANNEL_HOWTO, IMS, IM_NAME } from './channels.ts';
 import type { AgentId, Bot, Channel, Integration } from './types.ts';
 import { config } from './config.ts';
 import { AcpPool, type AcpClient, type AcpPermissionRequest, type AcpUpdate } from './acp.ts';
 import type { AgentHosts } from './host.ts';
 import { toolsEnv } from './tools.ts';
 
-const CHANNELS: { channel: Channel; name: string }[] = [
-  { channel: 'telegram', name: 'Telegram' },
-  { channel: 'feishu', name: '飞书' },
-  { channel: 'wechat', name: '企业微信' },
-  { channel: 'slack', name: 'Slack' },
-];
+/** One catalog row per IM the runtime can bridge — the same list channels.ts connects, so a new bridge shows up here on its own. */
+const CHANNELS: { channel: Channel; name: string }[] = IMS.map((channel) => ({ channel, name: IM_NAME[channel] }));
 /**
  * External agents a bot can delegate to. Each has a CLI one-shot form (always works if the binary is there)
  * and, preferably, an ACP launch (streaming output, tool-call visibility, permission requests routed to us,

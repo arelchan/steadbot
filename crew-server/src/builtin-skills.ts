@@ -27,6 +27,8 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
 ## 路线一：具体怎么做
 0. \`harvest(action=info, target=飞书)\`：看这个 IM 要哪几项、机器人该叫什么、要填给对方的信息（企业微信、WhatsApp 的回调 URL、公网 IP）。
 1. \`computer(open)\`，\`browser_navigate\` 到后台（地址在 info 里）。**需要登录时不要让用户去开电脑**：页面上是二维码就 \`ask_login(kind=qr, url=当前网址一段, selector=二维码元素)\`，把实时的码发到对话里让他手机扫；是账号密码就 \`ask_login(kind=password, passwordSelector=…)\`，他填在卡上、系统直接打进页面。发完这一轮就结束，登录成功系统会叫你回来。卡上的码是实时的（每几秒重取一次当前页面），不会因为过期而扫不上；只有极少数页面裁不出码（比如画在跨域 iframe 里），这时才退回去请用户打开电脑屏幕自己扫。
+   - 怎么扫，卡上已经写了（该用哪个 App 的哪个入口；这些码都只认自家 App 的扫码器，系统相机扫不了），你不要再自己编一套步骤；用户说扫不上，先让他照卡上写的做。卡是给电脑屏幕看的、手机来扫——他如果只有一部手机，就走路线二。
+   - **绝对不要向用户索要手机号、短信验证码、App 里收到的登录码。**那是能登进他整个账号的凭据，不许经过对话；登录只有两条路：扫码卡、密码卡。
 2. 按平台步骤在页面上操作：建应用 / 机器人（名字用你的名字），加机器人能力，开权限，订事件，发布。每步看结果里带的快照，只点自己标签里的东西。
 3. 到凭据页：密钥被遮着就先点「查看 / 显示」，然后 \`harvest(take, target=飞书, field=App ID, url=当前网址一段)\`，再 \`harvest(take, field=App Secret, …)\`。同类格式的值不止一个时加 near（旁边的标签文字）。收齐系统自动接入，告诉你那边的名字。
 4. **验收（必做，不做不算接完）**：\`channel_check(arm, channel=飞书)\` 拿一个暗号 → 回电脑打开这个 IM 的**网页版**（用户已经登录的那个，不是开放平台后台），搜自己的机器人名字，以用户的身份把暗号发给自己 → \`channel_check(status)\`。ok 才算真的通了；这条测试消息不会进对话。
@@ -37,7 +39,7 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
 6. 跑通后，用 build(aspect=skill, action=set) 给自己写一份「接入 X 实操」手册：实际点了哪些菜单、哪些按钮文案、哪一步卡过、怎么绕。不写任何凭据。下次你或同事再接就照它走。
 
 ### 各平台的倾向
-- **Telegram**：最容易。web.telegram.org 登录（用户扫码一次）→ 和 @BotFather 对话：/newbot，显示名用你的名字，用户名以 bot 结尾 → 它回的那条消息里有 token → harvest(field=Bot Token)。拉进群后默认只看得到 @它 的消息，正好。
+- **Telegram**：**例外，默认走路线二。** 它没有独立的开放平台后台，建机器人就是在用户自己的账号里找 @BotFather 聊天——路线一意味着把用户的个人 Telegram 整个登进这台共用的电脑，而且它的登录码只认 Telegram App 内 Settings → Devices → Add Device 的扫码器，用户经常卡在这一步。所以直接 build(aspect=channel, action=add, value="Telegram") 发凭据卡，让用户在手机 Telegram 里找 @BotFather：/newbot → 显示名用你的名字、用户名以 bot 结尾 → 把它回的 token 填在卡上，一分钟的事。用户明确要你自己动手才走路线一（web.telegram.org 扫码登录 → 和 @BotFather 对话 → harvest(field=Bot Token)）。拉进群后默认只看得到 @它 的消息，正好。
 - **飞书**：open.feishu.cn/app → 创建企业自建应用（名字用你的名字）→ 添加应用能力：机器人 → 权限管理开 im:message、im:message:send_as_bot、im:chat:readonly → 事件与回调：选「长连接」，加「接收消息」「机器人进群」「机器人被移出群」→ 凭证与基础信息：App ID 直接 harvest；App Secret 点「查看」后 harvest → **版本管理与发布：创建版本 → 可用范围要包含这个用户（默认「全员可用」最省事）→ 发布，等管理员审核通过**。不需要公网地址。
   - 发布这一步不是可选的：不发布，凭据照样连得上、后台一切正常，但用户在飞书里根本搜不到这个机器人，消息也进不来。所以必须走完第 4 步验收。
   - 审核要企业管理员点同意。用户自己就是管理员的话让他去「管理后台 → 应用管理」通过一下；不是的话，告诉他找谁审，别在这儿干等。

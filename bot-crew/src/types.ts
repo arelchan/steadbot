@@ -338,6 +338,8 @@ export type Card =
       kind: 'qr' | 'password';
       title: string;
       fields?: { key: string; label: string; secret?: boolean }[];
+      /** qr：该用哪个 App 的哪个入口扫（服务端按站点给的，不是模型编的） */
+      how?: string;
       done?: boolean;
       /** 结束的原因，正常登录成功时没有 */
       note?: string;

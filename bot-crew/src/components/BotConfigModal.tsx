@@ -441,6 +441,7 @@ function Routines({ bot }: { bot: Bot }) {
 function Integrations({ bot }: { bot: Bot }) {
   const t = useT();
   const integrations = useStore((s) => s.integrations);
+  const rt = useStore((s) => s.runtime);
   const granted = new Set(bot.integrationIds ?? []);
   const grant = (i: Integration, on: boolean) => {
     const ids = on ? Array.from(new Set([...(bot.integrationIds ?? []), i.id])) : (bot.integrationIds ?? []).filter((x) => x !== i.id);
@@ -448,46 +449,60 @@ function Integrations({ bot }: { bot: Bot }) {
   };
   // A bot's own computer shows up as a private MCP connection (owner = the bot); it is not a shared connection.
   const mcps = integrations.filter((i) => i.kind === 'mcp' && !i.owner);
-  const channels = integrations.filter((i) => i.kind === 'channel');
+  const channels = integrations.filter((i) => i.kind === 'channel' && i.channel && i.channel !== 'app');
   const agents = integrations.filter((i) => i.kind === 'agent');
+  // Where the agents run when the bots live on a remote machine: on the user's computer, lent over the host link.
+  const host = rt && !rt.local ? (rt.agentHost ? t('cfg.hostVia', { name: rt.agentHost.name }) : t('cfg.hostOff')) : undefined;
   return (
     <>
       <Head title={t('cfg.integrations')} />
       <h4>{t('cfg.external')}</h4>
       <ul className="integ-list">
         {mcps.map((i) => (
-          <IntegRow key={i.id} i={i} on={granted.has(i.id)} onToggle={(v) => grant(i, v)} removable />
+          <IntegRow key={i.id} i={i} on={granted.has(i.id)} onToggle={(v) => grant(i, v)} />
         ))}
-        {mcps.length === 0 && <li className="quiet integ-empty">{t('common.none')}</li>}
       </ul>
       <AddMcp />
 
       <h4>{t('cfg.im')}</h4>
       <ul className="integ-list">
-        {channels.map((i) => (i.channel && i.channel !== 'app' ? <ImRow key={i.id} i={i} bot={bot} channel={i.channel} /> : null))}
+        {channels.map((i) => (
+          <ImRow key={i.id} i={i} bot={bot} channel={i.channel!} />
+        ))}
       </ul>
 
-      <h4>{t('cfg.agents')}</h4>
-      <AgentsNote />
+      <h4>
+        {t('cfg.agents')}
+        {host && <span className={cx('h4-aside', rt?.agentHost ? 'ok' : 'off')}>{host}</span>}
+      </h4>
       <ul className="integ-list">
         {agents.map((i) => (
-          <IntegRow key={i.id} i={i} on={granted.has(i.id)} onToggle={(v) => grant(i, v)} disabled={!i.available} />
+          <IntegRow key={i.id} i={i} on={granted.has(i.id)} onToggle={(v) => grant(i, v)} />
         ))}
       </ul>
     </>
   );
 }
 
-/** Where the agents run when the bots live on a remote machine: on the user's computer, lent over the host link. */
-function AgentsNote() {
-  const t = useT();
-  const rt = useStore((s) => s.runtime);
-  if (!rt || rt.local) return null;
-  const h = rt.agentHost;
+type RowState = 'off' | 'connecting' | 'ok' | 'error';
+
+/**
+ * One line per connection, the same shape for all three kinds: dot · name · (chips) ······ state · actions · switch.
+ * The dot is the state; the words next to it are only what the state does not already say — who it is connected
+ * as, or why it failed. Nothing is explained on a row that is simply off.
+ */
+function Row({ st, name, chips, state, actions, right, dim }: { st: RowState; name: string; chips?: React.ReactNode; state?: string; actions?: React.ReactNode; right?: React.ReactNode; dim?: boolean }) {
   return (
-    <div className={cx('integ-lead', h ? 'ok' : 'off')}>
-      {h ? t('cfg.viaComputer', { name: h.name }) : t('cfg.computerOffline')}
-    </div>
+    <li className={cx('integ-row', dim && 'dim')}>
+      <span className={cx('integ-dot', st)} />
+      <span className="integ-name">
+        {name}
+        {chips}
+      </span>
+      <span className={cx('integ-state', st === 'error' && 'error')} title={state}>{state}</span>
+      {actions && <span className="integ-actions">{actions}</span>}
+      {right}
+    </li>
   );
 }
 
@@ -495,16 +510,8 @@ function AgentsNote() {
 function ImRow({ i, bot, channel }: { i: Integration; bot: Bot; channel: Channel }) {
   const t = useT();
   const link = bot.im?.[channel];
-  const st = link?.status ?? 'off';
-  const dot = st === 'ok' ? 'ok' : st === 'error' ? 'error' : st === 'connecting' ? 'connecting' : 'off';
-  const note =
-    st === 'connecting'
-      ? t('cfg.connecting')
-      : st === 'ok'
-        ? `${link?.account ? t('cfg.namedThere', { account: link.account }) : ''}${link?.note ?? ''}`
-        : st === 'error'
-          ? t('cfg.imFailed', { note: link?.note ?? '' })
-          : i.note;
+  const st: RowState = link?.status ?? 'off';
+  const state = st === 'connecting' ? t('cfg.connecting') : st === 'ok' ? (link?.account ? `@${link.account.replace(/^@/, '')}` : '') : st === 'error' ? link?.note ?? '' : '';
   const connect = () => {
     agent.connectChannel(bot.id, channel);
     select(botThread(bot.id));
@@ -513,46 +520,54 @@ function ImRow({ i, bot, channel }: { i: Integration; bot: Bot; channel: Channel
     if (window.confirm(t('cfg.imDisconnectAsk', { bot: bot.name, im: i.name }))) agent.disconnectChannel(bot.id, channel);
   };
   return (
-    <li className="integ-row">
-      <span className={cx('integ-dot', dot)} />
-      <div className="integ-main">
-        <div className="integ-name">{i.name}</div>
-        <div className="integ-note">{note}</div>
-      </div>
-      <span className="integ-actions im-actions">
-        {st === 'off' && <button className="btn sm" onClick={connect}>{t('cfg.imConnect')}</button>}
-        {st === 'error' && <button className="btn sm" onClick={connect}>{t('cfg.imRefill')}</button>}
-        {(st === 'ok' || st === 'error') && <button className="link quiet-link danger" onClick={disconnect}>{t('cfg.imDisconnect')}</button>}
-      </span>
-    </li>
+    <Row
+      st={st}
+      name={i.name}
+      state={state}
+      actions={(st === 'ok' || st === 'error') && <button className="link quiet-link danger" onClick={disconnect}>{t('cfg.imDisconnect')}</button>}
+      right={
+        st === 'off' ? <button className="btn sm" onClick={connect}>{t('cfg.imConnect')}</button>
+        : st === 'error' ? <button className="btn sm" onClick={connect}>{t('cfg.imRefill')}</button>
+        : <span className="integ-spacer" />
+      }
+    />
   );
 }
 
-function IntegRow({ i, on, onToggle, hint, removable, disabled }: { i: Integration; on: boolean; onToggle: (v: boolean) => void; hint?: string; removable?: boolean; disabled?: boolean }) {
+/** A shared MCP connection or an external agent: the switch is whether this bot may use it; the dot is whether it works right now. */
+function IntegRow({ i, on, onToggle }: { i: Integration; on: boolean; onToggle: (v: boolean) => void }) {
   const t = useT();
-  const dot = i.status === 'ok' ? 'ok' : i.status === 'error' ? 'error' : i.status === 'connecting' ? 'connecting' : 'off';
+  const st: RowState = i.kind === 'agent' && !i.available ? 'off' : i.status === 'ok' ? 'ok' : i.status === 'error' ? 'error' : i.status === 'connecting' ? 'connecting' : 'off';
+  const state = st === 'connecting' ? t('cfg.connecting') : st === 'error' ? i.note ?? '' : st === 'ok' ? i.account ?? '' : '';
+  const chips = (
+    <>
+      {i.kind === 'mcp' && i.tools && st === 'ok' ? <span className="integ-n">{tn('cfg.tools', i.tools.length)}</span> : null}
+      {i.connector ? <span className="chip cn-chip">{t('cfg.oneClick')}</span> : null}
+      {i.viaHost ? <span className="chip cn-chip">{t('cfg.onComputer')}</span> : null}
+    </>
+  );
+  const actions = i.kind === 'mcp' ? (
+    <>
+      <button className="link quiet-link" onClick={() => testIntegration(i.id)}>{i.connector ? t('cfg.check') : t('cfg.reconnect')}</button>
+      <button className="link quiet-link danger" onClick={() => { if (window.confirm(t('cfg.removeConnAsk', { name: i.name }))) removeIntegration(i.id); }}>{t('common.remove')}</button>
+    </>
+  ) : !i.available ? (
+    <button className="link quiet-link" onClick={() => testIntegration(i.id)}>{t('cfg.recheck')}</button>
+  ) : undefined;
   return (
-    <li className={cx('integ-row', disabled && 'disabled')}>
-      <span className={cx('integ-dot', dot)} />
-      <div className="integ-main">
-        <div className="integ-name">
-          {i.name}
-          {i.kind === 'mcp' && i.tools && i.status === 'ok' ? <span className="quiet">{tn('cfg.tools', i.tools.length)}</span> : null}
-          {i.connector ? <span className="chip cn-chip">{t('cfg.oneClick')}</span> : null}
-          {i.viaHost ? <span className="chip cn-chip">{t('cfg.onComputer')}</span> : null}
-        </div>
-        <div className="integ-note">{i.status === 'connecting' ? t('cfg.connecting') : i.note || (i.kind === 'mcp' ? [i.command, ...(i.args ?? [])].filter(Boolean).join(' ') || i.url : '')}</div>
-        {hint && on && <div className="integ-hint">{hint}</div>}
-      </div>
-      <span className="integ-actions">
-        {i.kind === 'mcp' && <button className="link quiet-link" onClick={() => testIntegration(i.id)}>{i.connector ? t('cfg.check') : t('cfg.reconnect')}</button>}
-        {i.kind === 'agent' && !i.available && <button className="link quiet-link" onClick={() => testIntegration(i.id)}>{t('cfg.recheck')}</button>}
-        {removable && <button className="link quiet-link danger" onClick={() => { if (window.confirm(t('cfg.removeConnAsk', { name: i.name }))) removeIntegration(i.id); }}>{t('common.remove')}</button>}
-      </span>
-      <button className={cx('tgl', on && 'on')} role="switch" aria-checked={on} disabled={disabled} onClick={() => !disabled && onToggle(!on)} title={disabled ? i.note : on ? t('cfg.connOn') : t('cfg.connOff')}>
-        <i />
-      </button>
-    </li>
+    <Row
+      st={st}
+      name={i.name}
+      chips={chips}
+      state={state}
+      actions={actions}
+      dim={i.kind === 'agent' && !i.available}
+      right={
+        <button className={cx('tgl', on && 'on')} role="switch" aria-checked={on} onClick={() => onToggle(!on)} title={on ? t('cfg.connOn') : t('cfg.connOff')}>
+          <i />
+        </button>
+      }
+    />
   );
 }
 
