@@ -1,8 +1,9 @@
 {
-  "repo": "ComposioHQ/awesome-claude-skills",
-  "path": "file-organizer",
-  "commit": "be2a406",
-  "url": "https://github.com/ComposioHQ/awesome-claude-skills/tree/HEAD/file-organizer",
-  "license": "unspecified",
-  "fetchedAt": "2026-09-09T15:25:54.579Z"
+  "repo": "w95/awesome-claude-corporate-skills",
+  "path": "07-operations/file-organizer",
+  "commit": "78dbc7c",
+  "url": "https://github.com/w95/awesome-claude-corporate-skills/tree/HEAD/07-operations/file-organizer",
+  "license": "MIT",
+  "licenseFile": "LICENSE",
+  "fetchedAt": "2026-09-10T14:11:40.053Z"
 }

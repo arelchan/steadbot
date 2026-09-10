@@ -275,9 +275,14 @@ const PKG_FOR: Record<string, string> = {
   identify: 'imagemagick',
   xdotool: 'xdotool',
   cliclick: 'cliclick',
+  // what the pool's 音视频 manuals reach for (ffmpeg-*, media-*)
+  'yt-dlp': 'yt-dlp',
+  sox: 'sox',
+  exiftool: 'libimage-exiftool-perl',
+  mediainfo: 'mediainfo',
 };
 /** Where Homebrew names differ from Debian's. */
-const BREW_FOR: Record<string, string> = { 'poppler-utils': 'poppler', 'tesseract-ocr': 'tesseract', libreoffice: 'libreoffice', chromium: 'chromium' };
+const BREW_FOR: Record<string, string> = { 'poppler-utils': 'poppler', 'tesseract-ocr': 'tesseract', libreoffice: 'libreoffice', chromium: 'chromium', 'libimage-exiftool-perl': 'exiftool' };
 
 /**
  * Install OS-level tools with the package manager that is ours to run here: apt as root in the container (the image

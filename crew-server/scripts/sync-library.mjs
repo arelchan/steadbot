@@ -2,7 +2,7 @@
 // Pull every skill in library/manifest.json from its upstream GitHub repo, verbatim, into library/<category>/<slug>/.
 // One sparse, blobless clone per repo; the copied directory keeps SKILL.md and all supporting files, plus the
 // repo's LICENSE (as LICENSE.upstream) and a .source.json with repo / path / commit / license.
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -37,12 +37,13 @@ for (const [repo, skills] of byRepo) {
   const dir = join(work, repo.replace('/', '__'));
   process.stdout.write(`↓ ${repo} … `);
   execFileSync('git', ['clone', '--quiet', '--depth', '1', '--filter=blob:none', '--sparse', `https://github.com/${repo}.git`, dir], { stdio: ['ignore', 'ignore', 'inherit'] });
-  git(dir, 'sparse-checkout', 'set', '--no-cone', ...skills.map((s) => `/${s.path}/`), ...skills.flatMap((s) => (s.extras ?? []).map((e) => `/${e}`)), '/LICENSE*', '/LICENCE*', '/COPYING*');
+  // A repo whose SKILL.md sits at the root is one skill in itself (`path: ""`): take everything but the git dir.
+  git(dir, 'sparse-checkout', 'set', '--no-cone', ...skills.map((s) => (s.path ? `/${s.path}/` : '/*')), ...skills.flatMap((s) => (s.extras ?? []).map((e) => `/${e}`)), '/LICENSE*', '/LICENCE*', '/COPYING*');
   const commit = git(dir, 'rev-parse', '--short', 'HEAD');
   const repoLicense = licenseOf(dir);
   console.log(`${commit}${repoLicense ? ` · ${repoLicense.id}` : ' · no repo LICENSE'}`);
   for (const s of skills) {
-    const src = join(dir, s.path);
+    const src = s.path ? join(dir, s.path) : dir;
     if (!existsSync(join(src, 'SKILL.md'))) {
       console.log(`  ✗ ${s.slug}: ${s.path}/SKILL.md not found upstream`);
       report.push({ slug: s.slug, ok: false });
@@ -51,7 +52,7 @@ for (const [repo, skills] of byRepo) {
     const dst = join(root, s.category, s.slug);
     rmSync(dst, { recursive: true, force: true });
     mkdirSync(dirname(dst), { recursive: true });
-    cpSync(src, dst, { recursive: true });
+    cpSync(src, dst, { recursive: true, filter: (from) => !/(^|\/)\.git(\/|$)/.test(from) });
     for (const e of s.extras ?? []) {
       const from = join(dir, e);
       if (!existsSync(from)) {
@@ -62,19 +63,37 @@ for (const [repo, skills] of byRepo) {
       mkdirSync(dirname(to), { recursive: true });
       cpSync(from, to, { recursive: true });
     }
+    // Some upstreams ship fixtures the skill does not need (translate-book carries 12 MB of test epubs); the
+    // whole library travels to the machine on every deploy, so a manifest entry can name what to leave behind.
+    for (const x of s.exclude ?? []) rmSync(join(dst, x), { recursive: true, force: true });
     const skillLicense = licenseOf(src);
     const license = skillLicense ?? repoLicense;
     if (repoLicense && !skillLicense) writeFileSync(join(dst, 'LICENSE.upstream'), repoLicense.text);
     const files = readdirSync(dst, { recursive: true }).filter((f) => !String(f).startsWith('.')).length;
     writeFileSync(
       join(dst, '.source.json'),
-      JSON.stringify({ repo, path: s.path, commit, url: `https://github.com/${repo}/tree/HEAD/${s.path}`, license: license?.id ?? 'unspecified', licenseFile: license?.file, fetchedAt: new Date().toISOString() }, null, 2) + '\n',
+      JSON.stringify({ repo, path: s.path || '.', commit, url: `https://github.com/${repo}/tree/HEAD/${s.path}`, license: license?.id ?? 'unspecified', licenseFile: license?.file, fetchedAt: new Date().toISOString() }, null, 2) + '\n',
     );
     console.log(`  ✓ ${s.slug} (${files} files, ${license?.id ?? 'no license'})`);
     report.push({ slug: s.slug, ok: true, license: license?.id ?? 'unspecified' });
   }
 }
 rmSync(work, { recursive: true, force: true });
+// Directories left over from entries that are no longer in the manifest: the pool never serves them, and they
+// would still be committed and uploaded. Only prune on a full sync (a filtered run knows nothing about the rest).
+if (!only.size) {
+  const wanted = new Map();
+  for (const s of manifest.skills) wanted.set(`${s.category}/${s.slug}`, true);
+  for (const cat of readdirSync(root)) {
+    const catDir = join(root, cat);
+    if (!existsSync(catDir) || !statSync(catDir).isDirectory()) continue;
+    for (const slug of readdirSync(catDir)) {
+      if (wanted.has(`${cat}/${slug}`)) continue;
+      rmSync(join(catDir, slug), { recursive: true, force: true });
+      console.log(`  – dropped ${cat}/${slug} (not in the manifest)`);
+    }
+  }
+}
 const bad = report.filter((r) => !r.ok);
 console.log(`\n${report.length - bad.length} skills synced${bad.length ? `, ${bad.length} missing: ${bad.map((b) => b.slug).join(', ')}` : ''}.`);
 const unl = report.filter((r) => r.ok && (r.license === 'unspecified' || r.license === 'proprietary'));

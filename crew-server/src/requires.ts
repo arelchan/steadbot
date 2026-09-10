@@ -45,7 +45,7 @@ export const pipNameFor = (mod: string) => IMPORT_TO_PIP[mod] ?? mod;
 
 /** Commands worth recording when a manual tells the bot to run them; everything else is shell furniture. */
 const CLI_WORTH = new Set(
-  ('ffmpeg ffprobe soffice libreoffice pdftoppm pdftotext markitdown pandoc convert magick rembg tesseract gs qpdf mmdc d2 dot rg gh deno bun docker ollama jq').split(' '),
+  ('ffmpeg ffprobe soffice libreoffice pdftoppm pdftotext markitdown pandoc convert magick rembg tesseract gs qpdf mmdc d2 dot rg gh deno bun docker ollama jq yt-dlp sox exiftool mediainfo').split(' '),
 );
 /** Shipped in the image or with the server; recording them would make every skill look broken. */
 const ALREADY_HERE = new Set(('python python3 node npx npm pip pip3 git curl wget bash sh zip unzip tar sed awk grep find tsx tsc uv pytest make').split(' '));

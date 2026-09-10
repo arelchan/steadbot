@@ -21,11 +21,18 @@ export const LIBRARY_CATEGORIES: Record<string, string> = {
   business: '商业营销',
   design: '设计创意',
   meta: '方法与元技能',
+  product: '产品',
+  finance: '财务金融',
+  legal: '法务合规',
+  people: '人事招聘',
+  sales: '销售客服',
+  science: '科研',
+  media: '音视频',
 };
 
 interface Manifest {
   categories?: Record<string, string>;
-  skills: { slug: string; category: string; repo?: string; path?: string; tags?: string[] }[];
+  skills: { slug: string; category: string; repo?: string; path?: string; tags?: string[]; description?: string; exclude?: string[] }[];
   /** Everything in the pool that is not a manual: MCP servers, asset packs. Pure data — nothing to clone, nothing on
    *  disk, so they live in the manifest and nowhere else. Platforms behind the OAuth service come from connectors.ts. */
   tools?: LibraryEntry[];
@@ -291,5 +298,7 @@ function parseSkill(raw: string, dirSlug: string, category: string, dir: string,
     }
   }
   const title = fmValue(fm, 'name') || dirSlug;
-  return { slug: dirSlug, kind: 'skill', title, category: meta?.category ?? category, description: fmValue(fm, 'description'), tags: meta?.tags ?? [], source, license, body, dir };
+  // The name stays upstream's (that is what the skill is called once mounted, and what its own text refers to), but
+  // the one-liner the pool shows is ours when the manifest wrote one: 一句中文 beats a paragraph of English triggers.
+  return { slug: dirSlug, kind: 'skill', title, category: meta?.category ?? category, description: meta?.description || fmValue(fm, 'description'), tags: meta?.tags ?? [], source, license, body, dir };
 }

@@ -1,9 +1,9 @@
 {
   "repo": "trailofbits/skills",
   "path": "plugins/static-analysis/skills/semgrep",
-  "commit": "d3323ce",
+  "commit": "321ccfe",
   "url": "https://github.com/trailofbits/skills/tree/HEAD/plugins/static-analysis/skills/semgrep",
   "license": "see LICENSE",
   "licenseFile": "LICENSE",
-  "fetchedAt": "2026-09-09T15:26:07.464Z"
+  "fetchedAt": "2026-09-10T14:11:08.336Z"
 }

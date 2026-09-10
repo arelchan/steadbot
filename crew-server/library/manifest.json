@@ -1,5 +1,5 @@
 {
-  "$comment": "Curated skill library. `npm run library:sync` pulls each skill's original directory (SKILL.md + supporting files) from GitHub, verbatim, into library/<category>/<slug>/. Titles are the upstream skill names; tags are only for search. Optional `extras`: extra upstream paths copied into the skill dir under _upstream/ (agents, READMEs the skill refers to).",
+  "$comment": "Curated skill library. `npm run library:sync` pulls each skill's original directory (SKILL.md + supporting files) from GitHub, verbatim, into library/<category>/<slug>/. Titles are the upstream skill names; tags are only for search. Optional `exclude`: paths inside the copied skill to drop (upstream test fixtures). Optional `extras`: extra upstream paths copied into the skill dir under _upstream/ (agents, READMEs the skill refers to).",
   "categories": {
     "dev": "开发",
     "docs": "文档办公",
@@ -8,14 +8,20 @@
     "productivity": "效率生活",
     "business": "商业营销",
     "design": "设计创意",
-    "meta": "方法与元技能"
+    "meta": "方法与元技能",
+    "product": "产品",
+    "finance": "财务金融",
+    "legal": "法务合规",
+    "people": "人事招聘",
+    "sales": "销售客服",
+    "science": "科研",
+    "media": "音视频"
   },
   "skills": [
     {
       "slug": "archify",
       "category": "dev",
-      "repo": "tt-a1i/archify",
-      "path": "archify",
+      "description": "把架构、流程、时序、数据流画成能交互的单页 HTML，深浅色都有，可导出 PNG/SVG；也能把现成的 Mermaid 转成好看的图。",
       "tags": [
         "架构图",
         "流程图",
@@ -27,13 +33,17 @@
         "导出",
         "diagram",
         "archify"
+      ],
+      "repo": "tt-a1i/archify",
+      "path": "archify",
+      "exclude": [
+        ".github"
       ]
     },
     {
       "slug": "architecture-diagram",
       "category": "dev",
-      "repo": "athola/claude-night-market",
-      "path": "plugins/cartograph/skills/architecture-diagram",
+      "description": "读一个代码库，画出模块之间的高层关系图（Mermaid）。",
       "tags": [
         "架构图",
         "流程图",
@@ -42,6 +52,8 @@
         "repo",
         "代码"
       ],
+      "repo": "athola/claude-night-market",
+      "path": "plugins/cartograph/skills/architecture-diagram",
       "extras": [
         "plugins/cartograph/agents/codebase-explorer.md",
         "plugins/cartograph/README.md"
@@ -50,21 +62,21 @@
     {
       "slug": "data-flow",
       "category": "dev",
-      "repo": "athola/claude-night-market",
-      "path": "plugins/cartograph/skills/data-flow",
+      "description": "画数据在组件之间怎么流动的时序图，适合梳理请求链路和数据管线。",
       "tags": [
         "数据流",
         "时序图",
         "请求流程",
         "mermaid",
         "流程图"
-      ]
+      ],
+      "repo": "athola/claude-night-market",
+      "path": "plugins/cartograph/skills/data-flow"
     },
     {
       "slug": "dependency-graph",
       "category": "dev",
-      "repo": "athola/claude-night-market",
-      "path": "plugins/cartograph/skills/dependency-graph",
+      "description": "画模块之间的依赖图，找耦合和循环依赖，重构前先看一眼。",
       "tags": [
         "依赖图",
         "import",
@@ -72,12 +84,14 @@
         "循环依赖",
         "重构",
         "mermaid"
-      ]
+      ],
+      "repo": "athola/claude-night-market",
+      "path": "plugins/cartograph/skills/dependency-graph"
     },
     {
       "slug": "visual-delivery-check",
       "category": "design",
-      "$comment": "写在这里的，不从任何仓库拉。sync 跳过没有 repo 的条目。",
+      "description": "凡是要给人看的东西——图片、海报、PPT、网页、图表——交出去之前先自己看一眼，按清单挑毛病再改一轮。",
       "tags": [
         "验收",
         "检查",
@@ -99,33 +113,34 @@
     {
       "slug": "workflow-diagram",
       "category": "dev",
-      "repo": "athola/claude-night-market",
-      "path": "plugins/cartograph/skills/workflow-diagram",
+      "description": "把流程、判断分支和状态流转画成图，适合 CI/CD 和生命周期。",
       "tags": [
         "流程图",
         "状态机",
         "CI",
         "流程",
         "mermaid"
-      ]
+      ],
+      "repo": "athola/claude-night-market",
+      "path": "plugins/cartograph/skills/workflow-diagram"
     },
     {
       "slug": "class-diagram",
       "category": "dev",
-      "repo": "athola/claude-night-market",
-      "path": "plugins/cartograph/skills/class-diagram",
+      "description": "画类与类型的继承和组合关系，梳理模块对外接口。",
       "tags": [
         "类图",
         "继承",
         "API",
         "mermaid"
-      ]
+      ],
+      "repo": "athola/claude-night-market",
+      "path": "plugins/cartograph/skills/class-diagram"
     },
     {
       "slug": "code-wiki",
       "category": "dev",
-      "repo": "NousResearch/hermes-agent",
-      "path": "optional-skills/software-development/code-wiki",
+      "description": "给一个代码库生成整套 wiki 文档，配 Mermaid 图。",
       "tags": [
         "读代码",
         "仓库",
@@ -133,125 +148,121 @@
         "文档",
         "架构",
         "onboarding"
-      ]
+      ],
+      "repo": "NousResearch/hermes-agent",
+      "path": "optional-skills/software-development/code-wiki"
     },
     {
       "slug": "code-review",
       "category": "dev",
-      "repo": "mattpocock/skills",
-      "path": "skills/engineering/code-review",
+      "description": "从某个提交或分支起点开始审改动：一看是否守本仓库的规范，二看有没有真问题。",
       "tags": [
         "代码评审",
         "review",
         "PR",
         "diff"
-      ]
+      ],
+      "repo": "mattpocock/skills",
+      "path": "skills/engineering/code-review"
     },
     {
       "slug": "requesting-code-review",
       "category": "dev",
-      "repo": "obra/superpowers",
-      "path": "skills/requesting-code-review",
+      "description": "活干完、要合并之前，先按标准自查一遍再请人审。",
       "tags": [
         "评审",
         "review",
         "PR"
-      ]
+      ],
+      "repo": "obra/superpowers",
+      "path": "skills/requesting-code-review"
     },
     {
       "slug": "systematic-debugging",
       "category": "dev",
-      "repo": "obra/superpowers",
-      "path": "skills/systematic-debugging",
+      "description": "遇到 bug 别猜：先复现、再定位、后修，每一步都有验证。",
       "tags": [
         "排错",
         "debug",
         "bug",
         "报错",
         "根因"
-      ]
+      ],
+      "repo": "obra/superpowers",
+      "path": "skills/systematic-debugging"
     },
     {
       "slug": "test-driven-development",
       "category": "dev",
-      "repo": "obra/superpowers",
-      "path": "skills/test-driven-development",
+      "description": "先写测试再写实现，一次只推进一小步。",
       "tags": [
         "测试",
         "TDD",
         "单元测试",
         "开发"
-      ]
+      ],
+      "repo": "obra/superpowers",
+      "path": "skills/test-driven-development"
     },
     {
       "slug": "writing-plans",
       "category": "dev",
-      "repo": "obra/superpowers",
-      "path": "skills/writing-plans",
+      "description": "多步骤的活先写方案再动手，方案要能被另一个人照着执行。",
       "tags": [
         "计划",
         "拆解",
         "任务",
         "方案",
         "plan"
-      ]
+      ],
+      "repo": "obra/superpowers",
+      "path": "skills/writing-plans"
     },
     {
       "slug": "verification-before-completion",
       "category": "dev",
-      "repo": "obra/superpowers",
-      "path": "skills/verification-before-completion",
+      "description": "说「做完了」之前先跑验证命令、看输出，不看输出不算完。",
       "tags": [
         "验证",
         "交付",
         "完成",
         "测试"
-      ]
+      ],
+      "repo": "obra/superpowers",
+      "path": "skills/verification-before-completion"
     },
     {
       "slug": "finishing-a-development-branch",
       "category": "dev",
-      "repo": "obra/superpowers",
-      "path": "skills/finishing-a-development-branch",
+      "description": "活干完、测试过了之后，怎么收尾合并这条分支。",
       "tags": [
         "git",
         "分支",
         "合并",
         "PR",
         "提交"
-      ]
-    },
-    {
-      "slug": "changelog-generator",
-      "category": "dev",
-      "repo": "ComposioHQ/awesome-claude-skills",
-      "path": "changelog-generator",
-      "tags": [
-        "changelog",
-        "发布说明",
-        "release",
-        "git",
-        "版本"
-      ]
+      ],
+      "repo": "obra/superpowers",
+      "path": "skills/finishing-a-development-branch"
     },
     {
       "slug": "mcp-builder",
       "category": "dev",
-      "repo": "anthropics/skills",
-      "path": "skills/mcp-builder",
+      "description": "从零写一个 MCP 服务：工具怎么设计、参数怎么定、错误怎么报。",
       "tags": [
         "MCP",
         "集成",
         "API",
         "工具",
         "接入"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/mcp-builder"
     },
     {
       "slug": "frontend-design",
       "category": "dev",
-      "repo": "anthropics/skills",
-      "path": "skills/frontend-design",
+      "description": "做新界面或改版时的审美判断：版式、字体、层次，怎么不做成模板脸。",
       "tags": [
         "前端",
         "设计",
@@ -259,64 +270,69 @@
         "网页",
         "CSS",
         "组件"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/frontend-design"
     },
     {
       "slug": "webapp-testing",
       "category": "dev",
-      "repo": "anthropics/skills",
-      "path": "skills/webapp-testing",
+      "description": "用 Playwright 打开本地网页点一遍：验功能、看控制台、截图。",
       "tags": [
         "测试",
         "前端",
         "Playwright",
         "浏览器",
         "E2E"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/webapp-testing"
     },
     {
       "slug": "semgrep",
       "category": "dev",
-      "repo": "trailofbits/skills",
-      "path": "plugins/static-analysis/skills/semgrep",
+      "description": "用 Semgrep 做静态扫描，按规则找安全问题并解释每一条。",
       "tags": [
         "安全",
         "静态分析",
         "漏洞",
         "审计",
         "semgrep"
-      ]
+      ],
+      "repo": "trailofbits/skills",
+      "path": "plugins/static-analysis/skills/semgrep"
     },
     {
       "slug": "differential-review",
       "category": "dev",
-      "repo": "trailofbits/skills",
-      "path": "plugins/differential-review/skills/differential-review",
+      "description": "只针对这次改动做安全审查，按影响面判断该看多深。",
       "tags": [
         "安全",
         "评审",
         "diff",
         "漏洞",
         "PR"
-      ]
+      ],
+      "repo": "trailofbits/skills",
+      "path": "plugins/differential-review/skills/differential-review"
     },
     {
       "slug": "docx",
       "category": "docs",
-      "repo": "anthropics/skills",
-      "path": "skills/docx",
+      "description": "Word 文档的读写改：套模板、目录页码、表格、批注和修订。",
       "tags": [
         "Word",
         "文档",
         "docx",
         "办公"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/docx"
     },
     {
       "slug": "xlsx",
       "category": "docs",
-      "repo": "anthropics/skills",
-      "path": "skills/xlsx",
+      "description": "Excel 的读写改：公式、格式、图表，也能把乱表整理成规整表。",
       "tags": [
         "Excel",
         "表格",
@@ -324,53 +340,42 @@
         "csv",
         "数据",
         "公式"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/xlsx"
     },
     {
       "slug": "pptx",
       "category": "docs",
-      "repo": "anthropics/skills",
-      "path": "skills/pptx",
+      "description": "PPT 的读写改：从零做一份，或改现成的，含模板、备注和批注。",
       "tags": [
         "PPT",
         "幻灯片",
         "pptx",
         "汇报",
         "演示"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/pptx"
     },
     {
       "slug": "pdf",
       "category": "docs",
-      "repo": "anthropics/skills",
-      "path": "skills/pdf",
+      "description": "PDF 的一切：抽文字表格、合并拆分、加水印、填表单、扫描件 OCR。",
       "tags": [
         "PDF",
         "文档",
         "抽取",
         "表单",
         "合并"
-      ]
-    },
-    {
-      "slug": "content-research-writer",
-      "category": "writing",
-      "repo": "ComposioHQ/awesome-claude-skills",
-      "path": "content-research-writer",
-      "tags": [
-        "写作",
-        "文章",
-        "调研",
-        "引用",
-        "长文",
-        "公众号"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/pdf"
     },
     {
       "slug": "internal-comms",
       "category": "writing",
-      "repo": "anthropics/skills",
-      "path": "skills/internal-comms",
+      "description": "写公司内部沟通：通知、周报、变更说明这类。",
       "tags": [
         "周报",
         "汇报",
@@ -378,212 +383,55 @@
         "通知",
         "沟通",
         "FAQ"
-      ]
-    },
-    {
-      "slug": "meeting-insights-analyzer",
-      "category": "writing",
-      "repo": "ComposioHQ/awesome-claude-skills",
-      "path": "meeting-insights-analyzer",
-      "tags": [
-        "会议",
-        "纪要",
-        "转写",
-        "记录"
-      ]
-    },
-    {
-      "slug": "twitter-algorithm-optimizer",
-      "category": "writing",
-      "repo": "ComposioHQ/awesome-claude-skills",
-      "path": "twitter-algorithm-optimizer",
-      "tags": [
-        "社媒",
-        "文案",
-        "推文",
-        "传播",
-        "twitter"
-      ]
-    },
-    {
-      "slug": "wait-what",
-      "category": "writing",
-      "repo": "mattpocock/skills",
-      "path": "skills/productivity/wait-what",
-      "tags": [
-        "解释",
-        "说人话",
-        "术语",
-        "理解"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/internal-comms"
     },
     {
       "slug": "writing-for-agents",
       "category": "writing",
-      "repo": "mattpocock/skills",
-      "path": "skills/productivity/writing-for-agents",
+      "description": "写给 agent 看的文档：技能手册、AGENTS.md、CLAUDE.md 怎么写才被照做。",
       "tags": [
         "文档",
         "规范",
         "agent",
         "写作"
-      ]
-    },
-    {
-      "slug": "deep-research",
-      "category": "research",
-      "repo": "sanjay3290/ai-skills",
-      "path": "skills/deep-research",
-      "tags": [
-        "调研",
-        "研究",
-        "搜索",
-        "报告"
-      ]
-    },
-    {
-      "slug": "research",
-      "category": "research",
+      ],
       "repo": "mattpocock/skills",
-      "path": "skills/engineering/research",
-      "tags": [
-        "调研",
-        "来源",
-        "引用",
-        "research"
-      ]
+      "path": "skills/productivity/writing-for-agents"
     },
     {
       "slug": "postgres",
       "category": "research",
-      "repo": "sanjay3290/ai-skills",
-      "path": "skills/postgres",
+      "description": "连 PostgreSQL 跑只读查询、看表结构、导数据。",
       "tags": [
         "数据库",
         "SQL",
         "查询",
         "Postgres",
         "数据"
-      ]
-    },
-    {
-      "slug": "competitive-ads-extractor",
-      "category": "research",
-      "repo": "ComposioHQ/awesome-claude-skills",
-      "path": "competitive-ads-extractor",
-      "tags": [
-        "竞品",
-        "广告",
-        "市场",
-        "分析",
-        "营销"
-      ]
-    },
-    {
-      "slug": "file-organizer",
-      "category": "productivity",
-      "repo": "ComposioHQ/awesome-claude-skills",
-      "path": "file-organizer",
-      "tags": [
-        "文件",
-        "整理",
-        "归档",
-        "桌面",
-        "下载"
-      ]
-    },
-    {
-      "slug": "invoice-organizer",
-      "category": "productivity",
-      "repo": "ComposioHQ/awesome-claude-skills",
-      "path": "invoice-organizer",
-      "tags": [
-        "发票",
-        "报销",
-        "账单",
-        "报税",
-        "财务"
-      ]
-    },
-    {
-      "slug": "tailored-resume-generator",
-      "category": "productivity",
-      "repo": "ComposioHQ/awesome-claude-skills",
-      "path": "tailored-resume-generator",
-      "tags": [
-        "简历",
-        "求职",
-        "岗位",
-        "面试"
-      ]
-    },
-    {
-      "slug": "teach",
-      "category": "productivity",
-      "repo": "mattpocock/skills",
-      "path": "skills/productivity/teach",
-      "tags": [
-        "学习",
-        "教学",
-        "课程",
-        "练习"
-      ]
-    },
-    {
-      "slug": "handoff",
-      "category": "productivity",
-      "repo": "mattpocock/skills",
-      "path": "skills/productivity/handoff",
-      "tags": [
-        "交接",
-        "总结",
-        "上下文",
-        "协作"
-      ]
-    },
-    {
-      "slug": "lead-research-assistant",
-      "category": "business",
-      "repo": "ComposioHQ/awesome-claude-skills",
-      "path": "lead-research-assistant",
-      "tags": [
-        "销售",
-        "线索",
-        "客户",
-        "拓客",
-        "BD"
-      ]
-    },
-    {
-      "slug": "domain-name-brainstormer",
-      "category": "business",
-      "repo": "ComposioHQ/awesome-claude-skills",
-      "path": "domain-name-brainstormer",
-      "tags": [
-        "起名",
-        "域名",
-        "品牌",
-        "命名"
-      ]
+      ],
+      "repo": "sanjay3290/ai-skills",
+      "path": "skills/postgres"
     },
     {
       "slug": "brand-guidelines",
       "category": "business",
-      "repo": "anthropics/skills",
-      "path": "skills/brand-guidelines",
+      "description": "把一套品牌色和字体规范应用到产出物上。",
       "tags": [
         "品牌",
         "规范",
         "配色",
         "字体",
         "视觉"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/brand-guidelines"
     },
     {
       "slug": "canvas-design",
       "category": "design",
-      "repo": "anthropics/skills",
-      "path": "skills/canvas-design",
+      "description": "用设计方法做海报、图形、封面这类视觉作品，出 PNG 或 PDF。",
       "tags": [
         "海报",
         "封面",
@@ -591,88 +439,81 @@
         "视觉",
         "设计",
         "信息图"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/canvas-design"
     },
     {
       "slug": "theme-factory",
       "category": "design",
-      "repo": "anthropics/skills",
-      "path": "skills/theme-factory",
+      "description": "给幻灯片、文档、网页套一套配色和字体主题，十套预设可选。",
       "tags": [
         "主题",
         "配色",
         "字体",
         "设计"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/theme-factory"
     },
     {
       "slug": "web-asset-generator",
       "category": "design",
-      "repo": "alonw0/web-asset-generator",
-      "path": "skills/web-asset-generator",
+      "description": "从 logo 或一句话生成网站图标、PWA 图标和社交分享图，附 meta 标签。",
       "tags": [
         "图标",
         "favicon",
         "OG",
         "分享图",
         "网站"
-      ]
+      ],
+      "repo": "alonw0/web-asset-generator",
+      "path": "skills/web-asset-generator"
     },
     {
       "slug": "skill-creator",
       "category": "meta",
-      "repo": "anthropics/skills",
-      "path": "skills/skill-creator",
+      "description": "写一份新技能手册，或改进现有的，并检验它好不好用。",
       "tags": [
         "技能",
         "手册",
         "SKILL",
         "沉淀"
-      ]
+      ],
+      "repo": "anthropics/skills",
+      "path": "skills/skill-creator"
     },
     {
       "slug": "writing-skills",
       "category": "meta",
-      "repo": "obra/superpowers",
-      "path": "skills/writing-skills",
+      "description": "技能手册怎么写才管用：结构、触发条件、反例和验收。",
       "tags": [
         "技能",
         "手册",
         "沉淀",
         "写技能"
-      ]
+      ],
+      "repo": "obra/superpowers",
+      "path": "skills/writing-skills"
     },
     {
       "slug": "brainstorming",
       "category": "meta",
-      "repo": "obra/superpowers",
-      "path": "skills/brainstorming",
+      "description": "动手做之前先把意图、需求和设计想清楚，探索多个方案再选。",
       "tags": [
         "方案",
         "设计",
         "想法",
         "头脑风暴",
         "需求"
-      ]
-    },
-    {
-      "slug": "grill-me",
-      "category": "meta",
-      "repo": "mattpocock/skills",
-      "path": "skills/productivity/grill-me",
-      "tags": [
-        "计划",
-        "评审",
-        "追问",
-        "风险",
-        "决策"
-      ]
+      ],
+      "repo": "obra/superpowers",
+      "path": "skills/brainstorming"
     },
     {
       "slug": "generate2dsprite",
       "category": "design",
-      "repo": "0x0funky/agent-sprite-forge",
-      "path": "skills/generate2dsprite",
+      "description": "生成 2D 游戏素材和动画序列：像素角色、道具、特效，透明底可直接进引擎。",
       "tags": [
         "精灵图",
         "sprite",
@@ -688,13 +529,14 @@
         "2D",
         "素材",
         "像素"
-      ]
+      ],
+      "repo": "0x0funky/agent-sprite-forge",
+      "path": "skills/generate2dsprite"
     },
     {
       "slug": "generate2dmap",
       "category": "design",
-      "repo": "0x0funky/agent-sprite-forge",
-      "path": "skills/generate2dmap",
+      "description": "生成可用于生产的 2D 游戏地图，含视觉风格选择和对象层。",
       "tags": [
         "地图",
         "map",
@@ -708,7 +550,2026 @@
         "game",
         "2D",
         "素材"
+      ],
+      "repo": "0x0funky/agent-sprite-forge",
+      "path": "skills/generate2dmap"
+    },
+    {
+      "slug": "cro",
+      "category": "business",
+      "description": "按页面类型逐项过一遍首屏、表单、价格页的转化漏洞，给出可直接改的文案和结构方案，附优先级。",
+      "tags": [
+        "转化",
+        "CRO",
+        "落地页",
+        "注册",
+        "表单",
+        "价格页",
+        "conversion"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/cro"
+    },
+    {
+      "slug": "copywriting",
+      "category": "business",
+      "description": "首页、落地页、定价页、功能页的文案从零写起：先定受众和承诺，再写标题、副标题、卖点和 CTA。",
+      "tags": [
+        "文案",
+        "copywriting",
+        "落地页",
+        "首页",
+        "卖点",
+        "标题"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/copywriting"
+    },
+    {
+      "slug": "copy-editing",
+      "category": "business",
+      "description": "拿现成文案逐句改：删虚词、换动词、把功能改成收益，给出修改前后对照。",
+      "tags": [
+        "改文案",
+        "编辑",
+        "copy editing",
+        "润色",
+        "校对"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/copy-editing"
+    },
+    {
+      "slug": "ads",
+      "category": "business",
+      "description": "Google、Meta、LinkedIn 等平台的账户结构、出价、受众、预算分配与诊断。",
+      "tags": [
+        "广告",
+        "投放",
+        "PPC",
+        "Google Ads",
+        "Meta",
+        "信息流",
+        "付费"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/ads"
+    },
+    {
+      "slug": "ad-creative",
+      "category": "business",
+      "description": "一次生成一组标题、正文、素材脚本，按角度分组，方便直接上测。",
+      "tags": [
+        "广告创意",
+        "素材",
+        "标题",
+        "ad creative",
+        "脚本"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/ad-creative"
+    },
+    {
+      "slug": "cold-email",
+      "category": "business",
+      "description": "写第一封和后续跟进序列：开场怎么写才有回复率，附常见反面例子。",
+      "tags": [
+        "冷邮件",
+        "外联",
+        "cold email",
+        "获客",
+        "跟进",
+        "B2B"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/cold-email"
+    },
+    {
+      "slug": "emails",
+      "category": "business",
+      "description": "欢迎流、激活流、召回流、续费提醒的序列设计和每一封的写法。",
+      "tags": [
+        "邮件",
+        "EDM",
+        "序列",
+        "drip",
+        "生命周期",
+        "召回"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/emails"
+    },
+    {
+      "slug": "ab-testing",
+      "category": "business",
+      "description": "假设怎么写、样本量怎么算、跑多久、结果怎么读，避免看错显著性。",
+      "tags": [
+        "AB 测试",
+        "实验",
+        "增长",
+        "显著性",
+        "样本量"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/ab-testing"
+    },
+    {
+      "slug": "pricing",
+      "category": "business",
+      "description": "定价模型、分层、涨价与折扣策略，含常见定价心理和落地检查表。",
+      "tags": [
+        "定价",
+        "价格",
+        "套餐",
+        "分层",
+        "pricing",
+        "涨价"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/pricing"
+    },
+    {
+      "slug": "offers",
+      "category": "business",
+      "description": "把卖的东西打包成让人难拒绝的报价：价值锚、赠品、担保、稀缺、付款方式。",
+      "tags": [
+        "报价",
+        "offer",
+        "套餐",
+        "促销",
+        "担保"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/offers"
+    },
+    {
+      "slug": "launch",
+      "category": "business",
+      "description": "新品或新功能的发布节奏、渠道清单、Product Hunt 打法和发布物料。",
+      "tags": [
+        "发布",
+        "上线",
+        "launch",
+        "Product Hunt",
+        "新品"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/launch"
+    },
+    {
+      "slug": "content-strategy",
+      "category": "business",
+      "description": "决定写什么：选题矩阵、关键词与受众对齐、发布节奏和复用方式。",
+      "tags": [
+        "内容",
+        "选题",
+        "content",
+        "博客",
+        "策略"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/content-strategy"
+    },
+    {
+      "slug": "customer-research",
+      "category": "business",
+      "description": "访谈提纲、样本选择、录音整理成结论的方法，含 ICP 画像输出。",
+      "tags": [
+        "用户调研",
+        "访谈",
+        "ICP",
+        "客户",
+        "research"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/customer-research"
+    },
+    {
+      "slug": "marketing-plan",
+      "category": "business",
+      "description": "从定位、渠道、预算到 90 天执行表的一整份增长方案。",
+      "tags": [
+        "营销方案",
+        "GTM",
+        "增长",
+        "预算",
+        "计划"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/marketing-plan"
+    },
+    {
+      "slug": "social",
+      "category": "business",
+      "description": "各平台内容形态差异、发布节奏、互动与转化路径。",
+      "tags": [
+        "社交媒体",
+        "社媒",
+        "运营",
+        "推特",
+        "LinkedIn",
+        "内容"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/social"
+    },
+    {
+      "slug": "marketing-analytics",
+      "category": "business",
+      "description": "GA4 事件、转化跟踪、UTM 规范和常见数据打架的排查。",
+      "tags": [
+        "埋点",
+        "GA4",
+        "分析",
+        "转化跟踪",
+        "UTM",
+        "数据"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/analytics"
+    },
+    {
+      "slug": "churn-prevention",
+      "category": "business",
+      "description": "取消流程、挽留报价、失败扣款找回和流失原因归类。",
+      "tags": [
+        "流失",
+        "churn",
+        "挽留",
+        "续费",
+        "留存"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/churn-prevention"
+    },
+    {
+      "slug": "aso",
+      "category": "business",
+      "description": "App Store 与 Google Play 的标题、关键词、截图和转化率优化。",
+      "tags": [
+        "ASO",
+        "应用商店",
+        "App Store",
+        "关键词",
+        "截图"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/aso"
+    },
+    {
+      "slug": "influencer-marketing",
+      "category": "business",
+      "description": "找人、验号、谈价、写 brief、合规披露和效果核算。",
+      "tags": [
+        "达人",
+        "KOL",
+        "创作者",
+        "合作",
+        "投放"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/influencer-marketing"
+    },
+    {
+      "slug": "lead-magnets",
+      "category": "business",
+      "description": "做什么样的免费资料能换到邮箱：选题、形态、落地页和后续跟进。",
+      "tags": [
+        "引流",
+        "获客",
+        "lead magnet",
+        "留资",
+        "白皮书"
+      ],
+      "repo": "coreyhaines31/marketingskills",
+      "path": "skills/lead-magnets"
+    },
+    {
+      "slug": "seo-audit",
+      "category": "business",
+      "description": "抓站、分门别类找问题、按影响排序出整改清单和健康分。",
+      "tags": [
+        "SEO",
+        "体检",
+        "audit",
+        "收录",
+        "排名",
+        "优化"
+      ],
+      "repo": "AgriciDaniel/claude-seo",
+      "path": "skills/seo-audit"
+    },
+    {
+      "slug": "seo-technical",
+      "category": "business",
+      "description": "抓取预算、索引、站点速度、结构化标记、robots 与 sitemap 的排查。",
+      "tags": [
+        "技术 SEO",
+        "索引",
+        "抓取",
+        "sitemap",
+        "robots",
+        "速度"
+      ],
+      "repo": "AgriciDaniel/claude-seo",
+      "path": "skills/seo-technical"
+    },
+    {
+      "slug": "seo-page",
+      "category": "business",
+      "description": "给定一个页面，改标题、H 标签、内链、正文结构和元描述。",
+      "tags": [
+        "页面优化",
+        "on-page",
+        "标题",
+        "内链",
+        "元描述"
+      ],
+      "repo": "AgriciDaniel/claude-seo",
+      "path": "skills/seo-page"
+    },
+    {
+      "slug": "seo-content-brief",
+      "category": "business",
+      "description": "写稿前给出的作战图：目标词、意图、结构大纲、必答问题和竞品覆盖。",
+      "tags": [
+        "内容简报",
+        "brief",
+        "关键词",
+        "大纲",
+        "写稿"
+      ],
+      "repo": "AgriciDaniel/claude-seo",
+      "path": "skills/seo-content-brief"
+    },
+    {
+      "slug": "seo-schema",
+      "category": "business",
+      "description": "按页面类型生成并校验 schema.org 标记，拿富媒体展示。",
+      "tags": [
+        "结构化数据",
+        "schema",
+        "富媒体",
+        "JSON-LD",
+        "标记"
+      ],
+      "repo": "AgriciDaniel/claude-seo",
+      "path": "skills/seo-schema"
+    },
+    {
+      "slug": "seo-local",
+      "category": "business",
+      "description": "门店与本地服务的地图收录、NAP 一致性、评价与本地落地页。",
+      "tags": [
+        "本地 SEO",
+        "地图",
+        "门店",
+        "评价",
+        "NAP"
+      ],
+      "repo": "AgriciDaniel/claude-seo",
+      "path": "skills/seo-local"
+    },
+    {
+      "slug": "seo-geo",
+      "category": "business",
+      "description": "让内容被 ChatGPT、Perplexity、AI 概览引用：可引用结构、实体和信源建设。",
+      "tags": [
+        "GEO",
+        "AI 搜索",
+        "AEO",
+        "被引用",
+        "LLM",
+        "可见度"
+      ],
+      "repo": "AgriciDaniel/claude-seo",
+      "path": "skills/seo-geo"
+    },
+    {
+      "slug": "seo-ecommerce",
+      "category": "business",
+      "description": "商品页、分类页、筛选参数、缺货页与重复内容的处理。",
+      "tags": [
+        "电商",
+        "商品页",
+        "分类页",
+        "SEO",
+        "店铺"
+      ],
+      "repo": "AgriciDaniel/claude-seo",
+      "path": "skills/seo-ecommerce"
+    },
+    {
+      "slug": "dcf-model",
+      "category": "finance",
+      "description": "从财报和公开数据搭现金流预测、算 WACC、做敏感性分析，输出可复核的估值表。",
+      "tags": [
+        "估值",
+        "DCF",
+        "现金流",
+        "WACC",
+        "财务模型",
+        "投资"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "02-finance-accounting/dcf-model"
+    },
+    {
+      "slug": "three-statements",
+      "category": "finance",
+      "description": "利润表、资产负债表、现金流量表联动建模，勾稽关系自检。",
+      "tags": [
+        "三表",
+        "财务模型",
+        "利润表",
+        "资产负债表",
+        "现金流",
+        "建模"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "02-finance-accounting/3-statements"
+    },
+    {
+      "slug": "lbo-model",
+      "category": "finance",
+      "description": "收购结构、债务分层、还款计划与 IRR 测算。",
+      "tags": [
+        "LBO",
+        "并购",
+        "杠杆",
+        "IRR",
+        "私募",
+        "模型"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "02-finance-accounting/lbo-model"
+    },
+    {
+      "slug": "comps-analysis",
+      "category": "finance",
+      "description": "选可比、取倍数、清洗口径、出估值区间。",
+      "tags": [
+        "可比公司",
+        "估值倍数",
+        "comps",
+        "对标",
+        "市盈率"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "02-finance-accounting/comps-analysis"
+    },
+    {
+      "slug": "check-model",
+      "category": "finance",
+      "description": "循环引用、写死的数、勾稽不平、公式断链，逐项排查。",
+      "tags": [
+        "查错",
+        "审模型",
+        "Excel",
+        "勾稽",
+        "审计"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "02-finance-accounting/check-model"
+    },
+    {
+      "slug": "pitch-deck",
+      "category": "finance",
+      "description": "按投资人关心的顺序组织内容，逐页给结构和数据要求。",
+      "tags": [
+        "路演",
+        "BP",
+        "融资",
+        "pitch deck",
+        "投资人"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "02-finance-accounting/pitch-deck"
+    },
+    {
+      "slug": "invoice-organizer",
+      "category": "finance",
+      "description": "从一堆票据里提取金额、税号、日期，分类归档并出台账。",
+      "tags": [
+        "发票",
+        "报销",
+        "台账",
+        "归档",
+        "财务",
+        "票据"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "02-finance-accounting/invoice-organizer"
+    },
+    {
+      "slug": "earnings-analysis",
+      "category": "finance",
+      "description": "季报出来后快速出一份结构化点评：超预期项、指引变化、关键指标。",
+      "tags": [
+        "财报",
+        "季报",
+        "点评",
+        "业绩",
+        "研究"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "02-finance-accounting/earnings-analysis"
+    },
+    {
+      "slug": "ma-due-diligence",
+      "category": "finance",
+      "description": "标的评估、协同测算、整合计划和文化匹配的完整清单。",
+      "tags": [
+        "并购",
+        "尽调",
+        "M&A",
+        "整合",
+        "协同"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "01-executive-leadership/ma-due-diligence"
+    },
+    {
+      "slug": "job-description-writer",
+      "category": "people",
+      "description": "写清职责、硬性与加分条件、薪资区间，去掉会劝退人的措辞。",
+      "tags": [
+        "JD",
+        "招聘",
+        "职位描述",
+        "岗位",
+        "用人"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "03-human-resources/job-description-writer"
+    },
+    {
+      "slug": "interview-kit-builder",
+      "category": "people",
+      "description": "按岗位生成分轮面试题、追问点和统一评分表。",
+      "tags": [
+        "面试",
+        "题库",
+        "评分",
+        "招聘",
+        "面试官"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "03-human-resources/interview-kit-builder"
+    },
+    {
+      "slug": "onboarding-planner",
+      "category": "people",
+      "description": "30/60/90 天目标、对接人、必读材料和检查点。",
+      "tags": [
+        "入职",
+        "新人",
+        "onboarding",
+        "培训",
+        "30-60-90"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "03-human-resources/onboarding-planner"
+    },
+    {
+      "slug": "performance-review-assistant",
+      "category": "people",
+      "description": "按事实写评语、定等级、给改进项，避免笼统和偏见。",
+      "tags": [
+        "绩效",
+        "考核",
+        "评估",
+        "review",
+        "反馈"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "03-human-resources/performance-review-assistant"
+    },
+    {
+      "slug": "compensation-benchmarking",
+      "category": "people",
+      "description": "岗位分级、市场分位、调薪包设计和沟通口径。",
+      "tags": [
+        "薪酬",
+        "对标",
+        "调薪",
+        "职级",
+        "benchmark"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "03-human-resources/compensation-benchmarking"
+    },
+    {
+      "slug": "employee-handbook-builder",
+      "category": "people",
+      "description": "制度条目清单、合规必备章节和公司文化表达。",
+      "tags": [
+        "员工手册",
+        "制度",
+        "HR",
+        "合规",
+        "政策"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "03-human-resources/employee-handbook-builder"
+    },
+    {
+      "slug": "resume-generator",
+      "category": "people",
+      "description": "按目标岗位重排经历、量化成果、匹配关键词。",
+      "tags": [
+        "简历",
+        "求职",
+        "CV",
+        "投递",
+        "岗位匹配"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "03-human-resources/resume-generator"
+    },
+    {
+      "slug": "nda-triage",
+      "category": "legal",
+      "description": "逐条比对常见条款，标出偏离市场惯例的地方和谈判口径。",
+      "tags": [
+        "NDA",
+        "保密协议",
+        "审查",
+        "条款",
+        "谈判"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "06-legal-compliance/nda-triage"
+    },
+    {
+      "slug": "legal-risk-assessment",
+      "category": "legal",
+      "description": "按业务场景列风险点、发生概率、后果和缓解措施。",
+      "tags": [
+        "法律风险",
+        "评估",
+        "合规",
+        "风险点"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "06-legal-compliance/legal-risk-assessment"
+    },
+    {
+      "slug": "compliance-program",
+      "category": "legal",
+      "description": "制度、培训、监控、举报和整改的一套落地框架。",
+      "tags": [
+        "合规",
+        "制度",
+        "培训",
+        "监控",
+        "内控"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "06-legal-compliance/compliance"
+    },
+    {
+      "slug": "contract-review-en",
+      "category": "legal",
+      "description": "四层审查法：主体、基础条款、商业条款、法律风险，逐条批注。",
+      "tags": [
+        "合同",
+        "审查",
+        "英文",
+        "条款",
+        "批注",
+        "contract"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "06-legal-compliance/contract-review"
+    },
+    {
+      "slug": "account-research",
+      "category": "sales",
+      "description": "拜访前把公司、业务、近况、决策链摸清楚，出一页纸。",
+      "tags": [
+        "销售",
+        "背调",
+        "客户",
+        "拜访",
+        "B2B"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "05-sales/account-research"
+    },
+    {
+      "slug": "call-prep",
+      "category": "sales",
+      "description": "开场、提问清单、异议应对和下一步承诺。",
+      "tags": [
+        "销售",
+        "通话",
+        "拜访",
+        "异议",
+        "话术"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "05-sales/call-prep"
+    },
+    {
+      "slug": "draft-outreach",
+      "category": "sales",
+      "description": "按线索来源和阶段写第一封与跟进，给多个版本。",
+      "tags": [
+        "触达",
+        "外联",
+        "跟进",
+        "邮件",
+        "销售"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "05-sales/draft-outreach"
+    },
+    {
+      "slug": "sales-competitive-intelligence",
+      "category": "sales",
+      "description": "对手强弱项、常见攻击点和我方应对，做成对战卡。",
+      "tags": [
+        "竞品",
+        "对抗",
+        "话术",
+        "battle card",
+        "销售"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "05-sales/competitive-intelligence"
+    },
+    {
+      "slug": "ticket-triage",
+      "category": "sales",
+      "description": "按紧急度和类型分流、判优先级、给标准回复模板。",
+      "tags": [
+        "工单",
+        "客服",
+        "分流",
+        "优先级",
+        "support"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "11-customer-success/ticket-triage"
+    },
+    {
+      "slug": "response-drafting",
+      "category": "sales",
+      "description": "按场景写回复：致歉、解释、补偿、拒绝，语气统一。",
+      "tags": [
+        "客服",
+        "回复",
+        "话术",
+        "致歉",
+        "模板"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "11-customer-success/response-drafting"
+    },
+    {
+      "slug": "churn-analysis",
+      "category": "sales",
+      "description": "分层看流失、找共同信号、排干预动作。",
+      "tags": [
+        "流失",
+        "客户成功",
+        "留存",
+        "分析",
+        "预警"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "11-customer-success/churn-analysis"
+    },
+    {
+      "slug": "qbr-builder",
+      "category": "sales",
+      "description": "客户 QBR 的结构、数据准备和续约铺垫。",
+      "tags": [
+        "QBR",
+        "季度回顾",
+        "客户成功",
+        "续约"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "11-customer-success/qbr-builder"
+    },
+    {
+      "slug": "escalation",
+      "category": "sales",
+      "description": "出事之后怎么升级、怎么沟通、怎么复盘。",
+      "tags": [
+        "升级",
+        "投诉",
+        "客户",
+        "危机",
+        "处理"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "11-customer-success/escalation"
+    },
+    {
+      "slug": "rfp-builder",
+      "category": "business",
+      "description": "需求书结构、评分办法、供应商问答和时间表。",
+      "tags": [
+        "招标",
+        "RFP",
+        "采购",
+        "评分",
+        "供应商"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "12-procurement-supply-chain/rfp-builder"
+    },
+    {
+      "slug": "vendor-evaluation",
+      "category": "business",
+      "description": "资质、能力、价格、风险四维打分和尽调清单。",
+      "tags": [
+        "供应商",
+        "评估",
+        "采购",
+        "尽调",
+        "打分"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "12-procurement-supply-chain/vendor-evaluation"
+    },
+    {
+      "slug": "supplier-scorecard",
+      "category": "business",
+      "description": "交付、质量、成本、响应的持续考核表和季度复盘。",
+      "tags": [
+        "供应商",
+        "考核",
+        "记分卡",
+        "绩效",
+        "采购"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "12-procurement-supply-chain/supplier-scorecard"
+    },
+    {
+      "slug": "inventory-forecasting",
+      "category": "business",
+      "description": "需求预测、安全库存、补货点和缺货成本权衡。",
+      "tags": [
+        "库存",
+        "预测",
+        "补货",
+        "供应链",
+        "安全库存"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "12-procurement-supply-chain/inventory-forecasting"
+    },
+    {
+      "slug": "contract-negotiation",
+      "category": "business",
+      "description": "谈判前的底线与筹码梳理、条款优先级和让步节奏。",
+      "tags": [
+        "谈判",
+        "采购",
+        "合同",
+        "议价",
+        "条款"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "12-procurement-supply-chain/contract-negotiation"
+    },
+    {
+      "slug": "data-exploration",
+      "category": "research",
+      "description": "拿到一份数据先看什么：分布、缺失、异常、相关，出摘要。",
+      "tags": [
+        "数据探索",
+        "EDA",
+        "分布",
+        "缺失值",
+        "分析"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "10-data-analytics/data-exploration"
+    },
+    {
+      "slug": "data-validation",
+      "category": "research",
+      "description": "完整性、一致性、口径和重复值的检查规则与报告。",
+      "tags": [
+        "数据质量",
+        "校验",
+        "清洗",
+        "一致性",
+        "规则"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "10-data-analytics/data-validation"
+    },
+    {
+      "slug": "data-visualization",
+      "category": "research",
+      "description": "按问题选图表、配色与标注规范，避免误导性图。",
+      "tags": [
+        "可视化",
+        "图表",
+        "配色",
+        "看板",
+        "图"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "10-data-analytics/data-visualization"
+    },
+    {
+      "slug": "sql-queries",
+      "category": "research",
+      "description": "从需求到 SQL：连表、窗口函数、口径对齐和性能。",
+      "tags": [
+        "SQL",
+        "查询",
+        "数据库",
+        "窗口函数",
+        "报表"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "10-data-analytics/sql-queries"
+    },
+    {
+      "slug": "interactive-dashboard-builder",
+      "category": "research",
+      "description": "把一份数据做成可交互的 HTML 看板，筛选、下钻、导出。",
+      "tags": [
+        "看板",
+        "dashboard",
+        "交互",
+        "HTML",
+        "指标"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "10-data-analytics/interactive-dashboard-builder"
+    },
+    {
+      "slug": "incident-postmortem",
+      "category": "productivity",
+      "description": "时间线、根因、影响面、改进项，不追责只追机制。",
+      "tags": [
+        "复盘",
+        "故障",
+        "事故",
+        "postmortem",
+        "根因"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "07-operations/incident-postmortem"
+    },
+    {
+      "slug": "business-case-builder",
+      "category": "productivity",
+      "description": "把一个想法写成能过会的商业论证：成本、收益、风险、替代方案。",
+      "tags": [
+        "立项",
+        "商业论证",
+        "ROI",
+        "提案",
+        "决策"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "07-operations/business-case-builder"
+    },
+    {
+      "slug": "project-status-report",
+      "category": "productivity",
+      "description": "进度、风险、决策请求三段式，给不同层级不同详略。",
+      "tags": [
+        "周报",
+        "项目",
+        "进度",
+        "汇报",
+        "状态"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "07-operations/project-status-report"
+    },
+    {
+      "slug": "file-organizer",
+      "category": "productivity",
+      "description": "按内容识别归类、批量改名、建目录结构、清重复。",
+      "tags": [
+        "文件",
+        "整理",
+        "归档",
+        "改名",
+        "目录"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "07-operations/file-organizer"
+    },
+    {
+      "slug": "meeting-insights-analyzer",
+      "category": "productivity",
+      "description": "从录音转写或纪要里抽结论、待办、负责人和分歧点。",
+      "tags": [
+        "会议",
+        "纪要",
+        "待办",
+        "转写",
+        "复盘"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "07-operations/meeting-insights-analyzer"
+    },
+    {
+      "slug": "board-meeting-prep",
+      "category": "business",
+      "description": "议程、董事会 deck 结构、关键数字和预期问答。",
+      "tags": [
+        "董事会",
+        "board",
+        "汇报",
+        "材料",
+        "治理"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "01-executive-leadership/board-meeting-prep"
+    },
+    {
+      "slug": "executive-communication",
+      "category": "writing",
+      "description": "全员信、投资人更新、危机声明这类高风险文字的写法。",
+      "tags": [
+        "高管",
+        "全员信",
+        "投资人",
+        "声明",
+        "沟通"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "01-executive-leadership/executive-communication"
+    },
+    {
+      "slug": "kpi-dashboard",
+      "category": "business",
+      "description": "选指标、定义口径、设阈值，搭一张能长期看的经营看板。",
+      "tags": [
+        "KPI",
+        "指标",
+        "看板",
+        "经营",
+        "北极星"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "01-executive-leadership/kpi-dashboard"
+    },
+    {
+      "slug": "prd-writer",
+      "category": "product",
+      "description": "背景、目标、范围、方案、验收标准，一份能开工的需求文档。",
+      "tags": [
+        "PRD",
+        "需求",
+        "文档",
+        "产品",
+        "验收"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "09-product-management/prd-writer"
+    },
+    {
+      "slug": "feature-spec",
+      "category": "product",
+      "description": "把一个功能拆成状态、边界、异常和埋点，交给研发不返工。",
+      "tags": [
+        "功能",
+        "规格",
+        "spec",
+        "边界",
+        "异常"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "09-product-management/feature-spec"
+    },
+    {
+      "slug": "roadmap-builder",
+      "category": "product",
+      "description": "按主题和时间段组织，讲清取舍依据而不是排期承诺。",
+      "tags": [
+        "路线图",
+        "roadmap",
+        "规划",
+        "优先级"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "09-product-management/roadmap-builder"
+    },
+    {
+      "slug": "sprint-planning",
+      "category": "product",
+      "description": "拆任务、估容量、定验收，处理插入需求。",
+      "tags": [
+        "迭代",
+        "sprint",
+        "排期",
+        "敏捷",
+        "规划"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "09-product-management/sprint-planning"
+    },
+    {
+      "slug": "user-research-synthesizer",
+      "category": "product",
+      "description": "一堆访谈记录里归纳主题、频次和证据链。",
+      "tags": [
+        "用户研究",
+        "访谈",
+        "归纳",
+        "洞察",
+        "证据"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "09-product-management/user-research-synthesizer"
+    },
+    {
+      "slug": "product-launch-playbook",
+      "category": "product",
+      "description": "发布前的检查清单、内外部沟通和上线后跟踪。",
+      "tags": [
+        "发布",
+        "上线",
+        "checklist",
+        "产品",
+        "GTM"
+      ],
+      "repo": "w95/awesome-claude-corporate-skills",
+      "path": "09-product-management/product-launch-playbook"
+    },
+    {
+      "slug": "measuring-pmf",
+      "category": "product",
+      "description": "用可验证的信号判断有没有 PMF，而不是靠感觉。",
+      "tags": [
+        "PMF",
+        "产品市场匹配",
+        "验证",
+        "留存",
+        "信号"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/measuring-pmf"
+    },
+    {
+      "slug": "positioning",
+      "category": "product",
+      "description": "对谁、替代谁、凭什么，写成一句能被销售复述的定位。",
+      "tags": [
+        "定位",
+        "positioning",
+        "差异化",
+        "竞品",
+        "价值主张"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/positioning"
+    },
+    {
+      "slug": "north-star-metrics",
+      "category": "product",
+      "description": "选一个真代表价值交付的指标，配套输入指标和护栏。",
+      "tags": [
+        "北极星",
+        "指标",
+        "度量",
+        "增长",
+        "护栏指标"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/north-star-metrics"
+    },
+    {
+      "slug": "continuous-discovery",
+      "category": "product",
+      "description": "每周和用户对话的机制：招募、提纲、记录和决策闭环。",
+      "tags": [
+        "用户探索",
+        "discovery",
+        "访谈",
+        "机制",
+        "产品"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/continuous-discovery"
+    },
+    {
+      "slug": "customer-interviews",
+      "category": "product",
+      "description": "怎么问才问得出真实行为而不是客气话。",
+      "tags": [
+        "访谈",
+        "用户",
+        "提问",
+        "调研",
+        "行为"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/customer-interviews"
+    },
+    {
+      "slug": "growth-model",
+      "category": "product",
+      "description": "把增长拆成可算的公式：获取、激活、留存、变现、推荐。",
+      "tags": [
+        "增长模型",
+        "公式",
+        "漏斗",
+        "留存",
+        "变现"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/growth-model"
+    },
+    {
+      "slug": "user-onboarding-activation",
+      "category": "product",
+      "description": "定义 aha 时刻、缩短到达路径、量化激活率。",
+      "tags": [
+        "激活",
+        "onboarding",
+        "aha",
+        "新用户",
+        "转化"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/user-onboarding-activation"
+    },
+    {
+      "slug": "retention-engagement",
+      "category": "product",
+      "description": "留存曲线怎么读、分群怎么切、干预怎么做。",
+      "tags": [
+        "留存",
+        "活跃",
+        "分群",
+        "曲线",
+        "engagement"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/retention-engagement"
+    },
+    {
+      "slug": "goal-setting-okrs",
+      "category": "product",
+      "description": "写出能牵引行动的目标，避免把任务清单包装成 OKR。",
+      "tags": [
+        "OKR",
+        "目标",
+        "KPI",
+        "对齐",
+        "季度"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/goal-setting-okrs"
+    },
+    {
+      "slug": "product-vision",
+      "category": "product",
+      "description": "三年后长什么样，怎么讲清楚让人愿意跟。",
+      "tags": [
+        "愿景",
+        "vision",
+        "叙事",
+        "战略",
+        "产品"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/product-vision"
+    },
+    {
+      "slug": "defining-icp",
+      "category": "product",
+      "description": "把「谁是我们的客户」定义到能拿去筛线索的粒度。",
+      "tags": [
+        "ICP",
+        "客户画像",
+        "细分",
+        "目标客户",
+        "筛选"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/defining-icp"
+    },
+    {
+      "slug": "running-meetings",
+      "category": "productivity",
+      "description": "议程、角色、决策记录和不该开的会。",
+      "tags": [
+        "会议",
+        "议程",
+        "决策",
+        "效率",
+        "主持"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/running-meetings"
+    },
+    {
+      "slug": "giving-feedback",
+      "category": "people",
+      "description": "把观察、影响、期待说清楚，难开口的话怎么说。",
+      "tags": [
+        "反馈",
+        "沟通",
+        "管理",
+        "一对一",
+        "绩效"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/giving-feedback"
+    },
+    {
+      "slug": "fundraising",
+      "category": "finance",
+      "description": "轮次节奏、投资人筛选、叙事结构和常见尽调问题。",
+      "tags": [
+        "融资",
+        "投资人",
+        "轮次",
+        "BP",
+        "尽调"
+      ],
+      "repo": "RefoundAI/lenny-skills",
+      "path": "skills/fundraising"
+    },
+    {
+      "slug": "contract-gen",
+      "category": "legal",
+      "description": "按交易类型和立场生成完整合同文本，条款可倾斜甲方或乙方。",
+      "tags": [
+        "合同",
+        "起草",
+        "协议",
+        "中文",
+        "甲方",
+        "乙方"
+      ],
+      "repo": "zh-xx/legal-assistant-skills",
+      "path": "contract-gen"
+    },
+    {
+      "slug": "contract-review-cn",
+      "category": "legal",
+      "description": "不改原文，逐条批注问题，四层审查：主体、基础、商业、法律。",
+      "tags": [
+        "合同审查",
+        "批注",
+        "风险",
+        "中文",
+        "法务"
+      ],
+      "repo": "zh-xx/legal-assistant-skills",
+      "path": "contract-review"
+    },
+    {
+      "slug": "ad-compliance-review",
+      "category": "legal",
+      "description": "按《广告法》《反不正当竞争法》和行业专项规定审广告文案与素材。",
+      "tags": [
+        "广告法",
+        "合规",
+        "审核",
+        "违禁词",
+        "极限词",
+        "宣传"
+      ],
+      "repo": "zh-xx/legal-assistant-skills",
+      "path": "ad-compliance-review"
+    },
+    {
+      "slug": "food-label-review",
+      "category": "legal",
+      "description": "按 GB 7718 与 GB 28050 审预包装食品标签和营养成分表。",
+      "tags": [
+        "食品标签",
+        "GB7718",
+        "营养标签",
+        "合规",
+        "预包装"
+      ],
+      "repo": "zh-xx/legal-assistant-skills",
+      "path": "food-label-review"
+    },
+    {
+      "slug": "legal-architecture",
+      "category": "legal",
+      "description": "把诉讼推理、合同关系、法规程序画成自包含 HTML 图。",
+      "tags": [
+        "法律",
+        "结构图",
+        "可视化",
+        "诉讼",
+        "合同关系"
+      ],
+      "repo": "zh-xx/legal-assistant-skills",
+      "path": "legal-architecture"
+    },
+    {
+      "slug": "legal-risk-visualization",
+      "category": "legal",
+      "description": "把风险点按概率与后果排布成图，配处置建议。",
+      "tags": [
+        "风险",
+        "可视化",
+        "法律",
+        "矩阵",
+        "处置"
+      ],
+      "repo": "zh-xx/legal-assistant-skills",
+      "path": "legal-risk-visualization"
+    },
+    {
+      "slug": "literature-review",
+      "category": "science",
+      "description": "检索、筛选、归纳成有论证结构的综述，不是摘要堆砌。",
+      "tags": [
+        "文献",
+        "综述",
+        "检索",
+        "论文",
+        "研究"
+      ],
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "path": "skills/literature-review"
+    },
+    {
+      "slug": "citation-management",
+      "category": "science",
+      "description": "BibTeX、去重、格式统一和引用核对。",
+      "tags": [
+        "引用",
+        "参考文献",
+        "BibTeX",
+        "格式",
+        "核对"
+      ],
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "path": "skills/citation-management"
+    },
+    {
+      "slug": "experimental-design",
+      "category": "science",
+      "description": "变量、对照、随机化、样本量和混杂因素的处理。",
+      "tags": [
+        "实验设计",
+        "对照",
+        "随机",
+        "样本量",
+        "变量"
+      ],
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "path": "skills/experimental-design"
+    },
+    {
+      "slug": "statistical-analysis",
+      "category": "science",
+      "description": "选检验方法、验前提假设、报告效应量而不只是 p 值。",
+      "tags": [
+        "统计",
+        "检验",
+        "p 值",
+        "效应量",
+        "分析"
+      ],
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "path": "skills/statistical-analysis"
+    },
+    {
+      "slug": "statistical-power",
+      "category": "science",
+      "description": "做实验前算清要多少样本，事后不做功效分析。",
+      "tags": [
+        "功效",
+        "样本量",
+        "power",
+        "实验",
+        "统计"
+      ],
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "path": "skills/statistical-power"
+    },
+    {
+      "slug": "exploratory-data-analysis",
+      "category": "science",
+      "description": "系统地先看数据再建模，附常用图和检查项。",
+      "tags": [
+        "EDA",
+        "探索",
+        "数据",
+        "分布",
+        "建模"
+      ],
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "path": "skills/exploratory-data-analysis"
+    },
+    {
+      "slug": "scientific-writing",
+      "category": "science",
+      "description": "IMRaD 结构、图表叙述、审稿人视角的自查。",
+      "tags": [
+        "论文",
+        "写作",
+        "IMRaD",
+        "投稿",
+        "学术"
+      ],
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "path": "skills/scientific-writing"
+    },
+    {
+      "slug": "scientific-visualization",
+      "category": "science",
+      "description": "出版级图表：配色、误差棒、坐标、字号和可复现脚本。",
+      "tags": [
+        "科研作图",
+        "图表",
+        "matplotlib",
+        "出版",
+        "可视化"
+      ],
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "path": "skills/scientific-visualization"
+    },
+    {
+      "slug": "peer-review",
+      "category": "science",
+      "description": "按期刊标准写审稿意见，分主要问题与次要问题。",
+      "tags": [
+        "审稿",
+        "同行评审",
+        "意见",
+        "期刊",
+        "学术"
+      ],
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "path": "skills/peer-review"
+    },
+    {
+      "slug": "research-grants",
+      "category": "science",
+      "description": "按资助方口径写立项依据、研究方案和预算。",
+      "tags": [
+        "基金",
+        "申请",
+        "课题",
+        "立项",
+        "预算"
+      ],
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "path": "skills/research-grants"
+    },
+    {
+      "slug": "ffmpeg-cut-concat",
+      "category": "media",
+      "description": "用 ffmpeg 精确切片、无损拼接、去掉片段，不重编码。",
+      "tags": [
+        "剪辑",
+        "剪视频",
+        "拼接",
+        "ffmpeg",
+        "切片",
+        "无损"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/ffmpeg-cut-concat"
+    },
+    {
+      "slug": "ffmpeg-subtitles",
+      "category": "media",
+      "description": "srt/ass 的样式、时间轴偏移、硬字幕与软字幕。",
+      "tags": [
+        "字幕",
+        "srt",
+        "ass",
+        "烧录",
+        "时间轴"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/ffmpeg-subtitles"
+    },
+    {
+      "slug": "ffmpeg-transcode",
+      "category": "media",
+      "description": "编码器选型、码率、分辨率与体积的取舍，含常用预设。",
+      "tags": [
+        "转码",
+        "压制",
+        "编码",
+        "码率",
+        "H.264",
+        "压缩"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/ffmpeg-transcode"
+    },
+    {
+      "slug": "ffmpeg-speed-time",
+      "category": "media",
+      "description": "倍速、慢动作、丢帧补帧和音画同步。",
+      "tags": [
+        "变速",
+        "倍速",
+        "慢动作",
+        "帧率",
+        "同步"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/ffmpeg-speed-time"
+    },
+    {
+      "slug": "ffmpeg-chromakey",
+      "category": "media",
+      "description": "抠背景、边缘处理和合成到新背景。",
+      "tags": [
+        "绿幕",
+        "抠像",
+        "chromakey",
+        "合成",
+        "背景"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/ffmpeg-chromakey"
+    },
+    {
+      "slug": "ffmpeg-frames-images",
+      "category": "media",
+      "description": "视频抽帧、图片合成视频、GIF 导出。",
+      "tags": [
+        "抽帧",
+        "截图",
+        "GIF",
+        "图序列",
+        "缩略图"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/ffmpeg-frames-images"
+    },
+    {
+      "slug": "media-whisper",
+      "category": "media",
+      "description": "用 Whisper 把音视频转成带时间戳的文字和字幕。",
+      "tags": [
+        "转写",
+        "语音识别",
+        "Whisper",
+        "字幕",
+        "会议录音"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/media-whisper"
+    },
+    {
+      "slug": "media-ytdlp",
+      "category": "media",
+      "description": "用 yt-dlp 取视频、音频、字幕和封面，处理清晰度与合并。",
+      "tags": [
+        "下载",
+        "yt-dlp",
+        "视频",
+        "音频",
+        "字幕"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/media-ytdlp"
+    },
+    {
+      "slug": "media-scenedetect",
+      "category": "media",
+      "description": "自动检测转场，把长视频切成镜头片段。",
+      "tags": [
+        "分镜",
+        "转场",
+        "切分",
+        "scenedetect",
+        "剪辑"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/media-scenedetect"
+    },
+    {
+      "slug": "media-imagemagick",
+      "category": "media",
+      "description": "裁剪、缩放、加水印、格式转换、拼图，成批处理。",
+      "tags": [
+        "图片",
+        "批量",
+        "裁剪",
+        "水印",
+        "ImageMagick",
+        "缩放"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/media-imagemagick"
+    },
+    {
+      "slug": "media-demucs",
+      "category": "media",
+      "description": "把音轨拆成人声、鼓、贝斯和其他。",
+      "tags": [
+        "人声分离",
+        "伴奏",
+        "demucs",
+        "音轨",
+        "混音"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/media-demucs"
+    },
+    {
+      "slug": "media-moviepy",
+      "category": "media",
+      "description": "MoviePy 脚本化剪辑：拼接、字幕、转场、批量套模板。",
+      "tags": [
+        "MoviePy",
+        "脚本剪辑",
+        "批量",
+        "自动化",
+        "Python"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/media-moviepy"
+    },
+    {
+      "slug": "media-sox",
+      "category": "media",
+      "description": "降噪、增益、淡入淡出、格式转换和响度归一。",
+      "tags": [
+        "音频",
+        "降噪",
+        "响度",
+        "sox",
+        "处理"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/media-sox"
+    },
+    {
+      "slug": "media-exiftool",
+      "category": "media",
+      "description": "读改照片视频的拍摄信息、版权和 GPS。",
+      "tags": [
+        "元数据",
+        "EXIF",
+        "版权",
+        "GPS",
+        "照片"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/media-exiftool"
+    },
+    {
+      "slug": "workflow-podcast-pipeline",
+      "category": "media",
+      "description": "从录音到成片：清噪、剪口癖、章节、封面、发布物料。",
+      "tags": [
+        "播客",
+        "录音",
+        "剪辑",
+        "流水线",
+        "发布"
+      ],
+      "repo": "damionrashford/media-os",
+      "path": "skills/workflow-podcast-pipeline"
+    },
+    {
+      "slug": "prose-edit",
+      "category": "writing",
+      "description": "逐句改写：削掉套话、统一语气、保留作者声音。",
+      "tags": [
+        "润色",
+        "改写",
+        "编辑",
+        "文风",
+        "中文"
+      ],
+      "repo": "Mikefluff/skills",
+      "path": "skills/prose-edit"
+    },
+    {
+      "slug": "viral-text",
+      "category": "writing",
+      "description": "钩子、节奏、结尾行动号召，适合短内容平台。",
+      "tags": [
+        "传播",
+        "爆款",
+        "钩子",
+        "短文案",
+        "社媒"
+      ],
+      "repo": "Mikefluff/skills",
+      "path": "skills/viral-text"
+    },
+    {
+      "slug": "microcopy",
+      "category": "design",
+      "description": "按钮、空状态、报错、引导语，短而准。",
+      "tags": [
+        "微文案",
+        "UX 文案",
+        "按钮",
+        "报错",
+        "空状态"
+      ],
+      "repo": "Mikefluff/skills",
+      "path": "skills/microcopy"
+    },
+    {
+      "slug": "landing-copy",
+      "category": "business",
+      "description": "首屏承诺、证据、异议处理到 CTA 的整页结构。",
+      "tags": [
+        "落地页",
+        "文案",
+        "首屏",
+        "CTA",
+        "转化"
+      ],
+      "repo": "Mikefluff/skills",
+      "path": "skills/landing-copy"
+    },
+    {
+      "slug": "essay-write",
+      "category": "writing",
+      "description": "立论、论证、材料组织和收尾，写得完整不注水。",
+      "tags": [
+        "长文",
+        "写作",
+        "论证",
+        "结构",
+        "文章"
+      ],
+      "repo": "Mikefluff/skills",
+      "path": "skills/essay-write"
+    },
+    {
+      "slug": "subtitle-burner",
+      "category": "media",
+      "description": "把字幕烧进画面：字体、描边、安全区和多语言。",
+      "tags": [
+        "字幕",
+        "压制",
+        "烧录",
+        "字体",
+        "多语言"
+      ],
+      "repo": "Mikefluff/skills",
+      "path": "skills/subtitle-burner"
+    },
+    {
+      "slug": "release-notes",
+      "category": "dev",
+      "description": "从提交记录整理成用户读得懂的更新说明。",
+      "tags": [
+        "发版",
+        "更新日志",
+        "changelog",
+        "版本",
+        "说明"
+      ],
+      "repo": "Mikefluff/skills",
+      "path": "skills/release-notes"
+    },
+    {
+      "slug": "cre-due-diligence",
+      "category": "business",
+      "description": "产权、租约、财务、物理状况的尽调清单与红旗项。",
+      "tags": [
+        "地产",
+        "尽调",
+        "租约",
+        "产权",
+        "商业地产"
+      ],
+      "repo": "ahacker-1/cre-agent-skills",
+      "path": "claude-code-plugins/cre-due-diligence"
+    },
+    {
+      "slug": "cre-lender-credit",
+      "category": "finance",
+      "description": "偿债覆盖率、贷款价值比、压力测试和授信备忘。",
+      "tags": [
+        "贷款",
+        "信贷",
+        "地产",
+        "DSCR",
+        "LTV",
+        "授信"
+      ],
+      "repo": "ahacker-1/cre-agent-skills",
+      "path": "claude-code-plugins/cre-lender-credit"
+    },
+    {
+      "slug": "cre-retail",
+      "category": "business",
+      "description": "租户组合、坪效、租金结构和续租谈判。",
+      "tags": [
+        "零售",
+        "商场",
+        "租户",
+        "坪效",
+        "租金"
+      ],
+      "repo": "ahacker-1/cre-agent-skills",
+      "path": "claude-code-plugins/cre-retail"
+    },
+    {
+      "slug": "cre-development",
+      "category": "business",
+      "description": "开发成本、周期、退出假设和可行性测算。",
+      "tags": [
+        "开发",
+        "测算",
+        "可行性",
+        "成本",
+        "地产"
+      ],
+      "repo": "ahacker-1/cre-agent-skills",
+      "path": "claude-code-plugins/cre-development"
+    },
+    {
+      "slug": "hallmark",
+      "category": "design",
+      "description": "新建页面、改版和从截图提取设计语言的一整套判断标准。",
+      "tags": [
+        "设计",
+        "网页",
+        "AI 味",
+        "排版",
+        "配色",
+        "落地页"
+      ],
+      "repo": "Nutlope/hallmark",
+      "path": "skills/hallmark"
+    },
+    {
+      "slug": "drawio",
+      "category": "design",
+      "description": "生成可再编辑的 .drawio 架构图、ERD、时序图，能与源同步。",
+      "tags": [
+        "drawio",
+        "架构图",
+        "ERD",
+        "时序图",
+        "流程图",
+        "可编辑"
+      ],
+      "repo": "Agents365-ai/drawio-skill",
+      "path": "skills/drawio-skill"
+    },
+    {
+      "slug": "humanizer-zh",
+      "category": "writing",
+      "description": "把中文里那股模型腔改掉：句式、连接词、排比和空话。",
+      "tags": [
+        "去 AI 味",
+        "中文",
+        "润色",
+        "人味",
+        "改写"
+      ],
+      "repo": "op7418/Humanizer-zh",
+      "path": ""
+    },
+    {
+      "slug": "translate-book",
+      "category": "writing",
+      "description": "长文档分章翻译、术语一致、格式保留、断点续译。",
+      "tags": [
+        "翻译",
+        "长文",
+        "术语",
+        "书",
+        "双语"
+      ],
+      "repo": "deusyu/translate-book",
+      "path": "",
+      "exclude": [
+        "tests",
+        "assets",
+        ".github"
       ]
+    },
+    {
+      "slug": "video-editing",
+      "category": "media",
+      "description": "一组现成脚本：裁剪、跳切、加字幕、叠字、转写。",
+      "tags": [
+        "剪辑",
+        "跳切",
+        "裁剪",
+        "字幕",
+        "脚本",
+        "快剪"
+      ],
+      "repo": "6missedcalls/video-editing-skill",
+      "path": ""
     }
   ],
   "$comment2": "tools：池里不是手册的条目——MCP 服务、素材包。纯数据，不用同步，不落盘。走产品 OAuth 服务的平台（Gmail、Notion…）在 src/connectors.ts 的 TOOLKITS 里，不写在这。",
