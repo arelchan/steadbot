@@ -468,8 +468,10 @@ export class DesktopManager {
     for (const id of [...this.seenTabs.keys()]) if (!pages.some((p) => p.id === id)) this.seenTabs.delete(id);
     const blank = (t: { url: string }) => t.url === 'about:blank' || t.url === 'chrome://newtab/';
     const doomed = new Set(pages.filter(blank).slice(1));
-    const rest = pages.filter((p) => !doomed.has(p)).sort((a, b) => (this.seenTabs.get(a.id) ?? 0) - (this.seenTabs.get(b.id) ?? 0));
-    for (const t of rest.slice(0, Math.max(0, rest.length - cap))) doomed.add(t);
+    if (Number.isFinite(cap)) {
+      const rest = pages.filter((p) => !doomed.has(p)).sort((a, b) => (this.seenTabs.get(a.id) ?? 0) - (this.seenTabs.get(b.id) ?? 0));
+      for (const t of rest.slice(0, Math.max(0, rest.length - cap))) doomed.add(t);
+    }
     for (const t of doomed) {
       await fetch(`http://127.0.0.1:${CDP_PORT}/json/close/${t.id}`, { signal: AbortSignal.timeout(3000) }).catch(() => undefined);
       this.seenTabs.delete(t.id);
@@ -615,12 +617,18 @@ export class DesktopManager {
     if (Date.now() - last > IDLE_MS) void this.off();
   }
 
-  /** Every minute: let go of what nobody is using, and keep the browser inside its shape. */
+  /**
+   * Every minute: let go of what nobody is using, and keep the browser inside its shape — but never while someone
+   * is working. A tab cannot be traced back to the bot that opened it, so trimming during a run could close the
+   * page a bot is halfway through; blank tabs are always safe, everything else waits until the screen is quiet.
+   */
   private async sweepShape(l: NonNullable<typeof this.live>) {
     for (const [botId, at] of [...l.bots]) if (Date.now() - at > BOT_IDLE_MS) await this.release(botId);
-    await this.tidyTabs();
+    const busy = this.users().length > 0 || l.viewers > 0;
+    await this.tidyTabs(busy ? Infinity : TAB_CAP);
     const mb = await this.chromeRssMb().catch(() => 0);
     if (mb <= CHROME_RSS_MB) return;
+    if (busy) return void console.warn(`[crew] computer: 浏览器占了 ${mb}MB，有人在用，等它闲下来再收`);
     console.warn(`[crew] computer: 浏览器占了 ${mb}MB，收紧到 4 个标签页`);
     await this.tidyTabs(4);
     // Still heavy with nobody on it: start it over. The profile is on disk, so every login comes back.
