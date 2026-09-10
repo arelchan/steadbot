@@ -71,8 +71,10 @@ export function identityExtension(c: BotCtx, skills?: () => SkillStore, ops?: ()
         if (!everos.alive()) return '';
         const got = await everos.forTurn(c.botId, ask()).catch(() => undefined);
         if (!got) return '';
+        const docs = await everos.knowledgeFor(ask()).catch(() => []);
         const parts = [
           got.profile.length ? `## 关于用户（常驻）\n${got.profile.map((l) => `- ${l}`).join('\n')}` : '',
+          docs.length ? `## 资料里相关的（用 knowledge 看全文）\n${docs.map((l) => `- ${l}`).join('\n')}` : '',
           got.episodes.length ? `## 可能相关的往事（这轮召回，记录是英文的，你照常用中文说话）\n${got.episodes.map((l) => `- ${l}`).join('\n')}` : '',
           got.skills.length ? `## 你以前怎么做这类活\n${got.skills.map((l) => `- ${l}`).join('\n')}` : '',
         ].filter(Boolean);

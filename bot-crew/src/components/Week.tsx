@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useStore, openPendings, select } from '../store';
-import { botThread, type Bot, type Routine } from '../types';
+import { useStore, openPendings } from '../store';
+import type { Bot, Routine } from '../types';
 import { Avatar } from './Avatar';
 import { PendingActions } from './Cards';
+import { EventCard, type Ev } from './EventCard';
 import { cadence, firesOn, weekStart, addDays, sameDay, hourOf, hourWindow } from '../calendar';
 import { cx, waited } from '../utils';
 import { useT, intlLocale } from '../i18n';
@@ -50,6 +51,7 @@ export function Week() {
   const s = useStore((x) => x);
   const now = useNow();
   const [off, setOff] = useState(0);
+  const [open, setOpen] = useState<Ev>();
   const body = useRef<HTMLDivElement>(null);
 
   const start = addDays(weekStart(), off * 7);
@@ -134,8 +136,7 @@ export function Week() {
                   <button
                     className={cx('chip', 'wk-standing-chip', unknown && 'warn')}
                     key={`${bot.id}:${r.id}`}
-                    title={unknown ? t('week.unknown', { schedule: r.schedule }) : `${r.title} · ${r.schedule} · ${bot.name}`}
-                    onClick={() => select(botThread(bot.id))}
+                    onClick={() => setOpen({ kind: 'routine', bot, r, state: unknown ? 'unknown' : undefined })}
                   >
                     {r.title}<span className="quiet"> · {r.schedule}</span>
                   </button>
@@ -156,7 +157,7 @@ export function Week() {
                 return (
                   <div className={cx('wk-col', isToday && 'today')} style={{ backgroundSize: `100% ${HOUR}px` }} key={d.getTime()}>
                     {laid[i].map((k) => (
-                      <button className={cx('wk-tick', k.state)} style={{ top: k.y }} key={`${k.bot.id}:${k.r.id}`} onClick={() => select(botThread(k.bot.id))} title={`${hm(k.at)} ${k.r.title} · ${k.r.schedule} · ${k.bot.name}`}>
+                      <button className={cx('wk-tick', k.state)} style={{ top: k.y }} key={`${k.bot.id}:${k.r.id}`} onClick={() => setOpen({ kind: 'routine', bot: k.bot, r: k.r, at: k.at, state: k.state })} title={`${hm(k.at)} ${k.r.title} · ${k.bot.name}`}>
                         <Avatar bot={k.bot} size="xs" />
                         <span className="wk-tick-t">{k.r.title}</span>
                       </button>
@@ -195,6 +196,7 @@ export function Week() {
           </div>
         </aside>
       </div>
+      {open && <EventCard ev={open} onClose={() => setOpen(undefined)} />}
     </section>
   );
 }

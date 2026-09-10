@@ -27,7 +27,7 @@ const TABS: { id: Tab; key: string }[] = [
 ];
 
 /** Bot detail: identity on the left, one section at a time on the right. Opens on 成长. */
-export function BotConfigModal({ bot, tab: initial = 'growth', onClose }: { bot: Bot; tab?: Tab; onClose: () => void }) {
+export function BotConfigModal({ bot, tab: initial = 'growth', routineId, onClose }: { bot: Bot; tab?: Tab; /** 直接打开这一条例行任务（从日程上的事件卡进来时用） */ routineId?: string; onClose: () => void }) {
   const t = useT();
   const [tab, setTab] = useState<Tab>(initial);
   const integrations = useStore((s) => s.integrations);
@@ -70,7 +70,7 @@ export function BotConfigModal({ bot, tab: initial = 'growth', onClose }: { bot:
             {tab === 'growth' && <Growth bot={bot} />}
             {tab === 'instructions' && <Instructions bot={bot} />}
             {tab === 'skills' && <Skills bot={bot} />}
-            {tab === 'routines' && <Routines bot={bot} />}
+            {tab === 'routines' && <Routines bot={bot} openId={routineId} />}
             {tab === 'integrations' && <Integrations bot={bot} />}
           </div>
         </section>
@@ -396,9 +396,9 @@ export function sayWhen(schedule: string): string {
 
 const ALL_CHANNELS: Channel[] = ['app', 'feishu', 'wechat', 'slack', 'telegram', 'discord', 'whatsapp'];
 
-function Routines({ bot }: { bot: Bot }) {
+function Routines({ bot, openId: initial }: { bot: Bot; openId?: string }) {
   const t = useT();
-  const [openId, setOpenId] = useState<string | undefined>();
+  const [openId, setOpenId] = useState<string | undefined>(initial);
   // A new routine is a draft on this page until 创建; nothing reaches the bot before that.
   const [draft, setDraft] = useState<Routine | undefined>();
   const open = draft ?? bot.routines.find((r) => r.id === openId);

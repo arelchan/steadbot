@@ -606,6 +606,32 @@ async function memPost(path: string, body: unknown): Promise<boolean> {
     return false;
   }
 }
+export interface KDoc { docId: string; category: string; title: string; topics: number; at: string }
+export interface KTopic { id: string; name: string; path: string; depth: number; summary: string; content?: string }
+export interface KDocDetail { docId: string; category: string; title: string; summary: string; source?: string; topics: KTopic[] }
+
+export const knowledge = {
+  docs: () => memGet<{ alive: boolean; items: KDoc[]; categories: { id: string; docs: number }[] }>('knowledge', { alive: false, items: [], categories: [] }),
+  doc: (id: string) => memGet<{ doc: KDocDetail | null }>(`knowledge/doc?id=${encodeURIComponent(id)}`, { doc: null }),
+  topic: (id: string) => memGet<{ topic: KTopic | null }>(`knowledge/topic?id=${encodeURIComponent(id)}`, { topic: null }),
+  search: (q: string) => memGet<{ hits: { topic: KTopic; doc: string; score: number }[] }>(`knowledge/search?q=${encodeURIComponent(q)}`, { hits: [] }),
+  remove: (docId: string) => memPost('knowledge/remove', { docId }),
+  /** Splitting a document takes a minute or more, so this resolves when the engine has taken it, not when it is done. */
+  add: async (file: File, title: string): Promise<boolean> => {
+    if (!HTTP_BASE) return false;
+    try {
+      const r = await fetch(`${HTTP_BASE}/memory/knowledge/add?name=${encodeURIComponent(file.name)}&title=${encodeURIComponent(title || file.name)}`, {
+        method: 'POST',
+        headers: { 'content-type': file.type || 'application/octet-stream', ...authHeaders() },
+        body: file,
+      });
+      return r.ok;
+    } catch {
+      return false;
+    }
+  },
+};
+
 export const memory = {
   profile: () => memGet<{ alive: boolean; profile: ProfileDoc | null }>('profile', { alive: false, profile: null }),
   editProfile: (kind: 'explicit' | 'trait', index: number, text: string | null) => memPost('profile', { kind, index, text }),

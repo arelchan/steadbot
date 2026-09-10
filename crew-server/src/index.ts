@@ -918,6 +918,28 @@ async function main() {
         }
         if (p === '/memory/fact' && req.method === 'POST') return json(200, { ok: await everos.addFact((await readBody<{ text?: string }>()).text ?? '') });
         if (p === '/memory/correct' && req.method === 'POST') return json(200, { ok: await everos.correct((await readBody<{ text?: string }>()).text ?? '') });
+        if (p === '/memory/knowledge' && req.method === 'GET') return json(200, { alive: everos.alive(), ...(await everos.kDocs()) });
+        if (p === '/memory/knowledge/doc') return json(200, { doc: (await everos.kDoc(url.searchParams.get('id') ?? '')) ?? null });
+        if (p === '/memory/knowledge/topic') return json(200, { topic: (await everos.kTopic(url.searchParams.get('id') ?? '')) ?? null });
+        if (p === '/memory/knowledge/search') return json(200, { hits: await everos.kSearch(url.searchParams.get('q') ?? '', 20) });
+        if (p === '/memory/knowledge/remove' && req.method === 'POST') return json(200, { ok: await everos.kRemove((await readBody<{ docId?: string }>()).docId ?? '') });
+        if (p === '/memory/knowledge/add' && req.method === 'POST') {
+          // The file comes up as raw bytes with its name in the query, the way an attachment upload does.
+          // Splitting a document takes a minute or more, so the client is told it started, not that it finished.
+          const chunks: Buffer[] = [];
+          await new Promise<void>((resolve, reject) => {
+            req.on('data', (c: Buffer) => chunks.push(c));
+            req.on('end', resolve);
+            req.on('error', reject);
+          });
+          const name = decodeURIComponent(url.searchParams.get('name') ?? 'file');
+          const title = decodeURIComponent(url.searchParams.get('title') ?? name).replace(/\.[a-z0-9]+$/i, '');
+          void everos
+            .kAdd(name, Buffer.concat(chunks), title)
+            .then((r) => console.log(r ? `[crew] 知识：「${title}」切成 ${r.topics} 个主题` : `[crew] 知识：「${title}」没读进去`))
+            .catch((e: Error) => console.warn('[crew] 知识：', e.message));
+          return json(202, { started: true });
+        }
         if (p === '/memory/episodes') return json(200, await everos.episodes(url.searchParams.get('q') ?? '', Number(url.searchParams.get('page') ?? 1)));
         if (p === '/memory/cases') return json(200, { items: await everos.cases(botIds()) });
         if (p === '/memory/skills') return json(200, { items: await everos.skills(botIds()), crew: await everos.crewSkills() });

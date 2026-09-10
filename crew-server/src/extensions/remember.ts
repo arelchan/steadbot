@@ -4,6 +4,9 @@ import { Type } from 'typebox';
 import type { BotCtx } from './ctx.ts';
 import * as everos from '../everos.ts';
 import { botThread } from '../types.ts';
+import { readFileSync, statSync } from 'node:fs';
+import { basename } from 'node:path';
+import { isCredentialFile, isMemoryFile } from '../config.ts';
 
 /**
  * remember / recall: the two ends of memory.
@@ -46,6 +49,28 @@ export function rememberExtension(c: BotCtx): InlineExtension {
       });
 
       pi.registerTool({
+        name: 'knowledge',
+        label: '资料',
+        description:
+          '查用户交给团队的资料（产品文档、规范、纪要、客户材料），全员共用一份。不带参数或带 query：搜相关主题，回主题名 + 摘要；带 topic：读那个主题的全文；带 file（工作区里的绝对路径）：把这份文件归档进资料库，之后所有 bot 都能查到。\n这是「知道什么」，不是「怎么做」——手册照着做的步骤在你的技能里；外部事实用 web_search；用户以前说过做过的事用 recall。',
+        promptSnippet: '查团队资料：搜主题、读全文、把一份文件归档进去',
+        promptGuidelines: [
+          '每轮开头已经带了最相关的三条摘要，摘要不够用就 knowledge(topic=…) 读全文，别凭摘要猜。',
+          '用户发来一份文件并说「以后按它来」「记住这份」，才 knowledge(file=附件路径) 归档；一次性看看的文件用 read / see，不要往资料库里塞。',
+          '答案来自资料时说清是哪份文档的哪个主题，用户要能回去核对。',
+        ],
+        parameters: Type.Object({
+          query: Type.Optional(Type.String({ description: '要查什么' })),
+          topic: Type.Optional(Type.String({ description: '主题 id，读全文' })),
+          file: Type.Optional(Type.String({ description: '工作区里的绝对路径，归档这份文件' })),
+        }),
+        async execute(_id, p) {
+          const text = await knowledgeTool(c, p);
+          return { content: [{ type: 'text', text }], details: { ...p } };
+        },
+      });
+
+      pi.registerTool({
         name: 'recall',
         label: '回想',
         description:
@@ -68,4 +93,42 @@ export function rememberExtension(c: BotCtx): InlineExtension {
       });
     },
   };
+}
+
+/** One tool, three jobs: search the topics, read one in full, file a document into the shared library. */
+async function knowledgeTool(c: BotCtx, p: { query?: string; topic?: string; file?: string }): Promise<string> {
+  if (!everos.alive()) return '资料库没在跑（记忆引擎没起来），现在查不了。';
+  if (p.file) {
+    const f = p.file.trim();
+    if (isCredentialFile(f) || isMemoryFile(f)) return '这个文件不能进资料库。';
+    let size = 0;
+    try {
+      size = statSync(f).size;
+    } catch {
+      return `找不到 ${f}。`;
+    }
+    if (size > 50 * 1024 * 1024) return '这份文件超过 50 MB，进不了资料库。';
+    const name = basename(f);
+    void everos
+      .kAdd(name, readFileSync(f), p.query?.trim() || name.replace(/\.[a-z0-9]+$/i, ''))
+      .then((r) => {
+        if (r) c.store.addMessage({ threadId: c.current()?.threadId ?? botThread(c.botId), author: 'system', botId: c.botId, text: `资料库收了《${p.query?.trim() || name}》，切成 ${r.topics} 个主题。`, ts: Date.now() });
+      })
+      .catch(() => undefined);
+    return `在读《${name}》，切主题要一分钟左右，好了会在对话里说一声。这一轮先做别的。`;
+  }
+  if (p.topic) {
+    const t = await everos.kTopic(p.topic.trim());
+    if (!t) return '没有这个主题，先用 query 搜一下。';
+    return `${t.path}\n\n${t.content ?? t.summary}`;
+  }
+  const q = p.query?.trim() ?? '';
+  if (!q) {
+    const { items } = await everos.kDocs();
+    if (!items.length) return '资料库是空的。';
+    return `资料库里有 ${items.length} 份：\n${items.map((d) => `- ${d.title}（${d.category}，${d.topics} 个主题）`).join('\n')}`;
+  }
+  const hits = await everos.kSearch(q, 6);
+  if (!hits.length) return '资料里没有相关的内容。';
+  return `找到 ${hits.length} 条：\n${hits.map((h) => `- [${h.topic.id}] ${h.doc}｜${h.topic.name}：${h.topic.summary.slice(0, 200)}`).join('\n')}\n要细节就 knowledge(topic=方括号里的 id)。`;
 }

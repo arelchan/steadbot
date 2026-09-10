@@ -30,7 +30,6 @@ export function Sidebar() {
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [menu]);
-  const totalWaiting = openPendings(s).length;
 
   const renderThread = (threadId: ThreadId, node: ReactNode, state?: { typing?: boolean; unread?: boolean }) => {
     const active = s.selection === threadId;
@@ -135,10 +134,6 @@ export function Sidebar() {
       <div className="side-body">
         <button className={cx('filter', s.selection === 'week' && 'active')} onClick={() => select('week')}>
           <span>{t('side.week')}</span>
-        </button>
-        <button className={cx('filter', s.selection === 'inbox' && 'active')} onClick={() => select('inbox')}>
-          <span>{t('side.inbox')}</span>
-          {totalWaiting > 0 ? <span className="badge">{totalWaiting}</span> : <span className="quiet" style={{ color: 'var(--muted)', fontSize: 11 }}>{t('side.clear')}</span>}
         </button>
 
         {rows.map((r) => (r.kind === 'bot' ? renderBotRow(r.bot) : renderMatterRow(r.matter)))}
