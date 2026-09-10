@@ -1576,6 +1576,11 @@ li.md-task.done { color: var(--text-2); }
 @media (max-width: 900px) { .mem-split, .mem-split.profile { grid-template-columns: 1fr; } .mem-pane { display: none; } }
 /* ---- 周: 所有 bot 会自己动的时刻，摊在一条时间轴上 (Week.tsx) ---- */
 .week { background: var(--sheet); }
+/* 头部和对话那边同一个样子：名字在上，日期在下（.thread .hd .who 那条选择器管不到这里） */
+.week .hd { background: var(--sheet); }
+.week .hd .who { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.week .hd .who .n { font-weight: 600; font-size: 14px; letter-spacing: -0.005em; }
+.week .hd .who .t { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .week-wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--w-right, 312px); }
 .week-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding-left: 16px; }
 .week-side { border-left: 1px solid var(--hair); background: var(--rail); display: flex; flex-direction: column; min-height: 0; }
