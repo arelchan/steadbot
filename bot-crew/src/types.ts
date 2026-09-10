@@ -230,6 +230,9 @@ export interface UpgradeStatus {
   running?: string;
   /** 仓库分支上最新的提交 */
   latest?: string;
+  /** 这两个提交的版本名：标签本身（v0.1.0），或标签之后第几个提交（v0.1.0+3） */
+  runningName?: string;
+  latestName?: string;
   version: string;
   repo: string;
   branch: string;

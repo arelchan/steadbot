@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { loadMachine, machineLink, pairMachine, probeMachine, type MachineLink } from './machine.ts';
 import type { Runtime } from './runtime.ts';
-import { BRANCH, REPO, RUNNING_BUILD, currentCommit, hasGit, isDirty, latestCommit, VERSION } from './version.ts';
+import { BRANCH, REPO, RUNNING_BUILD, currentCommit, hasGit, isDirty, latestCommit, syncTags, versionName, VERSION } from './version.ts';
 import type { UpgradeStatus } from './types.ts';
 
 const execFileP = promisify(execFile);
@@ -43,6 +43,7 @@ export class Upgrader extends EventEmitter {
   }
 
   async refreshLatest(): Promise<string | undefined> {
+    syncTags();
     const l = await latestCommit();
     if (l) this.latest = l;
     return this.latest;
@@ -57,6 +58,8 @@ export class Upgrader extends EventEmitter {
       target: moved ? 'machine' : 'local',
       running,
       latest: this.latest,
+      runningName: versionName(running),
+      latestName: versionName(this.latest),
       version: VERSION,
       repo: REPO,
       branch: BRANCH,

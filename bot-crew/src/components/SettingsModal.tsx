@@ -419,55 +419,35 @@ function About({ up }: { up: ReturnType<typeof useUpgrade> }) {
   const rt = useStore((s) => s.runtime);
   const s = up.status;
   const stale = !!s && !s.upToDate && !s.blocked;
+  // The version has a name (the tag it carries, or how far it is past one); the commit stays as the fine print.
+  const name = s?.runningName ?? (s ? `v${s.version}` : rt?.version ? `v${rt.version}` : undefined);
+  const next = s?.latestName ?? s?.latest?.slice(0, 8);
   return (
     <>
       <Head title={t('set.about')} />
       <div className="about-top">
         <div className="about-mark">🤖</div>
-        <div>
-          <div className="about-n">EverBot</div>
-          <div className="about-v">{s ? t('about.versionLine', { v: s.version, commit: s.running?.slice(0, 8) ?? t('about.unknown') }) : rt?.version ? t('about.versionOnly', { v: rt.version }) : ''}</div>
-          {s && <div className="about-v">{s.repo} · {s.branch}</div>}
-        </div>
-      </div>
-      <p className="about-p">{t('about.blurb')}</p>
-
-      <h4>{t('about.version')}</h4>
-      {!s && <div className="quiet">{t('about.noLocal')}</div>}
-      {s && (
-        <div className={cx('up-card', stale && 'stale')}>
-          <div className="up-main">
-            <div className="up-t">
-              {s.blocked ? t('about.blocked') : stale ? t('about.stale') : !s.latest ? t('about.noRepo') : t('about.upToDate')}
-              {stale && <span className="chip cn-chip">{t('common.new')}</span>}
-            </div>
-            <div className="up-s">
-              {s.blocked
-                ? s.blocked
-                : !s.latest
-                  ? t('about.noGithub')
-                  : stale
-                    ? s.target === 'machine'
-                      ? t('about.staleMachine', { name: s.machineName ? `\u300c${s.machineName}\u300d` : t('about.thatMachine') })
-                      : t('about.staleLocal')
-                    : t('about.running', { commit: s.running?.slice(0, 8) ?? '?' })}
-            </div>
+        <div className="about-id">
+          <div className="about-n">
+            EverBot
+            {name && <span className="about-tag">{name}</span>}
           </div>
-          {stale && !up.busy && (
-            <button className="btn primary" onClick={up.start}>
-              {t('about.upgrade')}
-            </button>
-          )}
-          {up.busy && <span className="quiet">{t('about.upgrading')}</span>}
+          <div className="about-v">
+            {s?.running && <span className="mono">{s.running.slice(0, 8)}</span>}
+            {s && <span>{s.repo} · {s.branch}</span>}
+            {!s && <span>{t('about.noLocal')}</span>}
+          </div>
         </div>
-      )}
+        {stale && (
+          <button className="btn primary about-up" onClick={up.start} disabled={up.busy}>
+            {up.busy ? t('about.upgrading') : t('about.upgradeTo', { v: next ?? '' })}
+          </button>
+        )}
+      </div>
+      {s?.blocked && <div className="about-blocked">{s.blocked}</div>}
       {up.err && <div className="up-err">{up.err}</div>}
       {up.done && <div className="up-ok">{up.done}</div>}
-      {up.log.length > 0 && (
-        <pre className="up-log">
-          {up.log.slice(-40).join('\n')}
-        </pre>
-      )}
+      {up.log.length > 0 && <pre className="up-log">{up.log.slice(-40).join('\n')}</pre>}
 
       <h4>{t('about.machine')}</h4>
       <ul className="about-facts">
@@ -476,8 +456,6 @@ function About({ up }: { up: ReturnType<typeof useUpgrade> }) {
         <li><span>{t('about.state')}</span><b>{rt?.mode === 'active' ? t('about.stateActive') : rt?.mode === 'moved' ? t('about.stateMoved') : t('about.stateIdle')}</b></li>
         <li><span>{t('about.botComputer')}</span><b>{rt?.desktops ? t('about.available') : t('about.unavailable')}</b></li>
         <li><span>{t('about.dataDir')}</span><b className="mono">{rt?.home ?? '—'}</b></li>
-        {s?.latest && <li><span>{t('about.repoLatest')}</span><b className="mono">{s.latest.slice(0, 8)}</b></li>}
-        {s?.dirty && <li><span>{t('about.localChanges')}</span><b>{t('about.uncommitted')}</b></li>}
       </ul>
     </>
   );
