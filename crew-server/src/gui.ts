@@ -332,7 +332,9 @@ async function operateNow(hands: Hands, goal: string, opts: { display?: string; 
       tools: [ACT_TOOL],
       messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, imageContent(shot.file, 'image/png')], timestamp: Date.now() }],
     });
-    const call = res.content.find((c): c is Extract<typeof c, { type: 'toolCall' }> => c.type === 'toolCall' && c.name === ACT_TOOL.name);
+    // Any tool call is the action: there is only one tool, and models rename it (`act`, `computer_call`, the
+    // namespaced form) often enough that matching on the name loses real actions.
+    const call = res.content.find((c): c is Extract<typeof c, { type: 'toolCall' }> => c.type === 'toolCall');
     const said = res.content
       .map((c) => (c.type === 'text' ? c.text : ''))
       .join('')
@@ -342,9 +344,11 @@ async function operateNow(hands: Hands, goal: string, opts: { display?: string; 
     if (!parsed) {
       // Prose instead of a call is confusion, not completion: the native protocol's "a message ends the run" only
       // holds for a model actually speaking it. Retry, and if it keeps talking, end with what it said, unfinished.
-      log.push(`## ${i}\n模型没有给出可执行的动作：${said.slice(0, 300)}`);
+      log.push(`## ${i}\n模型没有给出可执行的动作：${said.slice(0, 300) || '（空回复）'}`);
       history.push(`${i}. （没有给出动作，重试）${said ? `：${said.slice(0, 60)}` : ''}`);
       unparsed++;
+      // Nothing was done, so the screen is unchanged for a reason that has nothing to do with a missed click.
+      prevShot = undefined;
       if (unparsed >= 3) return finish(false, said ? `模型只是在描述，没有真的操作：${said.slice(0, 300)}` : '模型连续三次没有给出可执行的动作', i, lastShot, log, dir);
       continue;
     }
