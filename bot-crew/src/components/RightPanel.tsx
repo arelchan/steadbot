@@ -252,7 +252,8 @@ function BotIdentity({ bot }: { bot: Bot }) {
       </div>
       <div className="settings ws-sec">
         <button className="set-row" onClick={() => setAsk('clear')}>{t('ident.clearChat')}</button>
-        <button className="set-row danger" onClick={() => setAsk('delete')}>{t('ident.deleteBot')}</button>
+        {/* 助理是产品自带的，没有删除这一项 */}
+        {bot.kind !== 'steward' && <button className="set-row danger" onClick={() => setAsk('delete')}>{t('ident.deleteBot')}</button>}
       </div>
       {config && <BotConfigModal bot={bot} onClose={() => setConfig(false)} />}
       {ask === 'clear' && (
