@@ -1469,3 +1469,53 @@ li.md-task.done { color: var(--text-2); }
 /* task origin (routine / colleague / IM) */
 .task-org { font-size: 10px; padding: 0 6px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; opacity: 0.8; }
 
+
+/* ---- 周: 所有 bot 会自己动的时刻，摊在一条时间轴上 (Week.tsx) ---- */
+.week { background: var(--sheet); }
+.week-wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--w-right, 312px); }
+.week-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding-left: 16px; }
+.week-side { border-left: 1px solid var(--hair); background: var(--rail); display: flex; flex-direction: column; min-height: 0; }
+.wk-days { display: grid; grid-template-columns: 48px repeat(7, minmax(0, 1fr)); flex: 0 0 auto; }
+.wk-tz { font-size: 10px; color: var(--muted); align-self: end; padding: 0 6px 9px 0; text-align: right; }
+.wk-day { padding: 6px 0 8px 8px; border-left: 1px solid var(--hair-2); }
+.wk-day .d1 { font-size: 11px; color: var(--muted); }
+.wk-day .d2 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.wk-day.today .d1, .wk-day.today .d2 { color: var(--accent); }
+/* 常驻的例行任务（每 30 分钟这种）一天跑几十次，进不了格子，在这里列一行 */
+.wk-standing { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; border-top: 1px solid var(--hair); flex: 0 0 auto; }
+.wk-standing .lbl { font-size: 10px; color: var(--muted); padding-right: 6px; text-align: right; }
+.wk-standing-list { display: flex; gap: 6px; flex-wrap: wrap; padding: 7px 8px; border-left: 1px solid var(--hair-2); }
+.wk-standing-chip .quiet { color: var(--muted); }
+.wk-standing-chip:hover { background: var(--tint-2); color: var(--text); }
+.week-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; border-top: 1px solid var(--hair); }
+.wk-grid { display: grid; grid-template-columns: 48px repeat(7, minmax(0, 1fr)); }
+.wk-hours { position: relative; }
+.wk-hours i { position: absolute; right: 6px; font-size: 10px; font-style: normal; color: var(--muted); font-variant-numeric: tabular-nums; transform: translateY(-6px); }
+.wk-col { position: relative; border-left: 1px solid var(--hair-2); background-image: repeating-linear-gradient(to bottom, var(--hair-2) 0 1px, transparent 1px 100%); }
+.wk-col.today { background-color: rgba(154, 75, 40, 0.03); }
+.wk-tick {
+  position: absolute; left: 3px; right: 3px; height: 20px; box-sizing: border-box;
+  display: flex; align-items: center; gap: 5px; padding: 0 7px 0 4px;
+  border-radius: 999px; background: var(--panel); box-shadow: var(--sh-1), 0 0 0 1px var(--hair-2);
+  font-size: 11px; color: var(--text-2); text-align: left;
+  transition: box-shadow 0.15s var(--ease), color 0.15s var(--ease);
+}
+.wk-tick:hover { box-shadow: var(--sh-1), 0 0 0 1px var(--accent-hair); color: var(--text); }
+.wk-tick-t { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 过去的不抢注意力；到点了之后再没跑过的才是要看的 */
+.wk-tick.done { background: transparent; box-shadow: none; color: var(--muted); }
+.wk-tick.missed { background: var(--warn-bg); box-shadow: none; color: var(--warn); }
+.wk-now { position: absolute; left: 0; right: 0; height: 1px; background: var(--accent); pointer-events: none; }
+.wk-now b { position: absolute; left: -3px; top: -3.5px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.wk-side-hd { height: 56px; flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--hair-2); }
+.wk-side-hd .n { flex: 1; font-weight: 600; font-size: 14px; letter-spacing: -0.005em; }
+.wk-side-hd .quiet { color: var(--muted); font-size: 11px; }
+.wk-side-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.week .ib { grid-template-columns: 30px minmax(0, 1fr); margin-bottom: 0; }
+.week .ib-w { color: var(--accent); font-weight: 500; }
+.week .ib-w.hot { color: var(--warn); }
+/* 窄了就先把「等你」收掉：七列挤到一列 50px 就什么都读不出来了，等你处理那一页还在。 */
+@media (max-width: 1120px) {
+  .week-wrap { grid-template-columns: minmax(0, 1fr); }
+  .week-side { display: none; }
+}

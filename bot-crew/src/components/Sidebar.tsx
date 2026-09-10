@@ -136,6 +136,9 @@ export function Sidebar() {
         </div>
       </div>
       <div className="side-body">
+        <button className={cx('filter', s.selection === 'week' && 'active')} onClick={() => select('week')}>
+          <span>{t('side.week')}</span>
+        </button>
         <button className={cx('filter', s.selection === 'inbox' && 'active')} onClick={() => select('inbox')}>
           <span>{t('side.inbox')}</span>
           {totalWaiting > 0 ? <span className="badge">{totalWaiting}</span> : <span className="quiet" style={{ color: 'var(--muted)', fontSize: 11 }}>{t('side.clear')}</span>}

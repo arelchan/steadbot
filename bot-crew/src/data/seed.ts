@@ -223,7 +223,7 @@ export const seedState = (): State => ({
   library: [],
   integrations: [],
   sharedProfile: SHARED_PROFILE,
-  selection: botThread('trip'),
+  selection: 'week',
   toasts: [],
   typing: {},
   lastSeen: { 'bot:trip': Date.now(), 'matter:hz': Date.now() },

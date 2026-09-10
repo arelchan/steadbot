@@ -227,7 +227,7 @@ export class WsAgentService implements AgentService {
             const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
             if (tz && !m.state.settings?.timezone) this.send({ type: 'set_settings', patch: { timezone: tz } });
           }
-          setState({ ...m.state, skills: m.state.skills ?? [], library: m.state.library ?? [], integrations: m.state.integrations ?? [], typing: m.state.typing ?? {}, runtime: m.state.runtime, settings: m.state.settings, computer: m.state.computer, selection: valid(s.selection) ? s.selection : first ? botThread(first.id) : 'draft-bot' });
+          setState({ ...m.state, skills: m.state.skills ?? [], library: m.state.library ?? [], integrations: m.state.integrations ?? [], typing: m.state.typing ?? {}, runtime: m.state.runtime, settings: m.state.settings, computer: m.state.computer, selection: valid(s.selection) ? s.selection : first ? 'week' : 'draft-bot' });
           break;
         }
         case 'message':

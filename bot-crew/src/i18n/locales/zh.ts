@@ -32,6 +32,7 @@ export const zh: Record<string, string> = {
   'side.newBotSub': '开一个窗口，你说第一句话它就成形',
   'side.newGroup': '新建群聊',
   'side.newGroupSub': '一件事，拉几个 bot 一起做',
+  'side.week': '周',
   'side.inbox': '全部 · 等你处理',
   'side.clear': '清了',
   'side.pinned': '已置顶',
@@ -63,6 +64,17 @@ export const zh: Record<string, string> = {
   'inbox.stuckPrefix': '卡住了 · ',
   'inbox.allClear': '都处理完了。它们手上还在推进的事，在各自的名片里能看到。',
   'inbox.quietlyDone': '它们默默做完的',
+
+  'week.today': '今天',
+  'week.prev': '上一周',
+  'week.next': '下一周',
+  'week.standing': '常驻',
+  'wait.min.one': '等了 {n} 分',
+  'wait.min.other': '等了 {n} 分',
+  'wait.hour.one': '等了 {n} 小时',
+  'wait.hour.other': '等了 {n} 小时',
+  'wait.day.one': '等了 {n} 天',
+  'wait.day.other': '等了 {n} 天',
 
   /* ---- 会话 ---- */
   'thread.identity': 'Bot 身份',

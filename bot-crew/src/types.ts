@@ -465,7 +465,7 @@ export interface LibraryEntry {
 export const LIBRARY_CATEGORY_IDS = ['dev', 'docs', 'writing', 'research', 'productivity', 'business', 'design', 'meta'];
 
 export type ThreadId = `bot:${string}` | `matter:${string}`;
-export type Selection = ThreadId | 'inbox' | 'profile' | 'draft-bot' | 'runtime';
+export type Selection = ThreadId | 'week' | 'inbox' | 'profile' | 'draft-bot' | 'runtime';
 
 export interface Toast {
   id: string;
