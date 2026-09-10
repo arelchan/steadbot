@@ -111,13 +111,8 @@ const forward = () => (applyingRemote ? null : remote);
 
 /* ---------- mutations ---------- */
 
-/** Which memory tab to open on, and which bot to filter by: set when a bot's panel hands over to the page. */
+/** The four kinds the memory engine keeps, as the memory view's tabs (MemoryView). */
 export type MemoryTab = 'profile' | 'episode' | 'case' | 'skill';
-export let memoryFocus: { tab: MemoryTab; botId?: string } | undefined;
-export const openMemory = (tab: MemoryTab, botId?: string) => {
-  memoryFocus = { tab, botId };
-  select('profile');
-};
 
 export const select = (selection: Selection) =>
   setState((s) => (s.selection === selection ? { selection } : { selection, panel: { mode: 'board' }, panels: { identity: false, tasks: true } }));

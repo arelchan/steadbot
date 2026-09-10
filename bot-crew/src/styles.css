@@ -1497,7 +1497,7 @@ li.md-task.done { color: var(--text-2); }
 /* ── memory page (MemoryView): four tabs, list + reading pane ── */
 .memv .mem-bar { display: flex; align-items: center; gap: 14px; padding: 10px 28px; border-bottom: 1px solid var(--hair-2); background: var(--sheet); }
 .mem-tabs { display: flex; gap: 2px; }
-.mem-tab { padding: 5px 12px; border-radius: var(--r-sm); color: var(--text-2); font-size: 13px; }
+.mem-tab { padding: 5px 12px; border-radius: var(--r-sm); color: var(--text-2); font-size: 13px; white-space: nowrap; }
 .mem-tab.on { background: var(--panel); color: var(--text); }
 .mem-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--hair); border-radius: 999px; padding: 2px 10px 2px 6px; font-size: 12px; color: var(--text-2); }
 .mem-search { margin-left: auto; width: 240px; border: 1px solid var(--hair); background: var(--panel); border-radius: var(--r-sm); padding: 6px 10px; font-size: 12.5px; }
@@ -1550,5 +1550,13 @@ li.md-task.done { color: var(--text-2); }
 .mem-dup { color: var(--warn); font-size: 11px; margin-right: 6px; }
 .mem-add { width: 100%; border: 1px dashed var(--hair); border-radius: var(--r-sm); padding: 8px 10px; background: transparent; margin: 12px 0 0; font-size: 12.5px; }
 .mem-add:focus { outline: 0; border-color: var(--accent-hair); border-style: solid; background: var(--panel); }
-.mem-empty { color: var(--muted); font-size: 13px; padding: 12px; }
+.mem-empty { height: 100%; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.mem-empty .k { font-size: 11px; letter-spacing: 0.06em; }
+.mem-split.solo { grid-template-columns: minmax(300px, 640px); }
+/* inside a bot's panel: the same view fills the dialog's content area edge to edge — and the dialog grows to hold a list beside a reading pane */
+.modal.cfg.wide { width: min(1180px, calc(100vw - 32px)); height: min(760px, calc(100vh - 48px)); }
+.cfg-content.flush { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.memv.embedded { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.memv.embedded .mem-bar { padding: 14px 30px 10px; }
+.memv.embedded .mem-body { padding: 12px 30px 24px; }
 @media (max-width: 900px) { .mem-split, .mem-split.profile { grid-template-columns: 1fr; } .mem-pane { display: none; } }

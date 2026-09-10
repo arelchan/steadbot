@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useStore, memoryFocus, type MemoryTab } from '../store';
+import { useStore, type MemoryTab } from '../store';
 import { memory, type CaseItem, type EpisodeItem, type ProfileDoc, type SkillItem } from '../services/agent';
 import { Avatar } from './Avatar';
 import { useT } from '../i18n';
@@ -57,19 +57,25 @@ function similar(a: string, b: string) {
   return hit / Math.min(A.size, B.size) > 0.75;
 }
 
-export function MemoryView() {
+/**
+ * Standalone it is the 记忆 page; inside a bot's panel it is that panel's 记忆 tab, opened on the bot's own
+ * kind with the bot preselected — same view, no leaving the dialog.
+ */
+export function MemoryView({ embedded, focus }: { embedded?: boolean; focus?: { tab: MemoryTab; botId?: string } } = {}) {
   const t = useT();
   const bots = useStore((s) => s.bots);
-  const [tab, setTab] = useState<MemoryTab>(memoryFocus?.tab ?? 'profile');
-  const [bot, setBot] = useState<string | undefined>(memoryFocus?.botId);
+  const [tab, setTab] = useState<MemoryTab>(focus?.tab ?? 'profile');
+  const [bot, setBot] = useState<string | undefined>(focus?.botId);
   const [q, setQ] = useState('');
   const botName = (id: string) => (id === 'chen' ? t('mem.you') : bots.find((b) => b.id === id)?.name ?? id);
   const filterBot = bot ? bots.find((b) => b.id === bot) : undefined;
   return (
-    <section className="col thread memv">
-      <header className="hd">
-        <div className="who"><span className="n">{t('profile.title')}</span></div>
-      </header>
+    <section className={cx('memv', embedded ? 'embedded' : 'col thread')}>
+      {!embedded && (
+        <header className="hd">
+          <div className="who"><span className="n">{t('profile.title')}</span></div>
+        </header>
+      )}
       <div className="mem-bar">
         <div className="mem-tabs">
           {TABS.map((k) => (
@@ -90,6 +96,16 @@ export function MemoryView() {
         {tab === 'skill' && <SkillTab q={q} bot={bot} bots={bots} onBot={setBot} />}
       </div>
     </section>
+  );
+}
+
+/** Nothing of this kind yet: the kind's name and one word, centred in the space the list and pane would take. */
+function Empty({ kind, note }: { kind: string; note: string }) {
+  return (
+    <div className="mem-empty">
+      <span className="k">{kind}</span>
+      <span>{note}</span>
+    </div>
   );
 }
 
@@ -126,8 +142,8 @@ function ProfileTab() {
     load();
   };
   const remove = async (kind: 'explicit' | 'trait', index: number) => { await memory.editProfile(kind, index, null); load(); };
-  if (!alive) return <div className="mem-empty">{t('mem.off')}</div>;
-  if (!doc) return <div className="mem-empty">{t('common.none')}</div>;
+  if (!alive) return <Empty kind="Profile" note={t('mem.off')} />;
+  if (!doc) return <Empty kind="Profile" note={t('common.none')} />;
   const line = (kind: 'explicit' | 'trait', index: number, text: string, fold?: { label: string; body?: string }, extra?: React.ReactNode) => {
     const key = `${kind}:${index}`;
     const isEd = editing?.kind === kind && editing.index === index;
@@ -153,7 +169,7 @@ function ProfileTab() {
     );
   };
   return (
-    <div className="mem-split profile">
+    <div className={cx('mem-split profile', !doc.traits.length && 'solo')}>
       <div className="mem-list">
         {doc.summary && <p className="mem-summary">{doc.summary}</p>}
         {groups.map(([cat, items]) => (
@@ -165,11 +181,12 @@ function ProfileTab() {
         <input className="mem-add" placeholder={t('mem.add')} value={draft} onChange={(e) => setDraft(e.target.value)}
           onKeyDown={async (e) => { if (e.key === 'Enter' && draft.trim()) { const v = draft.trim(); setDraft(''); await memory.addFact(v); load(); } }} />
       </div>
-      <div className="mem-pane">
-        <div className="mem-grp">{t('mem.traits')}</div>
-        {doc.traits.map((e, i) => line('trait', i, e.description, { label: t('mem.basis'), body: [e.basis, e.evidence].filter(Boolean).join(' · ') }, e.trait ? <b>{e.trait}<br /></b> : null))}
-        {!doc.traits.length && <div className="quiet">{t('common.none')}</div>}
-      </div>
+      {doc.traits.length > 0 && (
+        <div className="mem-pane">
+          <div className="mem-grp">{t('mem.traits')}</div>
+          {doc.traits.map((e, i) => line('trait', i, e.description, { label: t('mem.basis'), body: [e.basis, e.evidence].filter(Boolean).join(' · ') }, e.trait ? <b>{e.trait}<br /></b> : null))}
+        </div>
+      )}
     </div>
   );
 }
@@ -187,8 +204,9 @@ function EpisodeTab({ q, botName }: { q: string; botName: (id: string) => string
   }, [q]);
   const cur = items.find((e) => e.id === sel) ?? items[0];
   let lastDay = '';
+  if (!items.length) return <Empty kind="Episode" note={q ? t('mem.found', { n: '0' }) : t('common.none')} />;
   return (
-    <div className="mem-split">
+    <div className={cx('mem-split', !cur && 'solo')}>
       <div className="mem-list">
         {q && <div className="mem-count">{t('mem.found', { n: String(items.length) })}</div>}
         {!q && total > 0 && <div className="mem-count">{total}</div>}
@@ -205,8 +223,8 @@ function EpisodeTab({ q, botName }: { q: string; botName: (id: string) => string
             </div>
           );
         })}
-        {!items.length && <div className="mem-empty">{t('common.none')}</div>}
       </div>
+      {cur && (
       <div className="mem-pane">
         {cur && (
           <>
@@ -216,6 +234,7 @@ function EpisodeTab({ q, botName }: { q: string; botName: (id: string) => string
           </>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -231,8 +250,9 @@ function CaseTab({ q, bot, bots, onBot }: { q: string; bot?: string; bots: { id:
   const cur = shown.find((k) => k.id === sel) ?? shown[0];
   const parsed = cur ? parseSteps(cur.approach) : undefined;
   let lastDay = '';
+  if (!shown.length) return <Empty kind="Agent case" note={t('common.none')} />;
   return (
-    <div className="mem-split">
+    <div className={cx('mem-split', !cur && 'solo')}>
       <div className="mem-list">
         {shown.map((k) => {
           const d = day(k.at); const showDay = d !== lastDay; lastDay = d;
@@ -252,8 +272,8 @@ function CaseTab({ q, bot, bots, onBot }: { q: string; bot?: string; bots: { id:
             </div>
           );
         })}
-        {!shown.length && <div className="mem-empty">{t('common.none')}</div>}
       </div>
+      {cur && parsed && (
       <div className="mem-pane">
         {cur && parsed && (
           <>
@@ -269,6 +289,7 @@ function CaseTab({ q, bot, bots, onBot }: { q: string; bot?: string; bots: { id:
           </>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -286,17 +307,22 @@ function SkillTab({ q, bot, bots, onBot }: { q: string; bot?: string; bots: { id
   const shown = q ? all.filter((k) => (k.name + k.description + k.content).toLowerCase().includes(q.toLowerCase())) : all;
   const cur = shown.find((k) => k.id === sel) ?? shown[0];
   const status = (k: SkillItem) => (k.maturity >= 0.8 ? t('mem.mature') : t('mem.early'));
+  // The engine's `name` is a slug (migrated_1); the readable title is the document's own heading. Its description
+  // ends in a "Keywords: …" tail meant for retrieval, not for reading.
+  const title = (k: SkillItem) => /^#\s+(.+)$/m.exec(k.content)?.[1]?.trim() || k.name;
+  const blurb = (k: SkillItem) => k.description.replace(/\s*Keywords?\s*[:：].*$/is, '').trim();
   const isCrew = (k: SkillItem) => crew.includes(k);
   const parsed = cur ? parseSteps(cur.content) : undefined;
+  if (!shown.length) return <Empty kind="Agent skill" note={t('common.none')} />;
   return (
-    <div className="mem-split">
+    <div className={cx('mem-split', !cur && 'solo')}>
       <div className="mem-list">
         {shown.map((k) => {
           const b = bots.find((x) => x.id === k.botId);
           return (
             <button key={k.id} className={cx('mem-it', cur?.id === k.id && 'on')} onClick={() => setSel(k.id)}>
-              <div className="h"><b>{k.name}</b><span className={cx('mem-st', k.maturity >= 0.8 && 'ok')}>{isCrew(k) ? t('mem.promoted') : status(k)}</span></div>
-              <div className="s">{k.description}</div>
+              <div className="h"><b>{title(k)}</b><span className={cx('mem-st', k.maturity >= 0.8 && 'ok')}>{isCrew(k) ? t('mem.promoted') : status(k)}</span></div>
+              <div className="s">{blurb(k)}</div>
               <div className="meta">
                 {b && <span className="who" onClick={(e) => { e.stopPropagation(); onBot(b.id); }}><Avatar bot={b as never} size="xs" /> {b.name}</span>}
                 <span>{t('mem.steps', { n: String(stepCount(k.content)) })}</span>
@@ -305,14 +331,14 @@ function SkillTab({ q, bot, bots, onBot }: { q: string; bot?: string; bots: { id
             </button>
           );
         })}
-        {!shown.length && <div className="mem-empty">{t('common.none')}</div>}
       </div>
+      {cur && parsed && (
       <div className="mem-pane">
         {cur && parsed && (
           <>
-            <h4>{cur.name}</h4>
+            <h4>{title(cur)}</h4>
             <div className="meta"><span className={cx('mem-st', cur.maturity >= 0.8 && 'ok')}>{isCrew(cur) ? t('mem.promoted') : status(cur)}</span><span>confidence {cur.confidence.toFixed(2)}</span>{cur.sources.length > 0 && <span>{t('mem.fromCases', { n: String(cur.sources.length) })}</span>}</div>
-            <p>{cur.description}</p>
+            <p>{blurb(cur)}</p>
             {!isCrew(cur) && (
               <div className="mem-acts">
                 <button className="link" disabled={done[cur.id] === 'adopt'} onClick={() => { setDone({ ...done, [cur.id]: 'adopt' }); void memory.adopt(cur.botId, cur.name); }}>{t('mem.adopt')}</button>
@@ -324,6 +350,7 @@ function SkillTab({ q, bot, bots, onBot }: { q: string; bot?: string; bots: { id
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

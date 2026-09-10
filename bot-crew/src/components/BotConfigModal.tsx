@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
-import { useStore, patchBot, patchSkill, mountLibrarySkill, select, uid, addIntegration, removeIntegration, testIntegration, openMemory } from '../store';
+import { useStore, patchBot, patchSkill, mountLibrarySkill, select, uid, addIntegration, removeIntegration, testIntegration } from '../store';
+import { MemoryView } from './MemoryView';
 import { LIBRARY_CATEGORY_IDS, botThread, type Bot, type Channel, type GrowthEvent, type GrowthKind, type Integration, type Routine, type SkillDoc } from '../types';
 import { agent } from '../services/agent';
 import { Avatar } from './Avatar';
@@ -43,7 +44,7 @@ export function BotConfigModal({ bot, tab: initial = 'growth', onClose }: { bot:
 
   return createPortal(
     <div className="overlay" onClick={onClose}>
-      <div className="modal cfg" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label={bot.name}>
+      <div className={cx('modal cfg', tab === 'memory' && 'wide')} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label={bot.name}>
         <aside className="cfg-side">
           <div className="cfg-who">
             <Avatar bot={bot} size="lg" />
@@ -53,7 +54,7 @@ export function BotConfigModal({ bot, tab: initial = 'growth', onClose }: { bot:
           </div>
           <nav className="cfg-nav">
             {TABS.map((x) => (
-              <button key={x.id} className={cx('cfg-tab', tab === x.id && 'on')} onClick={() => (x.id === 'memory' ? (openMemory('skill', bot.id), onClose()) : setTab(x.id))}>
+              <button key={x.id} className={cx('cfg-tab', tab === x.id && 'on')} onClick={() => setTab(x.id)}>
                 <span>{t(x.key)}</span>
                 {counts[x.id] ? <span className="cfg-n">{counts[x.id]}</span> : null}
               </button>
@@ -62,7 +63,8 @@ export function BotConfigModal({ bot, tab: initial = 'growth', onClose }: { bot:
         </aside>
         <section className="cfg-main">
           <button className="cfg-close" onClick={onClose} title={t('common.closeEsc')}>×</button>
-          <div className="cfg-content">
+          <div className={cx('cfg-content', tab === 'memory' && 'flush')}>
+            {tab === 'memory' && <MemoryView embedded focus={{ tab: 'skill', botId: bot.id }} />}
             {tab === 'growth' && <Growth bot={bot} />}
             {tab === 'instructions' && <Instructions bot={bot} />}
             {tab === 'skills' && <Skills bot={bot} />}
