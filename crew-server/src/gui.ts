@@ -1,9 +1,10 @@
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { platform } from 'node:os';
 import { join } from 'node:path';
-import type { Api, Model } from '@earendil-works/pi-ai';
+import { StringEnum, type Api, type Model, type Tool } from '@earendil-works/pi-ai';
 import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
+import { Type } from 'typebox';
 import { imageContent } from './vision.ts';
 
 /*
@@ -15,10 +16,18 @@ import { imageContent } from './vision.ts';
  *
  * The same loop runs on the cloud machine's shared X display (xdotool + ImageMagick) and on a Mac where the bots
  * run locally (screencapture + cliclick). One operation holds the screen at a time: the screen is one thing.
+ *
+ * The action comes back as a tool call against a fixed schema, not as JSON inside prose: it is the closest thing to
+ * OpenAI's native computer-use protocol that a plain chat API offers, and it is what keeps a half-written action from
+ * being executed. Free text is still accepted as a fallback for models that ignore tools. After each action the two
+ * screenshots are compared, and the model is told when the screen did not change — that is what tells it a click
+ * missed, rather than it guessing from a picture that looks the same as before.
  */
 
 const MAX_W = 1280;
 const STEP_PAUSE_MS = 800;
+/** Fraction of pixels that has to differ before the screen counts as having changed. */
+const CHANGED_RATIO = 0.002;
 
 export interface Hands {
   runtime: ModelRuntime;
@@ -166,18 +175,35 @@ export interface OperateResult {
   log: string;
 }
 
-const SYSTEM = `你在操作一台电脑，通过截图看屏幕，一次只做一个动作。每次回复只输出一个 JSON 对象，不要别的文字：
-{"thought":"一句话：看到了什么、下一步为什么这么做","action":{...}}
-action 只能是下面之一（坐标以本次截图的像素为准，左上角是 (0,0)）：
-{"type":"click","x":..,"y":..} {"type":"double_click","x":..,"y":..} {"type":"right_click","x":..,"y":..}
-{"type":"type","text":"..."}（在已聚焦的输入框里输入；要换行用 key Return）
-{"type":"key","keys":"ctrl+l"}（组合键用 + 连接：Return、Escape、Tab、BackSpace、ctrl+a、ctrl+c…）
-{"type":"scroll","x":..,"y":..,"direction":"down","amount":3}
-{"type":"drag","x":..,"y":..,"x2":..,"y2":..}
-{"type":"wait","seconds":2}（页面在加载）
-{"type":"done","summary":"做完了什么、结果是什么、值得注意的事"}
-{"type":"fail","reason":"为什么做不下去、卡在哪、需要人做什么"}
-规则：先看清再点，点之前确认目标在截图里；同一个动作重复两次没效果就换办法；需要登录、验证码、付款、不可逆的删除，用 fail 说明并停下；不要输入任何密码或密钥；完成目标后立刻 done，不做多余的事。`;
+/**
+ * The one tool the hands may call. A fixed schema is the point: the provider validates the shape, so a half-written
+ * or invented action never reaches the mouse. Coordinates are in the pixels of the screenshot just sent.
+ */
+const ACT_TOOL: Tool = {
+  name: 'act',
+  description: '在屏幕上做一个动作，或者宣布做完 / 做不下去。每次只调用一次。',
+  parameters: Type.Object({
+    thought: Type.String({ description: '一句话：看到了什么、这一步为什么这么做' }),
+    action: StringEnum(['click', 'double_click', 'right_click', 'type', 'key', 'scroll', 'drag', 'wait', 'done', 'fail'] as const, {
+      description: 'click/double_click/right_click 需要 x,y；type 需要 text；key 需要 keys；scroll 需要 x,y,direction；drag 需要 x,y,x2,y2；done 需要 summary；fail 需要 reason',
+    }),
+    x: Type.Optional(Type.Number({ description: '截图像素坐标，左上角是 (0,0)' })),
+    y: Type.Optional(Type.Number()),
+    x2: Type.Optional(Type.Number({ description: 'drag 的终点' })),
+    y2: Type.Optional(Type.Number()),
+    text: Type.Optional(Type.String({ description: 'type：往当前焦点里输入的文字' })),
+    keys: Type.Optional(Type.String({ description: 'key：Return、Escape、Tab、BackSpace、ctrl+a、ctrl+c 这类，组合键用 + 连接' })),
+    direction: Type.Optional(StringEnum(['up', 'down', 'left', 'right'] as const)),
+    amount: Type.Optional(Type.Number({ description: 'scroll 的格数，默认 3' })),
+    seconds: Type.Optional(Type.Number({ description: 'wait 的秒数，默认 2，最多 10' })),
+    summary: Type.Optional(Type.String({ description: 'done：做完了什么、结果是什么、值得注意的事' })),
+    reason: Type.Optional(Type.String({ description: 'fail：为什么做不下去、卡在哪、需要人做什么' })),
+  }),
+};
+
+const SYSTEM = `你在操作一台电脑，通过截图看屏幕，一次只做一个动作。每一步都调用 act 工具给出这个动作，不要用文字描述动作。
+坐标以本次截图的像素为准，左上角是 (0,0)。
+规则：先看清再点，点之前确认目标就在这张截图里；系统会告诉你上一步之后画面有没有变化，说「画面没有变化」时不要原样再来一次，换个位置或换个办法；需要登录、验证码、付款、不可逆的删除，用 fail 说明并停下；不要输入任何密码或密钥；完成目标后立刻 done，不做多余的事。`;
 
 let queue: Promise<unknown> = Promise.resolve();
 /** Who holds the screen right now, for the tool's own message. */
@@ -223,55 +249,116 @@ async function operateNow(hands: Hands, goal: string, opts: { display?: string; 
   const history: string[] = [];
   const log: string[] = [`# ${goal}`, ''];
   let lastShot: string | undefined;
+  let prevShot: Shot | undefined;
+  let unparsed = 0;
   let stuck = 0;
   let lastAction = '';
+  /** what the previous action did to the screen, told to the model instead of left for it to guess */
+  let effect = '';
   for (let i = 1; i <= maxSteps; i++) {
     const shot = await driver.shot(dir, `step-${String(i).padStart(2, '0')}`);
     lastShot = shot.file;
+    const changed = prevShot ? await screenChanged(prevShot.file, shot.file) : undefined;
+    if (changed === false) {
+      effect = '上一步之后画面没有变化（点空了、控件没响应、或者这一步本来就不改变画面）。';
+      stuck += 1;
+    } else {
+      if (changed === true) effect = '';
+      stuck = 0;
+    }
+    if (stuck >= 3) return finish(false, `连续三步画面都没有变化，最后一个动作是 ${lastAction}`, i, lastShot, log, dir);
     const prompt = [
       `目标：${goal}`,
       opts.context ? `背景：${opts.context}` : '',
       history.length ? `已经做过（最近 ${Math.min(history.length, 8)} 步）：\n${history.slice(-8).join('\n')}` : '这是第一步。',
-      `截图尺寸 ${shot.w}×${shot.h}。第 ${i}/${maxSteps} 步。`,
+      effect,
+      `截图尺寸 ${shot.w}×${shot.h}。第 ${i}/${maxSteps} 步。调用 act 给出这一步的动作。`,
     ]
       .filter(Boolean)
       .join('\n\n');
     const res = await hands.runtime.completeSimple(hands.model, {
       systemPrompt: SYSTEM,
+      tools: [ACT_TOOL],
       messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, imageContent(shot.file, 'image/png')], timestamp: Date.now() }],
     });
-    const raw = res.content
+    const call = res.content.find((c): c is Extract<typeof c, { type: 'toolCall' }> => c.type === 'toolCall' && c.name === ACT_TOOL.name);
+    const said = res.content
       .map((c) => (c.type === 'text' ? c.text : ''))
       .join('')
       .trim();
-    const parsed = parseStep(raw);
+    // The schema-checked call is the contract; prose JSON is the fallback for a model that ignores tools.
+    const parsed = call ? fromArgs(call.arguments) : parseStep(said);
     if (!parsed) {
-      log.push(`## ${i}\n模型没有给出可执行的动作：${raw.slice(0, 300)}`);
+      log.push(`## ${i}\n模型没有给出可执行的动作：${said.slice(0, 300)}`);
       history.push(`${i}. （模型输出无法解析，重试）`);
-      stuck++;
-      if (stuck >= 3) return finish(false, '模型连续三次没有给出可执行的动作', i, lastShot, log, dir);
+      unparsed++;
+      if (unparsed >= 3) return finish(false, '模型连续三次没有给出可执行的动作', i, lastShot, log, dir);
       continue;
     }
+    unparsed = 0;
     const { thought, action } = parsed;
     const desc = describe(action);
-    log.push(`## ${i}\n${thought}\n→ ${desc}`);
-    history.push(`${i}. ${desc}${thought ? `（${thought.slice(0, 80)}）` : ''}`);
+    log.push(`## ${i}${changed === false ? '（上一步画面没变）' : ''}\n${thought}\n→ ${desc}`);
+    history.push(`${i}. ${desc}${changed === false ? ' [上一步画面没变]' : ''}${thought ? `（${thought.slice(0, 80)}）` : ''}`);
     if (action.type === 'done') return finish(true, action.summary, i, lastShot, log, dir);
     if (action.type === 'fail') return finish(false, action.reason, i, lastShot, log, dir);
-    // The same action twice in a row with nothing changing is a loop; three times and we stop.
-    stuck = desc === lastAction ? stuck + 1 : 0;
     lastAction = desc;
-    if (stuck >= 3) return finish(false, `同一个动作重复了三次没有进展：${desc}`, i, lastShot, log, dir);
+    prevShot = shot;
     try {
       await perform(driver, action, shot.scale);
     } catch (e) {
       log.push(`（执行失败：${(e as Error).message}）`);
       history.push(`   执行失败：${(e as Error).message.slice(0, 120)}`);
+      effect = `上一步执行失败：${(e as Error).message.slice(0, 120)}`;
+      prevShot = undefined;
     }
     await new Promise((r) => setTimeout(r, action.type === 'wait' ? Math.min(10, action.seconds ?? 2) * 1000 : STEP_PAUSE_MS));
   }
   const shot = await driver.shot(dir, 'step-end').catch(() => undefined);
   return finish(false, `${maxSteps} 步内没有做完`, maxSteps, shot?.file ?? lastShot, log, dir);
+}
+
+/**
+ * Did the screen change between two screenshots? A click that missed leaves the picture identical, and a model
+ * looking at one picture cannot tell that from a click that worked. ImageMagick counts the differing pixels; where
+ * it is not installed, identical bytes still prove nothing changed. Undefined means "cannot tell", which the caller
+ * reads as changed, so an uncertain check never accuses the model of being stuck.
+ */
+let magick: boolean | undefined;
+async function screenChanged(before: string, after: string): Promise<boolean | undefined> {
+  magick ??= (await which('compare')) && (await which('identify'));
+  if (magick) {
+    try {
+      // `compare` exits non-zero when the images differ, so the shell keeps going and the count is on stderr.
+      const out = await exec('/bin/sh', ['-lc', `compare -metric AE -fuzz 3% ${JSON.stringify(before)} ${JSON.stringify(after)} null: 2>&1 || true`], undefined, 20_000);
+      const n = Number(out.trim().split(/\s+/)[0].replace(/[^\d.e+]/gi, ''));
+      const { w, h } = await size(after);
+      if (Number.isFinite(n) && w && h) return n > w * h * CHANGED_RATIO;
+    } catch {
+      /* fall through to the byte check */
+    }
+  }
+  try {
+    const [a, b] = [readFileSync(before), readFileSync(after)];
+    if (a.equals(b)) return false;
+    return Math.abs(a.length - b.length) > Math.max(a.length, b.length) * 0.005 ? true : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function size(file: string): Promise<{ w: number; h: number }> {
+  try {
+    const [w, h] = (await exec('identify', ['-format', '%w %h', file])).trim().split(' ').map(Number);
+    return { w, h };
+  } catch {
+    return { w: 0, h: 0 };
+  }
+}
+
+/** The tool call's arguments as an action, with the same checks the free-text path does. */
+function fromArgs(a: Record<string, unknown>): { thought: string; action: Action } | undefined {
+  return parseAction(String(a.action ?? ''), a, String(a.thought ?? ''));
 }
 
 function finish(ok: boolean, summary: string, steps: number, lastShot: string | undefined, log: string[], dir: string): OperateResult {
@@ -281,48 +368,61 @@ function finish(ok: boolean, summary: string, steps: number, lastShot: string | 
   return { ok, summary, steps, lastShot: lastShot && existsSync(lastShot) ? lastShot : undefined, log: file };
 }
 
+/** Free-text fallback: a JSON object somewhere in the reply, shaped like the tool call. */
 function parseStep(raw: string): { thought: string; action: Action } | undefined {
   const s = raw.replace(/```(?:json)?/g, '');
   const a = s.indexOf('{');
   const b = s.lastIndexOf('}');
   if (a < 0 || b < a) return undefined;
   try {
-    const o = JSON.parse(s.slice(a, b + 1)) as { thought?: string; action?: Partial<Action> & { type?: string } };
-    const act = o.action;
-    if (!act?.type) return undefined;
-    const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : Number(v));
-    switch (act.type) {
-      case 'click':
-      case 'double_click':
-      case 'right_click': {
-        const x = n((act as { x?: unknown }).x);
-        const y = n((act as { y?: unknown }).y);
-        if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
-        return { thought: o.thought ?? '', action: { type: act.type, x, y } };
-      }
-      case 'type':
-        return { thought: o.thought ?? '', action: { type: 'type', text: String((act as { text?: unknown }).text ?? '') } };
-      case 'key':
-        return { thought: o.thought ?? '', action: { type: 'key', keys: String((act as { keys?: unknown }).keys ?? (act as { key?: unknown }).key ?? '') } };
-      case 'scroll': {
-        const a2 = act as { x?: unknown; y?: unknown; direction?: unknown; amount?: unknown };
-        return { thought: o.thought ?? '', action: { type: 'scroll', x: n(a2.x) || 640, y: n(a2.y) || 400, direction: (['up', 'down', 'left', 'right'].includes(String(a2.direction)) ? String(a2.direction) : 'down') as 'up' | 'down' | 'left' | 'right', amount: n(a2.amount) || 3 } };
-      }
-      case 'drag': {
-        const a2 = act as { x?: unknown; y?: unknown; x2?: unknown; y2?: unknown };
-        return { thought: o.thought ?? '', action: { type: 'drag', x: n(a2.x), y: n(a2.y), x2: n(a2.x2), y2: n(a2.y2) } };
-      }
-      case 'wait':
-        return { thought: o.thought ?? '', action: { type: 'wait', seconds: n((act as { seconds?: unknown }).seconds) || 2 } };
-      case 'done':
-        return { thought: o.thought ?? '', action: { type: 'done', summary: String((act as { summary?: unknown }).summary ?? o.thought ?? '完成') } };
-      case 'fail':
-        return { thought: o.thought ?? '', action: { type: 'fail', reason: String((act as { reason?: unknown }).reason ?? o.thought ?? '做不下去') } };
-      default:
-        return undefined;
-    }
+    const o = JSON.parse(s.slice(a, b + 1)) as { thought?: string; action?: unknown };
+    // Either {thought, action:{type,…}} (what the old prompt asked for) or the flat shape of the tool call.
+    const act = (o.action && typeof o.action === 'object' ? (o.action as Record<string, unknown>) : (o as unknown as Record<string, unknown>)) ?? {};
+    const type = String((act.type as string) ?? (typeof o.action === 'string' ? o.action : '') ?? '');
+    return parseAction(type, act, String(o.thought ?? ''));
   } catch {
     return undefined;
+  }
+}
+
+/** One action out of loose fields, whichever path they came in by. Anything that does not check out is rejected. */
+function parseAction(type: string, f: Record<string, unknown>, thought: string): { thought: string; action: Action } | undefined {
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : Number(v));
+  const step = (action: Action) => ({ thought, action });
+  switch (type) {
+    case 'click':
+    case 'double_click':
+    case 'right_click': {
+      const x = n(f.x);
+      const y = n(f.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+      return step({ type, x, y });
+    }
+    case 'type':
+      return step({ type: 'type', text: String(f.text ?? '') });
+    case 'key':
+      return step({ type: 'key', keys: String(f.keys ?? f.key ?? '') });
+    case 'scroll':
+      return step({
+        type: 'scroll',
+        x: n(f.x) || 640,
+        y: n(f.y) || 400,
+        direction: (['up', 'down', 'left', 'right'].includes(String(f.direction)) ? String(f.direction) : 'down') as 'up' | 'down' | 'left' | 'right',
+        amount: n(f.amount) || 3,
+      });
+    case 'drag': {
+      const [x, y, x2, y2] = [n(f.x), n(f.y), n(f.x2), n(f.y2)];
+      if (![x, y, x2, y2].every(Number.isFinite)) return undefined;
+      return step({ type: 'drag', x, y, x2, y2 });
+    }
+    case 'wait':
+      return step({ type: 'wait', seconds: n(f.seconds) || 2 });
+    case 'done':
+      return step({ type: 'done', summary: String(f.summary ?? thought ?? '完成') });
+    case 'fail':
+      return step({ type: 'fail', reason: String(f.reason ?? thought ?? '做不下去') });
+    default:
+      return undefined;
   }
 }
 
