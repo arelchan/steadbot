@@ -11,23 +11,28 @@ import { imageContent } from './vision.ts';
  * Hands: a vision model that works the computer the way a person does — looks at the screen, decides on one action,
  * does it, looks again. This is the second GUI mode next to Playwright's text snapshots: the first is cheap and exact
  * for ordinary web pages; this one is for what snapshots cannot reach — canvas editors, drag-and-drop, desktop
- * software, pages built out of pictures. The model is `guiModel` in config (meant for a strong computer-use model
- * such as GPT-6); it sees only the screen, never the conversation, and reports back in words.
+ * software, pages built out of pictures. The model is `guiModel` in config; it sees only the screen, never the
+ * conversation, and reports back in words.
  *
  * The same loop runs on the cloud machine's shared X display (xdotool + ImageMagick) and on a Mac where the bots
  * run locally (screencapture + cliclick). One operation holds the screen at a time: the screen is one thing.
  *
- * The action comes back as a tool call against a fixed schema, not as JSON inside prose: it is the closest thing to
- * OpenAI's native computer-use protocol that a plain chat API offers, and it is what keeps a half-written action from
- * being executed. Free text is still accepted as a fallback for models that ignore tools. After each action the two
- * screenshots are compared, and the model is told when the screen did not change — that is what tells it a click
- * missed, rather than it guessing from a picture that looks the same as before.
+ * **The action vocabulary is OpenAI's computer-use vocabulary, deliberately.** `ComputerAction` and the driver below
+ * are the same click / double_click / move / scroll / type / keypress / drag / wait / screenshot set, with the same
+ * field names (`button`, `scroll_x`, `keys[]`, `path[]`), so the executor is already the executor a native
+ * computer-use model would need. What is ours is only how the action is *obtained*: a tool call against a schema,
+ * because no model reachable through OpenRouter today accepts the `computer_use_preview` tool (verified 2026-09-10:
+ * the endpoint and the tool schema are there, GPT-6 rejects the tool, Anthropic's own tool type is dropped).
+ * When a model does accept it, the swap is one function — ask the model for the next action — plus returning the
+ * screenshot as `computer_call_output` and acknowledging `pending_safety_checks`. Nothing else here changes.
  */
 
 const MAX_W = 1280;
 const STEP_PAUSE_MS = 800;
 /** Fraction of pixels that has to differ before the screen counts as having changed. */
 const CHANGED_RATIO = 0.002;
+/** Pixels of scroll per wheel click, the usual browser step. */
+const WHEEL_PX = 100;
 
 export interface Hands {
   runtime: ModelRuntime;
@@ -36,22 +41,32 @@ export interface Hands {
 
 interface Shot {
   file: string;
-  /** screenshot pixel size */
+  /** screenshot pixel size; this is the display size the model is told about */
   w: number;
   h: number;
   /** screenshot pixel → pointer coordinate */
   scale: number;
 }
 
-type Action =
-  | { type: 'click' | 'double_click' | 'right_click'; x: number; y: number }
+export type MouseButton = 'left' | 'right' | 'middle' | 'wheel' | 'back' | 'forward';
+
+/** OpenAI's computer-use action set, field for field. Coordinates are in screenshot pixels. */
+export type ComputerAction =
+  | { type: 'click'; button: MouseButton; x: number; y: number }
+  | { type: 'double_click'; x: number; y: number }
+  | { type: 'move'; x: number; y: number }
+  | { type: 'scroll'; x: number; y: number; scroll_x: number; scroll_y: number }
   | { type: 'type'; text: string }
-  | { type: 'key'; keys: string }
-  | { type: 'scroll'; x: number; y: number; direction: 'up' | 'down' | 'left' | 'right'; amount?: number }
-  | { type: 'drag'; x: number; y: number; x2: number; y2: number }
+  | { type: 'keypress'; keys: string[] }
+  | { type: 'drag'; path: { x: number; y: number }[] }
   | { type: 'wait'; seconds?: number }
-  | { type: 'done'; summary: string }
-  | { type: 'fail'; reason: string };
+  | { type: 'screenshot' };
+
+/**
+ * What the loop can receive. The native protocol ends a run by returning a message instead of a computer_call;
+ * until we speak it, the model says so with these two, the only additions to the vocabulary above.
+ */
+type Step = { type: 'done'; summary: string } | { type: 'fail'; reason: string } | ComputerAction;
 
 const exec = (cmd: string, args: string[], env?: NodeJS.ProcessEnv, timeout = 20_000) =>
   new Promise<string>((resolve, reject) => {
@@ -67,29 +82,40 @@ const which = async (bin: string) => {
   }
 };
 
-/** Key names the model tends to write → what the driver takes. */
-const KEY_ALIAS: Record<string, string> = { enter: 'Return', return: 'Return', esc: 'Escape', escape: 'Escape', tab: 'Tab', space: 'space', backspace: 'BackSpace', delete: 'Delete', up: 'Up', down: 'Down', left: 'Left', right: 'Right', home: 'Home', end: 'End', pageup: 'Prior', pagedown: 'Next', cmd: 'ctrl', command: 'ctrl', meta: 'ctrl', ctrl: 'ctrl', control: 'ctrl', alt: 'alt', option: 'alt', shift: 'shift' };
-const normKeys = (s: string) =>
-  s
-    .split('+')
-    .map((k) => k.trim())
-    .filter(Boolean)
-    .map((k) => KEY_ALIAS[k.toLowerCase()] ?? (k.length === 1 ? k : k))
-    .join('+');
+/** Key names as computer-use models write them (ENTER, ARROWUP, CMD…) → X keysyms. */
+const X_KEY: Record<string, string> = {
+  enter: 'Return', return: 'Return', esc: 'Escape', escape: 'Escape', tab: 'Tab', space: 'space', backspace: 'BackSpace', delete: 'Delete', del: 'Delete',
+  up: 'Up', down: 'Down', left: 'Left', right: 'Right', arrowup: 'Up', arrowdown: 'Down', arrowleft: 'Left', arrowright: 'Right',
+  home: 'Home', end: 'End', pageup: 'Prior', pagedown: 'Next', insert: 'Insert', capslock: 'Caps_Lock',
+  // No Mac keyboard on a Linux desktop: a model asking for Cmd means the platform's own modifier.
+  cmd: 'ctrl', command: 'ctrl', meta: 'ctrl', super: 'ctrl', win: 'ctrl', ctrl: 'ctrl', control: 'ctrl', alt: 'alt', option: 'alt', shift: 'shift',
+  ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`f${i + 1}`, `F${i + 1}`])),
+};
+const MAC_KEY: Record<string, string> = {
+  enter: 'return', return: 'return', esc: 'esc', escape: 'esc', tab: 'tab', space: 'space', backspace: 'delete', delete: 'fwd-delete', del: 'fwd-delete',
+  up: 'arrow-up', down: 'arrow-down', left: 'arrow-left', right: 'arrow-right', arrowup: 'arrow-up', arrowdown: 'arrow-down', arrowleft: 'arrow-left', arrowright: 'arrow-right',
+  home: 'home', end: 'end', pageup: 'page-up', pagedown: 'page-down',
+};
+const MAC_MODS = new Set(['cmd', 'command', 'meta', 'super', 'win', 'ctrl', 'control', 'alt', 'option', 'shift']);
+const macMod = (k: string) => (k === 'command' || k === 'meta' || k === 'super' || k === 'win' ? 'cmd' : k === 'control' ? 'ctrl' : k === 'option' ? 'alt' : k);
 
-/** A driver for one screen: where the pointer goes and what the screenshot is. */
+/** A driver for one screen. The methods are the action set, one to one. */
 interface Driver {
   shot(dir: string, name: string): Promise<Shot>;
-  click(x: number, y: number, kind: 'click' | 'double_click' | 'right_click'): Promise<void>;
+  move(x: number, y: number): Promise<void>;
+  click(x: number, y: number, button: MouseButton): Promise<void>;
+  doubleClick(x: number, y: number): Promise<void>;
   type(text: string): Promise<void>;
-  key(keys: string): Promise<void>;
-  scroll(x: number, y: number, direction: 'up' | 'down' | 'left' | 'right', amount: number): Promise<void>;
-  drag(x: number, y: number, x2: number, y2: number): Promise<void>;
+  keypress(keys: string[]): Promise<void>;
+  scroll(x: number, y: number, dx: number, dy: number): Promise<void>;
+  drag(path: { x: number; y: number }[]): Promise<void>;
 }
 
 function xDriver(display: string): Driver {
   const env = { DISPLAY: display };
+  const BUTTON: Record<MouseButton, string> = { left: '1', middle: '2', wheel: '2', right: '3', back: '8', forward: '9' };
   const move = (x: number, y: number) => exec('xdotool', ['mousemove', '--sync', String(Math.round(x)), String(Math.round(y))], env);
+  const wheel = (button: string, clicks: number) => exec('xdotool', ['click', '--repeat', String(Math.max(1, Math.min(20, clicks))), '--delay', '30', button], env);
   return {
     async shot(dir, name) {
       const file = join(dir, `${name}.png`);
@@ -98,26 +124,37 @@ function xDriver(display: string): Driver {
       const geom = (await exec('xdotool', ['getdisplaygeometry'], env)).trim().split(' ').map(Number);
       return { file, w, h, scale: geom[0] && w ? geom[0] / w : 1 };
     },
-    async click(x, y, kind) {
+    async move(x, y) {
       await move(x, y);
-      await exec('xdotool', kind === 'right_click' ? ['click', '3'] : kind === 'double_click' ? ['click', '--repeat', '2', '--delay', '80', '1'] : ['click', '1'], env);
+    },
+    async click(x, y, button) {
+      await move(x, y);
+      await exec('xdotool', ['click', BUTTON[button] ?? '1'], env);
+    },
+    async doubleClick(x, y) {
+      await move(x, y);
+      await exec('xdotool', ['click', '--repeat', '2', '--delay', '80', '1'], env);
     },
     async type(text) {
       await exec('xdotool', ['type', '--delay', '25', '--', text], env, 60_000);
     },
-    async key(keys) {
-      await exec('xdotool', ['key', '--clearmodifiers', normKeys(keys)], env);
+    async keypress(keys) {
+      const combo = keys
+        .map((k) => X_KEY[k.trim().toLowerCase()] ?? k.trim())
+        .filter(Boolean)
+        .join('+');
+      if (combo) await exec('xdotool', ['key', '--clearmodifiers', combo], env);
     },
-    async scroll(x, y, direction, amount) {
+    async scroll(x, y, dx, dy) {
       await move(x, y);
-      const button = direction === 'up' ? '4' : direction === 'down' ? '5' : direction === 'left' ? '6' : '7';
-      await exec('xdotool', ['click', '--repeat', String(Math.max(1, Math.min(20, amount))), '--delay', '30', button], env);
+      if (dy) await wheel(dy > 0 ? '5' : '4', Math.round(Math.abs(dy) / WHEEL_PX) || 1);
+      if (dx) await wheel(dx > 0 ? '7' : '6', Math.round(Math.abs(dx) / WHEEL_PX) || 1);
     },
-    async drag(x, y, x2, y2) {
-      await move(x, y);
+    async drag(path) {
+      if (path.length < 2) return;
+      await move(path[0].x, path[0].y);
       await exec('xdotool', ['mousedown', '1'], env);
-      await exec('xdotool', ['mousemove', '--sync', String(Math.round((x + x2) / 2)), String(Math.round((y + y2) / 2))], env);
-      await exec('xdotool', ['mousemove', '--sync', String(Math.round(x2)), String(Math.round(y2))], env);
+      for (const p of path.slice(1)) await move(p.x, p.y);
       await exec('xdotool', ['mouseup', '1'], env);
     },
   };
@@ -137,31 +174,39 @@ function macDriver(): Driver {
       const [w, h] = (await exec('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', file])).match(/pixel(?:Width|Height):\s*(\d+)/g)!.map((s) => Number(s.replace(/\D/g, '')));
       return { file, w, h, scale: points / w };
     },
-    async click(x, y, kind) {
-      await cc([`${kind === 'right_click' ? 'rc' : kind === 'double_click' ? 'dc' : 'c'}:${Math.round(x)},${Math.round(y)}`]);
+    async move(x, y) {
+      await cc([`m:${Math.round(x)},${Math.round(y)}`]);
+    },
+    async click(x, y, button) {
+      await cc([`${button === 'right' ? 'rc' : 'c'}:${Math.round(x)},${Math.round(y)}`]);
+    },
+    async doubleClick(x, y) {
+      await cc([`dc:${Math.round(x)},${Math.round(y)}`]);
     },
     async type(text) {
       await cc([`t:${text}`]);
     },
-    async key(keys) {
-      const parts = keys.split('+').map((k) => k.trim().toLowerCase());
-      const mods = parts.filter((k) => ['cmd', 'command', 'meta', 'ctrl', 'control', 'alt', 'option', 'shift'].includes(k)).map((k) => (k === 'command' || k === 'meta' ? 'cmd' : k === 'control' ? 'ctrl' : k === 'option' ? 'alt' : k));
-      const main = parts.find((k) => !mods.includes(k) && !['command', 'meta', 'control', 'option'].includes(k)) ?? '';
-      const kp: Record<string, string> = { enter: 'return', return: 'return', esc: 'esc', escape: 'esc', tab: 'tab', space: 'space', backspace: 'delete', delete: 'fwd-delete', up: 'arrow-up', down: 'arrow-down', left: 'arrow-left', right: 'arrow-right', home: 'home', end: 'end', pageup: 'page-up', pagedown: 'page-down' };
+    async keypress(keys) {
+      const low = keys.map((k) => k.trim().toLowerCase());
+      const mods = [...new Set(low.filter((k) => MAC_MODS.has(k)).map(macMod))];
+      const main = low.find((k) => !MAC_MODS.has(k)) ?? '';
       const args: string[] = [];
       if (mods.length) args.push(`kd:${mods.join(',')}`);
-      if (main) args.push(kp[main] ? `kp:${kp[main]}` : `t:${main}`);
+      if (main) args.push(MAC_KEY[main] ? `kp:${MAC_KEY[main]}` : `t:${main}`);
       if (mods.length) args.push(`ku:${mods.join(',')}`);
-      await cc(args);
+      if (args.length) await cc(args);
     },
-    async scroll(x, y, direction, amount) {
+    async scroll(x, y, dx, dy) {
       // cliclick has no wheel; arrow keys after a click are the honest fallback.
       await cc([`c:${Math.round(x)},${Math.round(y)}`]);
-      const key = direction === 'up' ? 'arrow-up' : direction === 'down' ? 'arrow-down' : direction === 'left' ? 'arrow-left' : 'arrow-right';
-      await cc(Array.from({ length: Math.max(1, Math.min(10, amount)) }, () => `kp:${key}`));
+      const steps = Math.max(1, Math.min(10, Math.round(Math.abs(dy || dx) / WHEEL_PX) || 1));
+      const key = dy ? (dy > 0 ? 'arrow-down' : 'arrow-up') : dx > 0 ? 'arrow-right' : 'arrow-left';
+      await cc(Array.from({ length: steps }, () => `kp:${key}`));
     },
-    async drag(x, y, x2, y2) {
-      await cc([`dd:${Math.round(x)},${Math.round(y)}`, `dm:${Math.round((x + x2) / 2)},${Math.round((y + y2) / 2)}`, `du:${Math.round(x2)},${Math.round(y2)}`]);
+    async drag(path) {
+      if (path.length < 2) return;
+      const p = (i: number) => `${Math.round(path[i].x)},${Math.round(path[i].y)}`;
+      await cc([`dd:${p(0)}`, ...path.slice(1, -1).map((_, i) => `dm:${p(i + 1)}`), `du:${p(path.length - 1)}`]);
     },
   };
 }
@@ -176,32 +221,32 @@ export interface OperateResult {
 }
 
 /**
- * The one tool the hands may call. A fixed schema is the point: the provider validates the shape, so a half-written
- * or invented action never reaches the mouse. Coordinates are in the pixels of the screenshot just sent.
+ * The one tool the hands may call: the native action set as a schema, so a provider that validates arguments does
+ * the job `computer_use_preview` would do. Coordinates are in the pixels of the screenshot just sent.
  */
 const ACT_TOOL: Tool = {
-  name: 'act',
+  name: 'computer',
   description: '在屏幕上做一个动作，或者宣布做完 / 做不下去。每次只调用一次。',
   parameters: Type.Object({
     thought: Type.String({ description: '一句话：看到了什么、这一步为什么这么做' }),
-    action: StringEnum(['click', 'double_click', 'right_click', 'type', 'key', 'scroll', 'drag', 'wait', 'done', 'fail'] as const, {
-      description: 'click/double_click/right_click 需要 x,y；type 需要 text；key 需要 keys；scroll 需要 x,y,direction；drag 需要 x,y,x2,y2；done 需要 summary；fail 需要 reason',
+    action: StringEnum(['click', 'double_click', 'move', 'scroll', 'type', 'keypress', 'drag', 'wait', 'screenshot', 'done', 'fail'] as const, {
+      description: 'click/double_click/move 要 x,y；scroll 要 x,y 和 scroll_x/scroll_y；type 要 text；keypress 要 keys；drag 要 path；done 要 summary；fail 要 reason',
     }),
     x: Type.Optional(Type.Number({ description: '截图像素坐标，左上角是 (0,0)' })),
     y: Type.Optional(Type.Number()),
-    x2: Type.Optional(Type.Number({ description: 'drag 的终点' })),
-    y2: Type.Optional(Type.Number()),
+    button: Type.Optional(StringEnum(['left', 'right', 'middle', 'back', 'forward'] as const, { description: 'click 用哪个键，默认 left' })),
+    scroll_x: Type.Optional(Type.Number({ description: '横向滚动像素，正数向右' })),
+    scroll_y: Type.Optional(Type.Number({ description: '纵向滚动像素，正数向下' })),
     text: Type.Optional(Type.String({ description: 'type：往当前焦点里输入的文字' })),
-    keys: Type.Optional(Type.String({ description: 'key：Return、Escape、Tab、BackSpace、ctrl+a、ctrl+c 这类，组合键用 + 连接' })),
-    direction: Type.Optional(StringEnum(['up', 'down', 'left', 'right'] as const)),
-    amount: Type.Optional(Type.Number({ description: 'scroll 的格数，默认 3' })),
+    keys: Type.Optional(Type.Array(Type.String(), { description: 'keypress：一组同时按下的键，如 ["ctrl","c"]、["ENTER"]、["ARROWDOWN"]' })),
+    path: Type.Optional(Type.Array(Type.Object({ x: Type.Number(), y: Type.Number() }), { description: 'drag：按下、经过、松开的坐标，至少两个点' })),
     seconds: Type.Optional(Type.Number({ description: 'wait 的秒数，默认 2，最多 10' })),
     summary: Type.Optional(Type.String({ description: 'done：做完了什么、结果是什么、值得注意的事' })),
     reason: Type.Optional(Type.String({ description: 'fail：为什么做不下去、卡在哪、需要人做什么' })),
   }),
 };
 
-const SYSTEM = `你在操作一台电脑，通过截图看屏幕，一次只做一个动作。每一步都调用 act 工具给出这个动作，不要用文字描述动作。
+const SYSTEM = `你在操作一台电脑，通过截图看屏幕，一次只做一个动作。每一步都调用 computer 工具给出这个动作，不要用文字描述动作。
 坐标以本次截图的像素为准，左上角是 (0,0)。
 规则：先看清再点，点之前确认目标就在这张截图里；系统会告诉你上一步之后画面有没有变化，说「画面没有变化」时不要原样再来一次，换个位置或换个办法；需要登录、验证码、付款、不可逆的删除，用 fail 说明并停下；不要输入任何密码或密钥；完成目标后立刻 done，不做多余的事。`;
 
@@ -272,7 +317,7 @@ async function operateNow(hands: Hands, goal: string, opts: { display?: string; 
       opts.context ? `背景：${opts.context}` : '',
       history.length ? `已经做过（最近 ${Math.min(history.length, 8)} 步）：\n${history.slice(-8).join('\n')}` : '这是第一步。',
       effect,
-      `截图尺寸 ${shot.w}×${shot.h}。第 ${i}/${maxSteps} 步。调用 act 给出这一步的动作。`,
+      `截图尺寸 ${shot.w}×${shot.h}。第 ${i}/${maxSteps} 步。调用 computer 给出这一步的动作。`,
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -289,6 +334,9 @@ async function operateNow(hands: Hands, goal: string, opts: { display?: string; 
     // The schema-checked call is the contract; prose JSON is the fallback for a model that ignores tools.
     const parsed = call ? fromArgs(call.arguments) : parseStep(said);
     if (!parsed) {
+      // The native protocol ends a run by answering with a message instead of a call. A model that writes a real
+      // sentence here has almost always finished or given up, so take it at its word rather than looping.
+      if (!call && said.length > 12 && i > 1) return finish(true, said.slice(0, 600), i, lastShot, log, dir);
       log.push(`## ${i}\n模型没有给出可执行的动作：${said.slice(0, 300)}`);
       history.push(`${i}. （模型输出无法解析，重试）`);
       unparsed++;
@@ -357,8 +405,8 @@ async function size(file: string): Promise<{ w: number; h: number }> {
 }
 
 /** The tool call's arguments as an action, with the same checks the free-text path does. */
-function fromArgs(a: Record<string, unknown>): { thought: string; action: Action } | undefined {
-  return parseAction(String(a.action ?? ''), a, String(a.thought ?? ''));
+function fromArgs(a: Record<string, unknown>): { thought: string; action: Step } | undefined {
+  return parseAction(String(a.action ?? a.type ?? ''), a, String(a.thought ?? ''));
 }
 
 function finish(ok: boolean, summary: string, steps: number, lastShot: string | undefined, log: string[], dir: string): OperateResult {
@@ -369,14 +417,14 @@ function finish(ok: boolean, summary: string, steps: number, lastShot: string | 
 }
 
 /** Free-text fallback: a JSON object somewhere in the reply, shaped like the tool call. */
-function parseStep(raw: string): { thought: string; action: Action } | undefined {
+function parseStep(raw: string): { thought: string; action: Step } | undefined {
   const s = raw.replace(/```(?:json)?/g, '');
   const a = s.indexOf('{');
   const b = s.lastIndexOf('}');
   if (a < 0 || b < a) return undefined;
   try {
     const o = JSON.parse(s.slice(a, b + 1)) as { thought?: string; action?: unknown };
-    // Either {thought, action:{type,…}} (what the old prompt asked for) or the flat shape of the tool call.
+    // Either {thought, action:{type,…}} or the flat shape of the tool call.
     const act = (o.action && typeof o.action === 'object' ? (o.action as Record<string, unknown>) : (o as unknown as Record<string, unknown>)) ?? {};
     const type = String((act.type as string) ?? (typeof o.action === 'string' ? o.action : '') ?? '');
     return parseAction(type, act, String(o.thought ?? ''));
@@ -385,38 +433,66 @@ function parseStep(raw: string): { thought: string; action: Action } | undefined
   }
 }
 
-/** One action out of loose fields, whichever path they came in by. Anything that does not check out is rejected. */
-function parseAction(type: string, f: Record<string, unknown>, thought: string): { thought: string; action: Action } | undefined {
+/**
+ * One action out of loose fields, whichever path they came in by. Native names are what the schema asks for; the
+ * shapes a model falls back to on its own (`right_click`, `key`, `direction`/`amount`, `x2`/`y2`) are accepted and
+ * translated, because a wrongly shaped action is still a real intention.
+ */
+function parseAction(type: string, f: Record<string, unknown>, thought: string): { thought: string; action: Step } | undefined {
   const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : Number(v));
-  const step = (action: Action) => ({ thought, action });
+  const step = (action: Step) => ({ thought, action });
+  const xy = () => ({ x: n(f.x), y: n(f.y) });
   switch (type) {
     case 'click':
-    case 'double_click':
-    case 'right_click': {
-      const x = n(f.x);
-      const y = n(f.y);
+    case 'left_click':
+    case 'right_click':
+    case 'middle_click': {
+      const { x, y } = xy();
       if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
-      return step({ type, x, y });
+      const named = type === 'right_click' ? 'right' : type === 'middle_click' ? 'middle' : undefined;
+      const asked = String(f.button ?? '').toLowerCase();
+      const button = (named ?? (['left', 'right', 'middle', 'back', 'forward', 'wheel'].includes(asked) ? asked : 'left')) as MouseButton;
+      return step({ type: 'click', button, x, y });
+    }
+    case 'double_click':
+    case 'doubleclick': {
+      const { x, y } = xy();
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+      return step({ type: 'double_click', x, y });
+    }
+    case 'move':
+    case 'mouse_move': {
+      const { x, y } = xy();
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+      return step({ type: 'move', x, y });
     }
     case 'type':
       return step({ type: 'type', text: String(f.text ?? '') });
-    case 'key':
-      return step({ type: 'key', keys: String(f.keys ?? f.key ?? '') });
-    case 'scroll':
-      return step({
-        type: 'scroll',
-        x: n(f.x) || 640,
-        y: n(f.y) || 400,
-        direction: (['up', 'down', 'left', 'right'].includes(String(f.direction)) ? String(f.direction) : 'down') as 'up' | 'down' | 'left' | 'right',
-        amount: n(f.amount) || 3,
-      });
+    case 'keypress':
+    case 'key': {
+      const raw = f.keys ?? f.key ?? f.text;
+      const keys = (Array.isArray(raw) ? raw.map((k) => String(k)) : String(raw ?? '').split('+')).map((k) => k.trim()).filter(Boolean);
+      return keys.length ? step({ type: 'keypress', keys }) : undefined;
+    }
+    case 'scroll': {
+      const { x, y } = xy();
+      const dir = String(f.direction ?? '').toLowerCase();
+      // `direction` + `amount` is what a model writes when it has not read the schema; one notch is a wheel click.
+      const notches = (n(f.amount) || 3) * WHEEL_PX;
+      const sx = Number.isFinite(n(f.scroll_x)) ? n(f.scroll_x) : dir === 'right' ? notches : dir === 'left' ? -notches : 0;
+      const sy = Number.isFinite(n(f.scroll_y)) ? n(f.scroll_y) : dir === 'down' ? notches : dir === 'up' ? -notches : dir ? 0 : notches;
+      if (!sx && !sy) return undefined;
+      return step({ type: 'scroll', x: Number.isFinite(x) ? x : 640, y: Number.isFinite(y) ? y : 400, scroll_x: sx, scroll_y: sy });
+    }
     case 'drag': {
-      const [x, y, x2, y2] = [n(f.x), n(f.y), n(f.x2), n(f.y2)];
-      if (![x, y, x2, y2].every(Number.isFinite)) return undefined;
-      return step({ type: 'drag', x, y, x2, y2 });
+      const raw = Array.isArray(f.path) ? (f.path as { x?: unknown; y?: unknown }[]) : undefined;
+      const path = (raw ? raw.map((p) => ({ x: n(p.x), y: n(p.y) })) : [{ x: n(f.x), y: n(f.y) }, { x: n(f.x2), y: n(f.y2) }]).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+      return path.length >= 2 ? step({ type: 'drag', path }) : undefined;
     }
     case 'wait':
       return step({ type: 'wait', seconds: n(f.seconds) || 2 });
+    case 'screenshot':
+      return step({ type: 'screenshot' });
     case 'done':
       return step({ type: 'done', summary: String(f.summary ?? thought ?? '完成') });
     case 'fail':
@@ -426,22 +502,26 @@ function parseAction(type: string, f: Record<string, unknown>, thought: string):
   }
 }
 
-function describe(a: Action): string {
+function describe(a: Step): string {
   switch (a.type) {
     case 'click':
+      return `click${a.button === 'left' ? '' : `:${a.button}`} (${Math.round(a.x)},${Math.round(a.y)})`;
     case 'double_click':
-    case 'right_click':
-      return `${a.type} (${Math.round(a.x)},${Math.round(a.y)})`;
+      return `double_click (${Math.round(a.x)},${Math.round(a.y)})`;
+    case 'move':
+      return `move (${Math.round(a.x)},${Math.round(a.y)})`;
     case 'type':
       return `type "${a.text.length > 40 ? a.text.slice(0, 40) + '…' : a.text}"`;
-    case 'key':
-      return `key ${a.keys}`;
+    case 'keypress':
+      return `keypress ${a.keys.join('+')}`;
     case 'scroll':
-      return `scroll ${a.direction} ×${a.amount ?? 3} @(${Math.round(a.x)},${Math.round(a.y)})`;
+      return `scroll ${a.scroll_x ? `x${a.scroll_x} ` : ''}${a.scroll_y ? `y${a.scroll_y} ` : ''}@(${Math.round(a.x)},${Math.round(a.y)})`;
     case 'drag':
-      return `drag (${Math.round(a.x)},${Math.round(a.y)})→(${Math.round(a.x2)},${Math.round(a.y2)})`;
+      return `drag ${a.path.map((p) => `(${Math.round(p.x)},${Math.round(p.y)})`).join('→')}`;
     case 'wait':
       return `wait ${a.seconds ?? 2}s`;
+    case 'screenshot':
+      return 'screenshot';
     case 'done':
       return `done: ${a.summary}`;
     case 'fail':
@@ -449,22 +529,25 @@ function describe(a: Action): string {
   }
 }
 
-async function perform(d: Driver, a: Action, scale: number) {
+async function perform(d: Driver, a: Step, scale: number) {
   const s = (v: number) => v * scale;
   switch (a.type) {
     case 'click':
+      return d.click(s(a.x), s(a.y), a.button);
     case 'double_click':
-    case 'right_click':
-      return d.click(s(a.x), s(a.y), a.type);
+      return d.doubleClick(s(a.x), s(a.y));
+    case 'move':
+      return d.move(s(a.x), s(a.y));
     case 'type':
       return a.text ? d.type(a.text) : undefined;
-    case 'key':
-      return a.keys ? d.key(a.keys) : undefined;
+    case 'keypress':
+      return d.keypress(a.keys);
     case 'scroll':
-      return d.scroll(s(a.x), s(a.y), a.direction, a.amount ?? 3);
+      return d.scroll(s(a.x), s(a.y), a.scroll_x, a.scroll_y);
     case 'drag':
-      return d.drag(s(a.x), s(a.y), s(a.x2), s(a.y2));
+      return d.drag(a.path.map((p) => ({ x: s(p.x), y: s(p.y) })));
     default:
+      // wait and screenshot are the loop's business: the next turn takes a fresh picture anyway.
       return undefined;
   }
 }
