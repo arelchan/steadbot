@@ -64,6 +64,7 @@ export const zh: Record<string, string> = {
   'week.prev': '上一周',
   'week.next': '下一周',
   'week.standing': '常驻',
+  'week.report': '工作汇报',
   'ev.routine': '例行',
   'ev.plan': '日程',
   'ev.fired': '已经到点了',
@@ -245,11 +246,10 @@ export const zh: Record<string, string> = {
   'task.undo': '撤销',
   'task.seeChat': '看对话',
   'task.decided': '你拍过的板',
-  'status.open': '待开始',
-  'status.doing': '在做',
-  'status.waiting': '等你',
-  'status.blocked': '卡住',
-  'status.done': '完成',
+  'status.doing': '进行中',
+  'status.waiting': '待确认',
+  'status.done': '已完成',
+  'status.closed': '已关闭',
 
   /* ---- bot 的电脑 ---- */
   'screen.open': '打开',

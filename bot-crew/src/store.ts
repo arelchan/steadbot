@@ -15,6 +15,11 @@ function load(): State {
     if (raw) {
       const parsed = JSON.parse(raw) as State;
       const bots: Bot[] = parsed.bots.map((b) => ({ ...({ routines: [], notify: true, pinned: false, skills: [] } as Partial<Bot>), ...b }));
+      // 五态并成四态：本地存着的老事项也跟着迁。
+      for (const t of parsed.todos ?? []) {
+        if ((t.status as string) === 'open') t.status = 'doing';
+        else if ((t.status as string) === 'blocked') t.status = 'waiting';
+      }
       const matters: Matter[] = parsed.matters.map((m) => ({ ...({ notify: true, pinned: false } as Partial<Matter>), ...m }));
       return {
         ...parsed,

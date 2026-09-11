@@ -13,7 +13,7 @@ export function Inbox() {
   startOfToday.setHours(0, 0, 0, 0);
   const since = startOfToday.getTime() - 86400000;
   const doneRecently = s.actions.filter((a) => a.ts >= since && !a.undone).sort((a, b) => b.ts - a.ts);
-  const activeTodos = s.todos.filter((t) => t.status === 'doing' || t.status === 'open');
+  const activeTodos = s.todos.filter((t) => t.status === 'doing');
 
   const groups = new Map<string, typeof waiting>();
   for (const p of waiting) {

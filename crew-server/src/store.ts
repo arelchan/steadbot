@@ -39,6 +39,11 @@ export class CrewStore extends EventEmitter {
     this.data = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Snapshot) : seed();
     this.data.integrations ??= [];
     this.data.events ??= [];
+    // 五态并成四态：接下了就是在做，卡住了也是等你。
+    for (const t of this.data.todos) {
+      if ((t.status as string) === 'open') t.status = 'doing';
+      else if ((t.status as string) === 'blocked') t.status = 'waiting';
+    }
     for (const b of this.data.bots) {
       b.integrationIds ??= [];
       b.routines ??= [];

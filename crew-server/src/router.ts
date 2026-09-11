@@ -28,7 +28,7 @@ export class Router {
       const undelivered = (why: string) => {
         if (!h.todoId) return;
         const t = store.todo(h.todoId);
-        if (t && t.status !== 'done') store.patchTodo(t.id, { status: 'blocked', summary: `没送达：${why}` });
+        if (t && t.status !== 'done' && t.status !== 'closed') store.patchTodo(t.id, { status: 'waiting', summary: `没送达：${why}` });
       };
       if (h.depth > config.handoffDepth) return undelivered('转达层数太深，链条在这里断了');
       const from = store.bot(h.from);

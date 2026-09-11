@@ -81,7 +81,7 @@ export class PendingBroker extends EventEmitter {
       todoId: spec.todoId,
       status: spec.kind === 'blocked' ? '卡住' : '等你拍板',
     });
-    if (spec.todoId) this.store.patchTodo(spec.todoId, { status: spec.kind === 'blocked' ? 'blocked' : 'waiting', summary: spec.title });
+    if (spec.todoId) this.store.patchTodo(spec.todoId, { status: 'waiting', summary: spec.title });
 
     return new Promise<string | undefined>((resolve) => {
       const done = (choice: string | undefined) => {
@@ -107,7 +107,7 @@ export class PendingBroker extends EventEmitter {
     this.store.patchMessage(p.messageId, { status: `你选了：${label}` });
     if (p.todoId) {
       const t = this.store.todo(p.todoId);
-      if (t && (t.status === 'waiting' || t.status === 'blocked')) this.store.patchTodo(p.todoId, { status: 'doing', summary: `你选了：${label}` });
+      if (t?.status === 'waiting') this.store.patchTodo(p.todoId, { status: 'doing', summary: `你选了：${label}` });
     }
     const w = this.waiters.get(pendingId);
     if (w) {
@@ -143,7 +143,7 @@ export class PendingBroker extends EventEmitter {
     this.store.patchMessage(p.messageId, { status: `你回了：${short}` });
     if (p.todoId) {
       const t = this.store.todo(p.todoId);
-      if (t && (t.status === 'waiting' || t.status === 'blocked')) this.store.patchTodo(p.todoId, { status: 'doing', summary: `你回了：${short}` });
+      if (t?.status === 'waiting') this.store.patchTodo(p.todoId, { status: 'doing', summary: `你回了：${short}` });
     }
     this.waiters.get(p.id)!.resolve(`text:${text}`);
     return p;

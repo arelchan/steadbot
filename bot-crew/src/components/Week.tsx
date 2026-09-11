@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useStore, openPendings } from '../store';
-import type { Bot, CrewEvent, Routine } from '../types';
+import { useStore, openPendings, select } from '../store';
+import { botThread, type Bot, type CrewEvent, type Pending, type Routine, type Todo, type TodoStatus } from '../types';
 import { Avatar } from './Avatar';
 import { PendingActions } from './Cards';
 import { EventCard, type Ev } from './EventCard';
@@ -110,7 +110,26 @@ export function Week() {
     if (body.current) body.current.scrollTop = Math.max(0, (hourOf(Date.now()) - from - 1) * HOUR);
   }, [from]);
 
-  const waiting = openPendings(s).sort((a, b) => (a.kind === 'blocked' ? -1 : 0) - (b.kind === 'blocked' ? -1 : 0) || a.createdAt - b.createdAt);
+  // 右边那栏是 bot 们的工作汇报，四叠就是事项的四个状态。等你的排最前——只有那一叠里的东西不动就不会动。
+  // 做完和关掉的只看最近一天，不然这栏会一直长。
+  const since = new Date(now);
+  since.setHours(0, 0, 0, 0);
+  const fresh = since.getTime() - 86_400_000;
+  const cards = openPendings(s).sort((a, b) => (a.kind === 'blocked' ? -1 : 0) - (b.kind === 'blocked' ? -1 : 0) || a.createdAt - b.createdAt);
+  const carded = new Set(cards.map((p) => p.todoId).filter(Boolean));
+  const rows = (st: TodoStatus, recent = false) =>
+    s.todos
+      .filter((x) => x.status === st && !carded.has(x.id) && (!recent || x.updatedAt >= fresh))
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map((x) => ({ t: x, p: undefined as Pending | undefined, bot: s.bots.find((b) => b.id === x.botId) }));
+  const stacks = (
+    [
+      { st: 'waiting' as const, items: [...cards.map((p) => ({ p, t: undefined, bot: s.bots.find((b) => b.id === p.botId) })), ...rows('waiting')] },
+      { st: 'doing' as const, items: rows('doing') },
+      { st: 'done' as const, items: rows('done', true) },
+      { st: 'closed' as const, items: rows('closed', true) },
+    ] as { st: TodoStatus; items: { t?: Todo; p?: Pending; bot?: Bot }[] }[]
+  ).filter((g) => g.items.length);
 
   return (
     <section className="col week">
@@ -195,27 +214,38 @@ export function Week() {
 
         <aside className="week-side">
           <div className="wk-side-hd">
-            <span className="n">{t('inbox.title')}</span>
-            {waiting.length > 0 ? <span className="badge">{waiting.length}</span> : <span className="quiet">{t('side.clear')}</span>}
+            <span className="n">{t('week.report')}</span>
           </div>
           <div className="wk-side-body">
-            {waiting.map((p) => {
-              const bot = s.bots.find((b) => b.id === p.botId);
-              const msg = s.messages.find((m) => m.id === p.messageId);
-              return (
-                <div className={cx('ib', p.kind)} key={p.id}>
-                  <Avatar bot={bot} />
-                  <div style={{ minWidth: 0 }}>
-                    <div className="ib-t">{p.title}</div>
-                    {(msg?.text || p.detail) && <div className="ib-d">{msg?.text ?? p.detail}</div>}
-                    <div className="ib-m">
-                      {bot?.name} · <span className={cx('ib-w', p.kind === 'blocked' && 'hot')}>{waited(p.createdAt)}</span>
+            {stacks.map((g) => (
+              <section className="rep" key={g.st}>
+                <h4 className="rep-h">
+                  {t(`status.${g.st}`)}
+                  <span className="rep-n">{g.items.length}</span>
+                </h4>
+                {g.items.map((it) =>
+                  it.p ? (
+                    <div className={cx('ib', it.p.kind)} key={it.p.id}>
+                      <Avatar bot={it.bot} />
+                      <div style={{ minWidth: 0 }}>
+                        <div className="ib-t">{it.p.title}</div>
+                        {it.p.detail && <div className="ib-d">{it.p.detail}</div>}
+                        <div className="ib-m">
+                          {it.bot?.name} · <span className={cx('ib-w', it.p.kind === 'blocked' && 'hot')}>{waited(it.p.createdAt)}</span>
+                        </div>
+                        <div className="ib-a"><PendingActions p={it.p} small /></div>
+                      </div>
                     </div>
-                    <div className="ib-a"><PendingActions p={p} small /></div>
-                  </div>
-                </div>
-              );
-            })}
+                  ) : (
+                    <button className="rep-row" key={it.t!.id} onClick={() => select(botThread(it.t!.botId))}>
+                      <Avatar bot={it.bot} size="xs" />
+                      <span className="rep-t">{it.t!.title}</span>
+                      <span className="rep-s">{it.t!.result ?? it.t!.summary}</span>
+                    </button>
+                  ),
+                )}
+              </section>
+            ))}
           </div>
         </aside>
       </div>

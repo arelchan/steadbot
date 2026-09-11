@@ -131,5 +131,5 @@ export class FakeBrain {
 }
 
 function statusText(s: string) {
-  return s === 'doing' ? '在办' : s === 'waiting' ? '等你拍板' : s === 'blocked' ? '卡住了' : s === 'open' ? '排队中' : '已完成';
+  return s === 'doing' ? '在办' : s === 'waiting' ? '等你拍板' : s === 'closed' ? '已关闭' : '已完成';
 }

@@ -122,7 +122,11 @@ export interface Integration {
   owner?: string;
 }
 
-export type TodoStatus = 'open' | 'doing' | 'waiting' | 'blocked' | 'done';
+/**
+ * 事项四态，也是日程右栏那四叠：doing 进行中 ｜ waiting 待确认 ｜ done 已完成 ｜ closed 已关闭。
+ * 服务端 `crew-server/src/types.ts` 有同一段说明，改一处要改两处。
+ */
+export type TodoStatus = 'doing' | 'waiting' | 'done' | 'closed';
 
 /**
  * 这条事项是怎么来的：谁交办的、用户从哪个入口说的、在哪条会话里。建的时候由运行时快照，

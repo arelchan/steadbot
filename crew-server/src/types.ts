@@ -171,7 +171,15 @@ export interface Integration {
   owner?: string;
 }
 
-export type TodoStatus = 'open' | 'doing' | 'waiting' | 'blocked' | 'done';
+/**
+ * 事项的四态，也就是用户在日程右边那栏看到的四叠：
+ * doing 进行中 ｜ waiting 待确认（不给东西就动不了）｜ done 已完成（做成了）｜ closed 已关闭（不做了）。
+ *
+ * 原来是五态（另有 open 和 blocked）：open 对用户和 doing 没区别——bot 接下了就是在做；blocked 对用户
+ * 和 waiting 也没区别——都是「不理它就停在这」，界面里这两个本来就一直成对出现。「卡住了」那份紧迫感
+ * 由卡片的种类表达（confirm / clarify / blocked 三种没变），不靠事项状态。
+ */
+export type TodoStatus = 'doing' | 'waiting' | 'done' | 'closed';
 
 /**
  * 这条事项是怎么来的：谁交办的、用户从哪个入口说的、在哪条会话里。建的时候由运行时快照，
