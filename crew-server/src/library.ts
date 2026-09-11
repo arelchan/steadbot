@@ -282,9 +282,11 @@ function fmValue(fm: string, key: string): string {
 
 function parseSkill(raw: string, dirSlug: string, category: string, dir: string, meta?: Manifest['skills'][number]): Loaded | undefined {
   const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(raw);
-  if (!m) return undefined;
-  const fm = m[1];
-  const body = m[2].replace(/^\n+/, '').trim();
+  // A SKILL.md without frontmatter is still a manual — some upstreams ship plain Markdown. Dropping it silently is
+  // how one entry went missing from the pool with nothing in the log to say which.
+  if (!m && !raw.trim()) return undefined;
+  const fm = m ? m[1] : '';
+  const body = (m ? m[2] : raw).replace(/^\n+/, '').trim();
   let source: string | undefined;
   let license: string | undefined;
   const srcFile = join(dir, '.source.json');
@@ -298,7 +300,8 @@ function parseSkill(raw: string, dirSlug: string, category: string, dir: string,
     }
   }
   const title = fmValue(fm, 'name') || dirSlug;
+  if (!m) console.warn(`[crew] library: ${category}/${dirSlug} has no frontmatter; using the manifest's own title and description`);
   // The name stays upstream's (that is what the skill is called once mounted, and what its own text refers to), but
   // the one-liner the pool shows is ours when the manifest wrote one: 一句中文 beats a paragraph of English triggers.
-  return { slug: dirSlug, kind: 'skill', title, category: meta?.category ?? category, description: meta?.description || fmValue(fm, 'description'), tags: meta?.tags ?? [], source, license, body, dir };
+  return { slug: dirSlug, kind: 'skill', title, category: meta?.category ?? category, description: meta?.description || fmValue(fm, 'description') || body.split('\n').find((l) => l.trim() && !l.startsWith('#'))?.trim().slice(0, 200) || '', tags: meta?.tags ?? [], source, license, body, dir };
 }
