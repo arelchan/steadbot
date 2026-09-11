@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, patchBot, patchSkill, mountLibrarySkill, select, uid, addIntegration, removeIntegration, testIntegration } from '../store';
 import { MemoryView } from './MemoryView';
+import { KnowledgeView } from './KnowledgeView';
 import { LIBRARY_CATEGORY_IDS, botThread, type Bot, type Channel, type GrowthEvent, type GrowthKind, type Integration, type Routine, type SkillDoc } from '../types';
 import { agent } from '../services/agent';
 import { Avatar } from './Avatar';
@@ -15,12 +16,13 @@ import { useT, tn, t as tr } from '../i18n';
 /** Library category names live in the catalogs, keyed by the category id the backend uses. */
 const libCat = (c: string) => tr(`lib.${c}`);
 
-export type Tab = 'growth' | 'instructions' | 'memory' | 'skills' | 'routines' | 'integrations';
+export type Tab = 'growth' | 'instructions' | 'memory' | 'knowledge' | 'skills' | 'routines' | 'integrations';
 
 const TABS: { id: Tab; key: string }[] = [
   { id: 'growth', key: 'cfg.growth' },
   { id: 'instructions', key: 'cfg.instructions' },
   { id: 'memory', key: 'cfg.memory' },
+  { id: 'knowledge', key: 'cfg.knowledge' },
   { id: 'skills', key: 'cfg.skills' },
   { id: 'routines', key: 'cfg.routines' },
   { id: 'integrations', key: 'cfg.integrations' },
@@ -65,8 +67,9 @@ export function BotConfigModal({ bot, tab: initial = 'growth', routineId, onClos
         </aside>
         <section className="cfg-main">
           <button className="cfg-close" onClick={onClose} title={t('common.closeEsc')}>×</button>
-          <div className={cx('cfg-content', tab === 'memory' && 'flush')}>
+          <div className={cx('cfg-content', (tab === 'memory' || tab === 'knowledge') && 'flush')}>
             {tab === 'memory' && <MemoryView focus={{ tab: 'skill', botId: bot.id }} />}
+            {tab === 'knowledge' && <KnowledgeView />}
             {tab === 'growth' && <Growth bot={bot} />}
             {tab === 'instructions' && <Instructions bot={bot} />}
             {tab === 'skills' && <Skills bot={bot} />}

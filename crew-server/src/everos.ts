@@ -31,6 +31,15 @@ const CREW = 'crew';
 /** Everyone shares one space. Per-bot spaces (`bot_<id>`) are possible and deliberately unused — see DESIGN.md §18. */
 const SPACE = 'shared';
 
+/**
+ * The cross-encoder that re-scores retrieved passages. OpenRouter does have a rerank endpoint
+ * (`POST /api/v1/rerank`, the `{model, query, documents}` shape the engine calls "vllm"); its two models
+ * are `cohere/rerank-v3.5` and `qwen/qwen3-reranker-8b`. It matters more than it sounds: the engine
+ * refuses every `/knowledge/search` method without one, and the agent track's hybrid lane too.
+ */
+const RERANK_MODEL = process.env.CREW_RERANK_MODEL ?? 'cohere/rerank-v3.5';
+const hasRerank = () => !!process.env.OPENROUTER_API_KEY && RERANK_MODEL !== 'off';
+
 const PORT = Number(process.env.CREW_MEMORY_PORT ?? 5211);
 const BASE = process.env.EVEROS_URL ?? `http://127.0.0.1:${PORT}`;
 /** A finished task is a task nobody has touched for a while: that is where one memory ends and the next begins. */
@@ -127,6 +136,15 @@ function childEnv(root: string): Record<string, string> {
     EVEROS_MULTIMODAL__MODEL: (config.visionModel ?? 'openrouter/google/gemini-2.5-flash').replace(/^openrouter\//, ''),
     EVEROS_MULTIMODAL__API_KEY: key,
     EVEROS_MULTIMODAL__BASE_URL: 'https://openrouter.ai/api/v1',
+    // Re-scoring for knowledge retrieval and the agent track's hybrid lane. Same account, same key.
+    ...(hasRerank()
+      ? {
+          EVEROS_RERANK__PROVIDER: 'vllm',
+          EVEROS_RERANK__MODEL: RERANK_MODEL,
+          EVEROS_RERANK__API_KEY: key,
+          EVEROS_RERANK__BASE_URL: 'https://openrouter.ai/api/v1',
+        }
+      : {}),
     // Both tracks: what the user is like, and how a bot got something done.
     EVEROS_MEMORIZE__MODE: 'agent',
     EVEROS_MEMORY__TIMEZONE: process.env.TZ || 'Asia/Shanghai',
@@ -484,8 +502,9 @@ export async function recall(botId: string, query: string, scope: 'user' | 'self
     return eps.length ? `关于用户，找到 ${eps.length} 条：\n${eps.join('\n')}` : '这件事没有记录。';
   }
   const who = scope === 'crew' ? readCrew() : readBot(botId);
-  // Off the turn's critical path, so the agent hybrid lane's LLM rerank is affordable here.
-  const d = await call<SearchData>('search', { ...who, query: q, top_k: top, method: 'hybrid', enable_llm_rerank: true }, 40_000);
+  // The hybrid lane needs one of the two re-scorers. With a rerank provider configured that is a cross-encoder
+  // call; without one the engine's own LLM lane stands in, which costs a whole model call.
+  const d = await call<SearchData>('search', { ...who, query: q, top_k: top, method: 'hybrid', enable_llm_rerank: !hasRerank() }, 40_000);
   const items = [
     ...(d?.agent_skills ?? []).map((s) => `- 做法「${s.name ?? ''}」：${trim((s.content || s.description || '').replace(/\s+/g, ' ').trim(), 400)}`),
     ...(d?.agent_cases ?? []).map((k2) => `- ${day(k2.timestamp)} ${k2.task_intent ?? ''}：${trim((k2.approach || k2.key_insight || '').replace(/\s+/g, ' ').trim(), 300)}`),
@@ -819,9 +838,8 @@ export async function kRemove(docId: string): Promise<boolean> {
  * Retrieval over the topics.
  *
  * The engine's own `/knowledge/search` needs a rerank provider for every method (`_require_search_providers`),
- * and there is none configured here — OpenRouter has no rerank endpoint. So we ask it first and, when it
- * refuses, fall back to matching the query's words against topic names and summaries we already hold. That
- * is weaker than a vector search but it is honest, free, and enough to put three lines in front of a turn.
+ * which is configured above. The word-overlap pass below stays as the fallback for when it is not — no key, a
+ * rerank model that went away, the account out of credits — because three weak lines still beat none.
  */
 let kIndex: { at: number; rows: { topic: KTopic; doc: string }[] } | undefined;
 

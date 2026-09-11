@@ -194,6 +194,6 @@
 
 **资料（knowledge）**：记忆的另一半，形状正好相反——记忆从对话里长出来，资料是用户交过来的文档。同一个引擎的另一条线：上传一份文件，引擎用能读版面的模型解析、切成主题树（每个主题有摘要 + 全文）、自动归到它自带的分类里，落在 `knowledge/<分类>/<标题>/`。它**没有 owner**，天生全组一份；也是唯一能真正删掉的一种（`DELETE /documents/{id}` 连主题一起删）。产品里它和记忆是同一维度的两个 tab（bot 配置里「记忆」「资料」）：一个是「知道什么」，一个是「以前怎么样」，都不是「怎么做」——那是技能手册。进资料库要用户明确的动作：面板里加一份，或者对话里说「以后按这份来」让 bot 用 `knowledge(file=…)` 归档；不自动收附件（切一份文档要一分多钟，多数附件是一次性的）。bot 用两层：每轮注入三条命中主题的摘要，要细节自己 `knowledge(topic=…)` 读全文。
 
-**资料的坑**：引擎的 `/knowledge/search` 三种检索方式都硬要一个 rerank 服务（`_require_search_providers`），而 OpenRouter 没有 rerank 端点——所以资料检索目前走我们自己的兜底：把查询切成词和二元组，在主题名和摘要上算重合度排序（「密钥」「记忆」「依赖怎么装」都能命中对的那一节），不是向量检索。要用引擎那条路得配一个 rerank key（DeepInfra，或 Jina——它的接口形状和引擎的 `vllm` 客户端一致）。切一份 30KB 文档成 25 个主题要 **109 秒**，所以上传是后台的，界面先显示「在读」；分类名是引擎自带的英文分类（Technology / Science…），主题名和摘要跟着文档语言。
+**资料的坑**：引擎的 `/knowledge/search` 三种检索方式都硬要一个 rerank 服务（`_require_search_providers`）。OpenRouter 是有 rerank 的——`POST /api/v1/rerank`，`{model, query, documents}` 的形状正是引擎的 `vllm` 客户端，两个模型 `cohere/rerank-v3.5` 和 `qwen/qwen3-reranker-8b`（其余 id 一律 400 不存在）——所以 sidecar 起来时就配上它，同一把 key。兜底仍然留着：把查询切成词和二元组，在主题名和摘要上算重合度排序，没 key、没额度、模型下架时还能给出三行。切一份 30KB 文档成 25 个主题要 **109 秒**，所以上传是后台的，界面先显示「在读」；分类名是引擎自带的英文分类（Technology / Science…），主题名和摘要跟着文档语言。
 
 **在哪**：`crew-server/src/everos.ts`（唯一出入口）；`bots.ts`（一轮的消息怎么攒、什么时候发）；`extensions/identity.ts`（三段注入）；`extensions/remember.ts`；`builder.ts` `pickupSkills`；`index.ts`（拉起、`/memory/overview`、`/memory/promote`、退出前 flush）；`Dockerfile`。
