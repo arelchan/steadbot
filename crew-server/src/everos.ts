@@ -123,42 +123,49 @@ function uvBin(): string | undefined {
 }
 
 /**
- * Put the engine on this machine, or put it back the way engine.json says it should be.
+ * Make this machine's engine be the one engine.json names — install it if there is none, change it if it is
+ * a different version, leave it alone if it already matches.
  *
- * The image already carries it, so this is the path for the user's own computer and for anyone who installs
- * the product fresh: memory is a dependency like any other, and the rule for those is that the machine
- * converges by itself rather than asking (DESIGN.md §17). It runs in the background, takes minutes the first
- * time (lancedb and pyarrow are big), and every failure is just "no memory this time".
+ * It runs on every start, not just when the engine is missing, because "installed and working" is not the
+ * same as "the version we pinned": a machine the bots were moved to, or one someone set up by hand, can be
+ * running an engine that writes md in a shape this code does not expect. Converging is cheap — uv re-resolves
+ * an already-satisfied set in about 3 seconds — and it is the same rule dependencies follow (DESIGN.md §17):
+ * the machine catches up by itself, in the background, and failing just means no memory this time.
  *
- * `force` reinstalls a broken one — an engine that answers but cannot write is what a floating dependency
- * looks like from out here.
+ * `force` is for an engine that answers but cannot write, which is what a drifted dependency looks like from
+ * out here: reinstall the whole set rather than trusting it.
  */
-async function installEngine(force = false): Promise<string | undefined> {
-  if (process.env.CREW_MEMORY_INSTALL === '0') return undefined;
+async function syncEngine(force = false): Promise<string | undefined> {
+  const had = bin();
+  if (process.env.CREW_MEMORY_INSTALL === '0') return had;
   let uv = uvBin();
   if (!uv) {
+    // An engine is already here and no uv to check it with: use it as it is rather than touching the machine.
+    if (had && !force) return had;
     console.log('[crew] 记忆：这台机器没有 uv，先装 uv…');
     try {
       await exec('/bin/sh', ['-lc', 'curl -LsSf https://astral.sh/uv/install.sh | sh'], { timeout: 5 * 60_000 });
     } catch (e) {
       console.warn('[crew] 记忆：uv 装不上 —', (e as Error).message.slice(0, 120));
-      return undefined;
+      return had;
     }
     uv = uvBin();
-    if (!uv) return undefined;
+    if (!uv) return had;
   }
   const p = pins();
   const args = ['tool', 'install', '--python', '3.12', ...(force ? ['--force'] : []), ...p.with.flatMap((w) => ['--with', w]), p.everos];
-  console.log(`[crew] 记忆：${force ? '重装' : '装'}记忆引擎（${p.everos}，几分钟）…`);
+  if (!had) console.log(`[crew] 记忆：这台机器还没有记忆引擎，装一个（${p.everos}，几分钟）…`);
+  else if (force) console.log('[crew] 记忆：按钉死的版本重装引擎…');
   try {
     await exec(uv, args, { timeout: 20 * 60_000, maxBuffer: 16 << 20 });
   } catch (e) {
-    console.warn('[crew] 记忆：引擎装不上 —', (e as Error).message.slice(0, 200));
-    return undefined;
+    // Offline, PyPI unreachable, a pin that no longer exists: keep whatever is already here.
+    console.warn(`[crew] 记忆：引擎${had ? '版本对不齐' : '装不上'} —`, (e as Error).message.slice(0, 200));
+    return had;
   }
   const got = bin();
-  if (got) console.log('[crew] 记忆：引擎装好了');
-  return got;
+  if (got && !had) console.log('[crew] 记忆：引擎装好了');
+  return got ?? had;
 }
 
 /**
@@ -276,9 +283,8 @@ export function startMemory(): Promise<boolean> {
       console.warn('[crew] 记忆：那个 EverOS 写不进去，先用纯文本那套');
       return false;
     }
-    // No engine on this machine: put one there. The image ships it, so this is the user's own computer, or
-    // anyone who just installed the product.
-    const exe = bin() ?? (await installEngine());
+    // Bring this machine's engine to the version engine.json names, whatever it has now.
+    const exe = await syncEngine();
     if (!exe) {
       console.log('[crew] 记忆：这台机器没装 EverOS，也没装成，先用纯文本那套');
       return false;
@@ -312,12 +318,15 @@ export function startMemory(): Promise<boolean> {
       return c;
     };
     child = spawnOne();
-    // The engine rebuilds its index on first start, so give it real time. And it may die on the first try
-    // for a reason that fixes itself: right after this server restarted, the previous sidecar can still be
-    // holding the port for a second or two.
+    // The engine rebuilds its index on first start, and the start right after an install is slower still
+    // (cold bytecode) — 40 seconds was not enough for that one and the whole thing gave up while it was
+    // still booting. Nothing waits on this (it runs in the background), so the window is generous; the only
+    // thing it costs is how long a truly broken engine takes to be declared broken.
+    // It may also die on the first try for a reason that fixes itself: right after this server restarted,
+    // the previous sidecar can still be holding the port for a second or two.
     let spawns = 1;
     let repaired = false;
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 120; i++) {
       await new Promise((r) => setTimeout(r, 1000));
       if (await health()) {
         up = true;
@@ -333,7 +342,7 @@ export function startMemory(): Promise<boolean> {
         child = undefined;
         if (repaired) return false;
         repaired = true;
-        const fixed = await installEngine(true);
+        const fixed = await syncEngine(true);
         if (!fixed) return false;
         child = spawnOne();
         i = 0;
@@ -350,7 +359,7 @@ export function startMemory(): Promise<boolean> {
       }
     }
     if (!up) {
-      console.warn(`[crew] 记忆：EverOS 没起来（试了 ${spawns} 次），先用纯文本那套${tail ? ` — ${tail.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').slice(-1)[0].slice(0, 160)}` : ''}`);
+      console.warn(`[crew] 记忆：EverOS 两分钟内没起来（试了 ${spawns} 次），先用纯文本那套${tail ? ` — ${tail.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').slice(-1)[0].slice(0, 160)}` : ''}`);
       child?.kill();
       child = undefined;
     }
