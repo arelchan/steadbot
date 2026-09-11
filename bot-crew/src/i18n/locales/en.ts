@@ -201,12 +201,6 @@ export const en: Record<string, string> = {
   'ident.removeOut': 'Remove from group',
   'ident.makeLead': 'Make it the lead',
   'ident.setLead': 'Make lead',
-
-  'task.group.blocked': 'Stuck',
-  'task.group.waiting': 'For you',
-  'task.group.doing': 'In progress',
-  'task.group.open': 'Queued',
-  'task.group.done': 'Done',
   'task.none': 'No tasks',
   'task.unknownBot': 'Unknown bot',
   'task.doingCount.one': '{n} in progress',
