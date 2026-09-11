@@ -57,6 +57,7 @@ export class WsAgentService implements AgentService {
   private ws: WebSocket | undefined;
   private outbox: string[] = [];
   private retry = 0;
+  private timer: ReturnType<typeof setTimeout> | undefined;
   private stopped = false;
   mode: 'live' | 'fake' | 'offline' = 'offline';
   private url: string;
@@ -90,22 +91,43 @@ export class WsAgentService implements AgentService {
 
   stop() {
     this.stopped = true;
+    clearTimeout(this.timer);
     setRemoteSink(null);
     this.ws?.close();
   }
 
+  /**
+   * 同一时刻只留一条连接。
+   *
+   * 掉线后会排一个重连定时器；这期间用户随手做点什么（改个设置、发条消息）都会走 send()，
+   * 它看到 socket 已经 CLOSED 就立刻补连一条——然后那个定时器又连了一条。两条都开着、
+   * 两个 onmessage 都在收，每一帧都被处理两遍。消息、事项按 id 覆盖，看不出来；通知是每次新建
+   * 一条，于是右下角同一句话弹两次。所以：连之前先把上一条拆干净，回调也认自己那条 socket。
+   */
   private connect() {
     if (this.stopped) return;
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    const prev = this.ws;
+    if (prev) {
+      prev.onopen = prev.onmessage = prev.onclose = prev.onerror = null;
+      if (prev.readyState === WebSocket.OPEN || prev.readyState === WebSocket.CONNECTING) prev.close();
+    }
     const ws = new WebSocket(this.url);
     this.ws = ws;
     ws.onopen = () => {
+      if (this.ws !== ws) return;
       this.retry = 0;
       remoteApply(() => setState({ online: true }));
       for (const m of this.outbox) ws.send(m);
       this.outbox = [];
     };
-    ws.onmessage = (ev) => this.handle(JSON.parse(String(ev.data)) as ServerMessage);
+    ws.onmessage = (ev) => {
+      if (this.ws !== ws) return;
+      this.handle(JSON.parse(String(ev.data)) as ServerMessage);
+    };
     ws.onclose = () => {
+      if (this.ws !== ws) return;
       this.mode = 'offline';
       if (this.installWaiter) {
         this.installWaiter.reject(new Error(t('err.installLinkLost')));
@@ -117,7 +139,7 @@ export class WsAgentService implements AgentService {
       // EverBot on this computer knows the current one, so ask it and follow before retrying forever.
       if (this.retry === 3) void healRuntimeTarget().then((changed) => changed && window.location.reload());
       const delay = Math.min(10_000, 500 * 2 ** this.retry++);
-      setTimeout(() => this.connect(), delay);
+      this.timer = setTimeout(() => this.connect(), delay);
     };
     ws.onerror = () => ws.close();
   }

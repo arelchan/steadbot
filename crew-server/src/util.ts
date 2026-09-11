@@ -156,8 +156,11 @@ export function filesMentioned(text: string, botDir: string, publicUrl: string, 
    * 同一条消息里提到的目录也算数：模型很爱把位置写在一行（「都在 …/dist/ 里」），文件名写在下面的
    * 表格或列表里。那种裸文件名相对工作区根目录是找不到的，于是一张卡都挂不上——先把消息里提到的
    * 目录收出来，解析文件名时挨个试。
+   *
+   * botDir 也是一个起点：模型一样爱写 `workspace/index.html` 这种相对 bot 目录的路径，只从 workspace
+   * 起算的话它会落到 workspace/workspace/index.html 上，一样找不到。
    */
-  const dirs = [workspace];
+  const dirs = [workspace, botDir];
   for (const raw of text.match(/(?:\/|~\/|\.\/)[\w.\-\u4e00-\u9fff]+(?:\/[\w.\-\u4e00-\u9fff]+)*\/?/g) ?? []) {
     if (dirs.length > 6) break;
     const c = raw.replace(/^~\//, `${process.env.HOME ?? ''}/`);
