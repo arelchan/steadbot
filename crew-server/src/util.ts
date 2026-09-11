@@ -149,17 +149,42 @@ export const mimeOf = (file: string) => MIME[extname(file).toLowerCase()] ?? 'ap
 /** Server-relative URL of a file under a bot's directory; clients prefix the runtime they are connected to. */
 export const fileUrl = (botId: string, rel: string) => `/files/${botId}/${rel.split('/').map(encodeURIComponent).join('/')}`;
 
-export function filesMentioned(text: string, botDir: string, publicUrl: string, botId: string): FileRef[] {
+/**
+ * 一个绝对路径变成可交付的引用。不在 bot 目录里的只有临时目录能进来（拷进工作区的 _out 才发得出去），
+ * 会话记录和记忆永远不算交付物。
+ */
+export function fileRefFor(abs0: string, botDir: string, botId: string, mention?: string): FileRef | undefined {
+  let abs = abs0;
+  let st;
+  try {
+    st = statSync(abs);
+  } catch {
+    return undefined;
+  }
+  if (!st.isFile()) return undefined;
+  if (!abs.startsWith(botDir + '/')) {
+    // Scratch output (/tmp and friends) is pulled into the workspace so it can be served; anything else stays private.
+    const scratch = [normalize(tmpdir()), '/tmp', '/private/tmp'].some((d) => abs.startsWith(d + '/'));
+    if (!scratch) return undefined;
+    try {
+      const outDir = join(botDir, 'workspace', '_out');
+      mkdirSync(outDir, { recursive: true });
+      const dst = join(outDir, basename(abs));
+      if (!existsSync(dst) || statSync(dst).mtimeMs < st.mtimeMs) copyFileSync(abs, dst);
+      abs = dst;
+      st = statSync(abs);
+    } catch {
+      return undefined;
+    }
+  }
+  const rel = relative(botDir, abs);
+  if (rel.startsWith('sessions/') || rel === 'MEMORY.md') return undefined;
+  return { name: basename(abs), path: rel, botId, size: st.size, mime: mimeOf(abs), url: fileUrl(botId, rel), ...(mention ? { mention } : {}) };
+}
+
+/** 工作区、bot 目录，外加这条消息里提到的目录——解析一个路径时按这个顺序试。 */
+export function fileRoots(text: string, botDir: string): string[] {
   const workspace = join(botDir, 'workspace');
-  const out = new Map<string, FileRef>();
-  /*
-   * 同一条消息里提到的目录也算数：模型很爱把位置写在一行（「都在 …/dist/ 里」），文件名写在下面的
-   * 表格或列表里。那种裸文件名相对工作区根目录是找不到的，于是一张卡都挂不上——先把消息里提到的
-   * 目录收出来，解析文件名时挨个试。
-   *
-   * botDir 也是一个起点：模型一样爱写 `workspace/index.html` 这种相对 bot 目录的路径，只从 workspace
-   * 起算的话它会落到 workspace/workspace/index.html 上，一样找不到。
-   */
   const dirs = [workspace, botDir];
   for (const raw of text.match(/(?:\/|~\/|\.\/)[\w.\-\u4e00-\u9fff]+(?:\/[\w.\-\u4e00-\u9fff]+)*\/?/g) ?? []) {
     if (dirs.length > 6) break;
@@ -171,37 +196,20 @@ export function filesMentioned(text: string, botDir: string, publicUrl: string, 
       /* 不是目录就算了 */
     }
   }
+  return dirs;
+}
+
+export function filesMentioned(text: string, botDir: string, publicUrl: string, botId: string): FileRef[] {
+  const out = new Map<string, FileRef>();
+  const dirs = fileRoots(text, botDir);
   const candidates = text.match(/(?:\/|~\/|\.\/)?[\w.\-\u4e00-\u9fff]+(?:\/[\w.\-\u4e00-\u9fff]+)*\.[A-Za-z0-9]{1,6}\b/g) ?? [];
   for (const raw of candidates) {
     const c = raw.replace(/^~\//, `${process.env.HOME ?? ''}/`);
     if (/^(https?:|www\.)/.test(raw) || /\.(com|cn|org|net|io|ai|dev)$/i.test(raw)) continue;
-    let abs = isAbsolute(c) ? normalize(c) : (dirs.map((d) => normalize(join(d, c.replace(/^\.\//, '')))).find((p) => existsSync(p)) ?? '');
-    if (!abs || !existsSync(abs)) continue;
-    let st;
-    try {
-      st = statSync(abs);
-    } catch {
-      continue;
-    }
-    if (!st.isFile()) continue;
-    if (!abs.startsWith(botDir + '/')) {
-      // Scratch output (/tmp and friends) is pulled into the workspace so it can be served; anything else stays private.
-      const scratch = [normalize(tmpdir()), '/tmp', '/private/tmp'].some((d) => abs.startsWith(d + '/'));
-      if (!scratch) continue;
-      try {
-        const outDir = join(workspace, '_out');
-        mkdirSync(outDir, { recursive: true });
-        const dst = join(outDir, basename(abs));
-        if (!existsSync(dst) || statSync(dst).mtimeMs < st.mtimeMs) copyFileSync(abs, dst);
-        abs = dst;
-        st = statSync(abs);
-      } catch {
-        continue;
-      }
-    }
-    const rel = relative(botDir, abs);
-    if (rel.startsWith('sessions/') || rel === 'MEMORY.md') continue;
-    if (!out.has(rel)) out.set(rel, { name: basename(abs), path: rel, botId, size: st.size, mime: mimeOf(abs), url: fileUrl(botId, rel), mention: raw });
+    const abs = isAbsolute(c) ? normalize(c) : (dirs.map((d) => normalize(join(d, c.replace(/^\.\//, '')))).find((x) => existsSync(x)) ?? '');
+    if (!abs) continue;
+    const ref = fileRefFor(abs, botDir, botId, raw);
+    if (ref && !out.has(ref.path)) out.set(ref.path, ref);
   }
   return [...out.values()].slice(0, 8);
 }
