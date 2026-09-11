@@ -180,7 +180,6 @@ function Skills({ bot }: { bot: Bot }) {
   const t = useT();
   const docs = useStore((s) => s.skills);
   const library = useStore((s) => s.library);
-  const [draft, setDraft] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   if (open) return <SkillDetail name={open} doc={docs.find((d) => d.name === open)} onBack={() => setOpen(null)} />;
@@ -214,18 +213,6 @@ function Skills({ bot }: { bot: Bot }) {
         })}
         {bot.skills.length === 0 && <li className="quiet">{t('common.none')}</li>}
       </ul>
-      <input
-        className="mem-add"
-        placeholder={t('cfg.skillAdd')}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && draft.trim()) {
-            patchBot(bot.id, { skills: [...bot.skills, draft.trim()] });
-            setDraft('');
-          }
-        }}
-      />
     </>
   );
 }
