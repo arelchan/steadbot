@@ -4,7 +4,7 @@ import type { FileRef } from '../types';
 import { CodeBlock, MermaidView, renderText } from './Markdown';
 import { fmtSize, kindOf } from './FileCard';
 import { cx } from '../utils';
-import { fileHref, openHref, authHeaders, httpBase, withToken } from '../services/runtime';
+import { frameHref, fileHref, openHref, authHeaders, httpBase, withToken } from '../services/runtime';
 import { useStore } from '../store';
 import { t } from '../i18n';
 
@@ -430,7 +430,7 @@ function FileViewer({ file, viewer, zoom, setZoom, onFit, onOpen, onDownload }: 
     case 'image':
       return <ImageCanvas src={fileHref(file)} alt={file.name} zoom={zoom} setZoom={setZoom} onFit={onFit} />;
     case 'html':
-      return <iframe className="pv-frame" src={fileHref(file)} title={file.name} sandbox="allow-scripts allow-same-origin allow-popups allow-modals" />;
+      return <iframe className="pv-frame" src={frameHref(file)} title={file.name} sandbox="allow-scripts allow-same-origin allow-popups allow-modals" />;
     case 'pdf':
       return <iframe className="pv-frame" src={fileHref(file)} title={file.name} />;
     case 'office':

@@ -41,8 +41,23 @@ function safeEq(a: string, b: string) {
 /** Routes anyone may hit: health, OAuth callbacks (carry their own state), IM webhooks (verified by signature). */
 const PUBLIC_PATH = /^\/(health|oauth\/|wecom\/)/;
 
+/**
+ * 令牌也能走路径：`/tok/<token>/files/...`。
+ *
+ * 预览一份 HTML 交付物时，iframe 的地址带着 `?token=`，但页面里那些相对地址（`images/x.png`、
+ * 自带的 css/js）不会继承查询串，于是全被 401 挡掉——图裂了、样式没上。令牌放在路径前缀里，相对地址
+ * 天然就落在同一个前缀下面，整份东西才是完整的。查询串那种写法照常有效。
+ */
+function unprefix(req: IncomingMessage): void {
+  const m = /^\/tok\/([^/]+)(\/.*)$/.exec(req.url ?? '');
+  if (!m) return;
+  req.url = m[2];
+  if (config.authToken && safeEq(decodeURIComponent(m[1]), config.authToken)) req.headers.authorization = `Bearer ${config.authToken}`;
+}
+
 export function startServer(store: CrewStore, port: number, avatarsDir: string, handlers: WsHandlers) {
   const http = createServer(async (req, res) => {
+    unprefix(req);
     const path = new URL(req.url ?? '/', 'http://localhost').pathname;
     if (req.method === 'OPTIONS') {
       res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET,POST,OPTIONS', 'access-control-allow-headers': 'authorization,content-type' });

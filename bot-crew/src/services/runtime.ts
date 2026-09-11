@@ -49,6 +49,17 @@ export const authHeaders = (): Record<string, string> => (token ? { authorizatio
 export const withToken = (url: string) => (token && !/[?&]token=/.test(url) ? `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : url);
 /** Absolute, openable link for a file the server described. Older messages carry absolute URLs already. */
 export const fileHref = (f: Pick<FileRef, 'url'>) => withToken(/^(https?:|blob:|data:)/.test(f.url) ? f.url : `${httpBase}${f.url}`);
+/**
+ * 给 iframe 用的地址：令牌走路径前缀，页面里的相对地址（图片、css、js）才跟着带上令牌。
+ * 单个文件（图片、PDF）用 fileHref 就够，查询串那种写法它们自己带得上。
+ */
+export const frameHref = (f: Pick<FileRef, 'url'>) => {
+  const abs = /^(https?:|blob:|data:)/.test(f.url) ? f.url : `${httpBase}${f.url}`;
+  if (!token || /^(blob:|data:)/.test(abs)) return fileHref(f);
+  const u = new URL(abs);
+  return `${u.origin}/tok/${encodeURIComponent(token)}${u.pathname}${u.search}`;
+};
+
 /** "Open on the desktop" endpoint for a file, or undefined when this runtime has no desktop to hand it to. */
 export const openHref = (f: Pick<FileRef, 'url'>, rt: RuntimeInfo | undefined) => (rt?.desktop && rt.local ? withToken(`${httpBase}${f.url.replace(/^https?:\/\/[^/]+/, '').replace('/files/', '/open/')}`) : undefined);
 
