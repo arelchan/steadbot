@@ -11,7 +11,7 @@ const Params = Type.Object({
   at: Type.Optional(Type.String({ description: '绝对时刻，写成 2026-09-12 10:00（用户所在时区）。不要写「明天」「下周」，自己换算成日期' })),
   minutes: Type.Optional(Type.Number({ description: '要占一段时间就填分钟数；不填就是时间轴上的一个点' })),
   who: Type.Optional(StringEnum(['user', 'me'] as const, { description: 'user = 到点提醒用户（默认）；me = 到点你自己做这件事' })),
-  note: Type.Optional(Type.String({ description: '到点要说的话 / 要做的事，越具体越好——到点了系统把这段原样交回给你' })),
+  note: Type.Optional(Type.String({ description: 'who=user 时写「到点要提醒他的那件事」，就是你打算对他说的内容；who=me 时写「到点你要做什么」。到点了系统把这段原样交回给你，那时你手上只有它，所以别写成「用户要你……」这种转述' })),
 });
 
 /** 'YYYY-MM-DD HH:MM'（也认 T 和秒）。服务端的 TZ 就是用户的时区，所以本地时间直接算。 */
@@ -48,7 +48,7 @@ export function scheduleExtension(c: BotCtx): InlineExtension {
           '你自己判断出用户会需要的也可以排——但要排得住脚：他刚答应别人的事、有明确截止的东西、会前要准备的材料。拿不准就在回复里问一句，别默默排一堆。',
           '只发生一次的用 schedule；每天/每周反复的是例行任务，用 build(aspect=routine)——不要用 schedule 排一串重复的。',
           '时间写绝对时刻（2026-09-12 10:00），自己把「明天」「下周三」换算成日期。排完在回复里把时间复述给用户一句，他才知道你放在了哪天。',
-          'note 写「到点了要说什么/做什么」，不是重复标题——到点系统把这段原样交回给你，那时你手上只有它。',
+          'note 写「到点了要说什么 / 做什么」，不是重复标题，也不要写成「用户要你……」的转述——到点系统把这段原样交回给你，那时你手上只有它，照着它开口就行。',
           '马上就能做的事直接做，不要给自己排一条一分钟后的日程。',
         ],
         parameters: Params,
