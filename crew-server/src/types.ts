@@ -1,9 +1,9 @@
 /* Shared domain types. Mirrors bot-crew/src/types.ts; the wire protocol lives at the bottom. */
 
-export type Channel = 'app' | 'feishu' | 'wechat' | 'slack' | 'telegram' | 'discord' | 'whatsapp';
+export type Channel = 'app' | 'feishu' | 'wechat' | 'weixin' | 'slack' | 'telegram' | 'discord' | 'whatsapp';
 export type Autonomy = 'tell' | 'prepare' | 'do';
 /** 通道的中文名，界面、提示词、给 bot 看的说明都用这一份。 */
-export const CHANNEL_LABEL: Record<Channel, string> = { app: '应用内', feishu: '飞书', wechat: '企业微信', slack: 'Slack', telegram: 'Telegram', discord: 'Discord', whatsapp: 'WhatsApp' };
+export const CHANNEL_LABEL: Record<Channel, string> = { app: '应用内', feishu: '飞书', wechat: '企业微信', weixin: '微信', slack: 'Slack', telegram: 'Telegram', discord: 'Discord', whatsapp: 'WhatsApp' };
 export type ConnectionKind = 'browser' | 'mcp' | 'api' | 'pay' | 'calendar' | 'mail';
 
 export interface Connection {

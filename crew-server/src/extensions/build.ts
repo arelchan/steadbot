@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { config } from '../config.ts';
 import type { SkillStore } from '../skills.ts';
 
-const CHANNEL_ALIAS: Record<string, Channel> = { 应用: 'app', 应用内: 'app', App: 'app', app: 'app', 飞书: 'feishu', 企业微信: 'wechat', 微信: 'wechat', Slack: 'slack', slack: 'slack', Telegram: 'telegram', telegram: 'telegram', 电报: 'telegram' };
+const CHANNEL_ALIAS: Record<string, Channel> = { 应用: 'app', 应用内: 'app', App: 'app', app: 'app', 飞书: 'feishu', 企业微信: 'wechat', 企微: 'wechat', 微信: 'weixin', weixin: 'weixin', Slack: 'slack', slack: 'slack', Telegram: 'telegram', telegram: 'telegram', 电报: 'telegram' };
 
 type Details = { jobId?: string; aspect: string; action: string; label?: string };
 
@@ -36,7 +36,7 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
         name: 'build',
         label: '进化',
         description:
-          '构建你自己：你是谁、你会什么、你能连什么，全在这里。\n文字类（action=rewrite 自省重写 / set 原样写入）：name 名字、tagline 简介、soul 人设、instructions 职责与工作方式、skill 技能手册、routine 例行任务。\n装配类（action=add 装上 / remove 卸掉）：skill 把库里一份手册长在身上（value=库里的 slug）；mcp 接一个外部工具（value=库里的 slug——MCP 服务或 Gmail、GitHub、Notion 这类一键登录的平台都在库里；库里没有的才自己写 {name, command|url, env?}）；service 同 mcp，value=平台 slug；agent 用一个外部编程 agent（value=claude-code / codex / hermes / opencode / openclaw）；channel 让自己上一个 IM（value=飞书 / 企业微信 / Slack / Telegram，会给用户发凭据卡）；assets 下载一个素材包（value=库里的 slug）。\n装之前先 library(search) 找候选、read 过手册再定：搜到不等于要装，用一次就照着手册做，值得长在身上的才 add。适用：用户纠正了你的做法；同类任务第二次出现；手上的手段做不出像样的东西、库里那份能；用户直接要你改名、加定时任务、接某个服务。不适用：只影响这一次的临时要求（直接照做）；关于用户的事实（remember）；通知、自主度、置顶、群聊（configure）。',
+          '构建你自己：你是谁、你会什么、你能连什么，全在这里。\n文字类（action=rewrite 自省重写 / set 原样写入）：name 名字、tagline 简介、soul 人设、instructions 职责与工作方式、skill 技能手册、routine 例行任务。\n装配类（action=add 装上 / remove 卸掉）：skill 把库里一份手册长在身上（value=库里的 slug）；mcp 接一个外部工具（value=库里的 slug——MCP 服务或 Gmail、GitHub、Notion 这类一键登录的平台都在库里；库里没有的才自己写 {name, command|url, env?}）；service 同 mcp，value=平台 slug；agent 用一个外部编程 agent（value=claude-code / codex / hermes / opencode / openclaw）；channel 让自己上一个 IM（value=微信 / 飞书 / 企业微信 / Slack / Telegram；微信会发一张二维码让用户扫，其余发凭据卡）；assets 下载一个素材包（value=库里的 slug）。\n装之前先 library(search) 找候选、read 过手册再定：搜到不等于要装，用一次就照着手册做，值得长在身上的才 add。适用：用户纠正了你的做法；同类任务第二次出现；手上的手段做不出像样的东西、库里那份能；用户直接要你改名、加定时任务、接某个服务。不适用：只影响这一次的临时要求（直接照做）；关于用户的事实（remember）；通知、自主度、置顶、群聊（configure）。',
         promptSnippet: '构建你自己：名字 / 人设 / 工作方式 / 技能 / 例行任务，以及装外部工具、接服务、接 IM、下素材包（add）',
         promptGuidelines: [
           'rewrite 要有依据：用户明确纠正过，或同类情况至少出现两次。一句夸奖、一次偶然，不足以改。',

@@ -25,6 +25,7 @@ import { DesktopManager } from './desktop.ts';
 import { Upgrader } from './upgrade.ts';
 import { restoreAll } from './tools.ts';
 import { LoginDesk } from './login.ts';
+import { WeixinPairing } from './weixin-pair.ts';
 import { initDeps, kick as kickDeps, reconcile as reconcileDeps, ready as depsReady } from './deps.ts';
 import * as everos from './everos.ts';
 import { fetchAssets } from './assets.ts';
@@ -48,7 +49,7 @@ import { botThread, matterThread, parseThread, type Bot, type FileRef, type Inte
 
 
 /** An IM by any name a bot might use for it. */
-const IM_ALIAS: Record<string, Im | 'app'> = { 飞书: 'feishu', feishu: 'feishu', lark: 'feishu', telegram: 'telegram', 电报: 'telegram', tg: 'telegram', slack: 'slack', 企业微信: 'wechat', 企微: 'wechat', 微信: 'wechat', wechat: 'wechat', wecom: 'wechat', discord: 'discord', dc: 'discord', whatsapp: 'whatsapp', wa: 'whatsapp', app: 'app' };
+const IM_ALIAS: Record<string, Im | 'app'> = { 飞书: 'feishu', feishu: 'feishu', lark: 'feishu', telegram: 'telegram', 电报: 'telegram', tg: 'telegram', slack: 'slack', 企业微信: 'wechat', 企微: 'wechat', wecom: 'wechat', 微信: 'weixin', weixin: 'weixin', wechat: 'weixin', discord: 'discord', dc: 'discord', whatsapp: 'whatsapp', wa: 'whatsapp', app: 'app' };
 const imFromName = (s: string): Im | 'app' | undefined => IM_ALIAS[s.trim().toLowerCase()] ?? IM_ALIAS[s.trim()];
 
 let ipCache: { at: number; ip: string } | undefined;
@@ -477,8 +478,13 @@ async function main() {
       if (!bot) throw new Error('bot 不存在');
       const im = imFromName(spec.target);
       const integ = im ? undefined : store.data.integrations.find((i) => i.id === spec.target || i.name === spec.target || i.name.toLowerCase() === spec.target.toLowerCase());
-      if (!im && !integ) throw new Error(`「${spec.target}」既不是 IM（飞书 / Telegram / Slack / 企业微信），也不是已建好的连接。接外部工具先 build(aspect=mcp, action=add) 建连接。`);
+      if (!im && !integ) throw new Error(`「${spec.target}」既不是 IM（微信 / 飞书 / Telegram / Slack / 企业微信），也不是已建好的连接。接外部工具先 build(aspect=mcp, action=add) 建连接。`);
       if (im && im === 'app') throw new Error('App 不需要凭据');
+      // 微信 is not harvested: its credential comes back from the QR the user scans, never off a page.
+      if (im === 'weixin')
+        throw new Error(
+          '微信不用 harvest：它没有后台、没有要抄的密钥。build(aspect=channel, action=add, value="微信") 会在对话里发一张二维码，用户用微信扫一下就接上了。',
+        );
 
       if (spec.action === 'info') {
         if (im) {
@@ -594,7 +600,7 @@ async function main() {
      */
     async channelCheck(botId, channelName, action) {
       const im = imFromName(channelName);
-      if (!im || im === 'app') throw new Error(`「${channelName}」不是 IM，写飞书 / Telegram / Slack / 企业微信`);
+      if (!im || im === 'app') throw new Error(`「${channelName}」不是 IM，写微信 / 飞书 / Telegram / Slack / 企业微信`);
       const bot = store.bot(botId);
       const link = bot?.im?.[im];
       if (action === 'arm') {
@@ -904,6 +910,15 @@ async function main() {
     if (m.card?.type === 'login' && !m.card.done) store.patchMessage(m.id, { card: { ...m.card, done: true, note: '已失效（服务重启过）' } });
   }
 
+  // 微信 is joined by scanning, not by filling a card: the pairing desk posts the code and hands the token that
+  // comes back to the channel manager, which starts the bridge like any other.
+  const weixinPairing = new WeixinPairing(
+    store,
+    (botId, values) => channels.onSecrets(botId, 'weixin', values),
+    (botId, text) => router.tellBot(botId, text),
+  );
+  channels.pairWeixin = (botId, threadId) => weixinPairing.begin(botId, threadId);
+
   const upgrader = new Upgrader(runtime, () => machineBuild, () => process.exit(75), () => (active ? bots.busyNames() : []));
   void upgrader.refreshLatest();
   setInterval(() => void upgrader.refreshLatest().then(broadcastUpgrade), 10 * 60_000).unref();
@@ -942,7 +957,8 @@ async function main() {
         const m = /^\/login\/([a-f0-9]{12})\.png$/.exec(url.pathname);
         if (m) {
           try {
-            const png = await logins.shot(m[1]);
+            // Two kinds of card share this route: a crop of the live page (login.ts) and a 微信 pairing code.
+            const png = weixinPairing.png(m[1]) ?? (await logins.shot(m[1]));
             res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store', 'access-control-allow-origin': '*' });
             res.end(png);
           } catch (e) {

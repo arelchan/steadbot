@@ -9,6 +9,7 @@ import { TelegramBridge } from './bridges/telegram.ts';
 import { FeishuBridge } from './bridges/feishu.ts';
 import { SlackBridge } from './bridges/slack.ts';
 import { WecomBridge } from './bridges/wecom.ts';
+import { WeixinBridge } from './bridges/weixin.ts';
 import { DiscordBridge } from './bridges/discord.ts';
 import { WhatsappBridge } from './bridges/whatsapp.ts';
 import { botThread, matterThread, parseThread, type Bot, type Card, type Channel, type ImLink, type Matter, type Message, type Pending, type ThreadId } from './types.ts';
@@ -21,8 +22,8 @@ import { botThread, matterThread, parseThread, type Bot, type Card, type Channel
  */
 
 export type Im = Exclude<Channel, 'app'>;
-export const IMS: Im[] = ['telegram', 'discord', 'whatsapp', 'slack', 'feishu', 'wechat'];
-export const IM_NAME: Record<Channel, string> = { app: 'App', feishu: '飞书', telegram: 'Telegram', slack: 'Slack', wechat: '企业微信', discord: 'Discord', whatsapp: 'WhatsApp' };
+export const IMS: Im[] = ['telegram', 'discord', 'whatsapp', 'slack', 'feishu', 'wechat', 'weixin'];
+export const IM_NAME: Record<Channel, string> = { app: 'App', feishu: '飞书', telegram: 'Telegram', slack: 'Slack', wechat: '企业微信', weixin: '微信', discord: 'Discord', whatsapp: 'WhatsApp' };
 
 /** Which credential fields each IM needs; the keys are what the credentials card submits. */
 export const CHANNEL_KEYS: Record<Im, string[]> = {
@@ -30,6 +31,8 @@ export const CHANNEL_KEYS: Record<Im, string[]> = {
   feishu: ['feishuAppId', 'feishuAppSecret'],
   slack: ['slackBotToken', 'slackAppToken'],
   wechat: ['wecomCorpId', 'wecomAgentId', 'wecomSecret', 'wecomToken', 'wecomAesKey'],
+  // Not typed by anyone: the token comes back from the QR scan (weixin-pair.ts).
+  weixin: ['weixinToken'],
   discord: ['discordToken'],
   whatsapp: ['waPhoneId', 'waToken', 'waVerifyToken'],
 };
@@ -60,6 +63,7 @@ export const CHANNEL_HOWTO: Record<Im, string> = {
   telegram: '还没接。接上后它在 Telegram 里是一个独立的机器人：可以私聊，也能拉进群',
   slack: '还没接。接上后它在 Slack 里是一个独立的机器人：可以私聊，也能邀请进频道',
   wechat: '还没接。接上后它在企业微信里是一个独立的应用，可以私聊（企业微信的应用进不了群）',
+  weixin: '还没接。用微信扫一个码就接上了，它在你的微信里是一个独立的机器人，只能私聊，而且只能回你发的消息',
   discord: '还没接。接上后它在 Discord 里是一个独立的机器人：可以私聊，也能拉进服务器的频道',
   whatsapp: '还没接。接上后它有自己的 WhatsApp 号码，可以私聊（WhatsApp 的商业接口没有群）',
 };
@@ -68,6 +72,7 @@ const CHANNEL_LIVE: Record<Im, string> = {
   telegram: '已接入 · 私聊它，或把它拉进群',
   slack: '已接入 · 私聊它，或邀请它进频道',
   wechat: '已接入 · 在企业微信里找到这个应用私聊',
+  weixin: '已接入 · 在微信里私聊它（它开不了口，得你先说）',
   discord: '已接入 · 私聊它，或把它邀请进服务器',
   whatsapp: '已接入 · 给它的号码发消息（对方先说话，24 小时内可以来回）',
 };
@@ -76,7 +81,10 @@ export const wecomCallback = (botId: string) => `${config.publicUrl}/wecom/callb
 export const whatsappCallback = (botId: string) => `${config.publicUrl}/whatsapp/callback/${botId}`;
 
 /** The credentials card for connecting one bot to one IM: what to fill and where to get it. */
-export function connectCard(bot: Bot, channel: Im): Extract<Card, { type: 'secrets' }> {
+/** The IMs whose connection is a form to fill; 微信 is not one of them (a QR is scanned instead). */
+export type CardIm = Exclude<Im, 'weixin'>;
+
+export function connectCard(bot: Bot, channel: CardIm): Extract<Card, { type: 'secrets' }> {
   const n = bot.name;
   switch (channel) {
     case 'feishu':
@@ -205,6 +213,11 @@ export function botChannelCreds(botId: string, channel: Im): Record<string, stri
     out[k] = v;
   }
   return out;
+}
+
+/** One stored value that is not one of the required credentials (微信's base url, handed out at pairing). */
+export function channelExtra(botId: string, channel: Im, key: string): string | undefined {
+  return readFileConfig().imAccounts?.[botId]?.[channel]?.[key]?.trim() || undefined;
 }
 
 /** The keys of this IM the bot's account still lacks (all of them when it has none). */
@@ -386,6 +399,11 @@ export class ChannelManager implements Hub {
       case 'discord':
         br = new DiscordBridge(botId, c.discordToken, this);
         break;
+      case 'weixin':
+        br = new WeixinBridge(botId, c.weixinToken, this, channelExtra(botId, 'weixin', 'weixinBase'), (note) => {
+          this.setLink(botId, 'weixin', { status: 'error', note });
+        });
+        break;
       case 'whatsapp':
         br = new WhatsappBridge(botId, { phoneId: c.waPhoneId, token: c.waToken, verifyToken: c.waVerifyToken }, this);
         break;
@@ -459,10 +477,21 @@ export class ChannelManager implements Hub {
     if (bot?.channels.includes(channel)) this.store.grow(botId, 'channel', `断开了${IM_NAME[channel]}`);
   }
 
+  /**
+   * 微信 has no credentials to fill: the pairing desk posts a QR instead. Set by index.ts, because the desk needs
+   * this manager to bring the bridge up once the scan lands.
+   */
+  pairWeixin: ((botId: string, threadId?: ThreadId) => Promise<string>) | undefined;
+
   /** Put the credentials card for one IM into the bot's thread; the bot's own words introduce it. */
   sendConnectCard(botId: string, channel: Im, threadId?: ThreadId) {
     const bot = this.store.bot(botId);
     if (!bot) throw new Error('bot 不存在');
+    if (channel === 'weixin') {
+      if (!this.pairWeixin) throw new Error('微信扫码接入没有启动');
+      void this.pairWeixin(botId, threadId);
+      return undefined;
+    }
     const card = connectCard(bot, channel);
     const text =
       channel === 'wechat'

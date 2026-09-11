@@ -385,7 +385,7 @@ export function sayWhen(schedule: string): string {
   return tr('cfg.rtSay.minutes', { n: String(w.every) });
 }
 
-const ALL_CHANNELS: Channel[] = ['app', 'feishu', 'wechat', 'slack', 'telegram', 'discord', 'whatsapp'];
+const ALL_CHANNELS: Channel[] = ['app', 'weixin', 'feishu', 'wechat', 'slack', 'telegram', 'discord', 'whatsapp'];
 
 function Routines({ bot, openId: initial }: { bot: Bot; openId?: string }) {
   const t = useT();

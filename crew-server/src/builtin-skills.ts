@@ -7,11 +7,13 @@ import type { SkillStore } from './skills.ts';
 export const BUILTIN_SKILLS: { name: string; description: string; body: string }[] = [
   {
     name: 'IM 渠道接入',
-    description: '把自己接进 Telegram / Discord / WhatsApp / Slack / 飞书 / 企业微信：首选用电脑自己去平台后台建机器人、harvest 收凭据；电脑不可用才发卡引导用户。',
+    description: '把自己接进微信 / Telegram / Discord / WhatsApp / Slack / 飞书 / 企业微信：微信发一张二维码让用户扫；其余首选用电脑自己去平台后台建机器人、harvest 收凭据，电脑不可用才发卡引导用户。',
     body: `## 目的
 把你自己接进用户常用的 IM。接好后，用户在 IM 里说的话进入同一个你、同一份对话和事项；你的回复和拍板卡片回到 IM。
 
-现在支持：Telegram、Discord、WhatsApp、Slack、飞书 / Lark、企业微信。前四个在全球更常见，飞书和企业微信主要在国内。用户没指定就问他平时用哪个，别替他挑。
+现在支持：微信、Telegram、Discord、WhatsApp、Slack、飞书 / Lark、企业微信。中间四个在全球更常见，微信、飞书、企业微信主要在国内。用户没指定就问他平时用哪个，别替他挑。
+
+**微信是个例外，一步就完**：不用后台、不用凭据、不用问路线，build(aspect=channel, action=add, value="微信") 直接在对话里发一张二维码，用户拿微信扫一下就接上了。下面那两条路线是给其余平台的。
 
 ## 何时使用
 用户说「我想在微信/飞书/Telegram 里用你」「把你接到群里」「怎么在飞书里找到你」；或者你自己判断该住进某个 IM。
@@ -51,7 +53,8 @@ export const BUILTIN_SKILLS: { name: string; description: string; body: string }
 - **Discord**：discord.com/developers/applications → New Application（名字用你的名字）→ Bot 页 Reset Token 后 harvest(field=Bot Token) → **Bot 页把 Message Content Intent 打开**（不开就只收得到 @ 你的消息内容，其余是空的）→ OAuth2 → URL Generator 勾 bot + Send Messages + Read Message History，生成邀请链接让用户点一下把你请进他的服务器。不需要公网地址。私聊要求你和对方在同一个服务器里。
 - **WhatsApp**：只走官方的 Cloud API（第三方协议会封号）。developers.facebook.com/apps → 建 Business 应用 → 加 WhatsApp 产品 → API Setup 页有测试号码和 Phone number ID（harvest(field=Phone number ID)）→ **令牌要用系统用户的永久令牌**（业务管理后台建系统用户，给 whatsapp_business_messaging 权限；页面上现成的那个 24 小时就过期）→ Webhook 填 harvest(info) 给的回调地址和校验串，订阅 messages 字段。两条硬规矩要提前告诉用户：**必须是对方先给你发消息**，而且**只有 24 小时窗口内你才能自由回复**，超时只能发预先审核过的模板；测试号码只能发给白名单里的号码，对外用要在 Meta 做完商业验证并绑自己的号码。WhatsApp 的接口没有群，只能私聊。
 - **飞书国际版（Lark）**：和飞书是同一套东西的两朵云，后台在 open.larksuite.com。凭据形态一样，系统会自动判断该连哪一朵，你照飞书的步骤走即可。
-- **微信**：是三件不同的事，别用一句「微信接不了」打发用户。① **企业微信**：见上一条，本产品已支持，同事之间用。② **让真正的个人微信用户在微信里找到你**：官方路子有两条——微信客服（kf.weixin.qq.com 建客服账号，用户扫码或点链接进会话，消息走企业微信的回调）、认证服务号的客服消息接口（48 小时窗口）；两条都要企业主体并通过认证。本产品还没做这两条桥，用户要就如实说「这条还没接，可以提」，别说成技术上不可能。③ **变成用户好友列表里的那个微信号**：没有官方接口，只有第三方协议，封的是用户自己的号，不做。个人主体的订阅号认证不了，只剩 5 秒超时的被动回复，托不住你思考的时间。
+- **微信**：走腾讯自己的 iLink 机器人网关，不需要后台、不需要凭据、不需要公网地址，也不是第三方协议，没有封号那回事。做法只有一步：build(aspect=channel, action=add, value="微信")，系统在对话里发一张二维码，用户用手机微信扫一扫，扫完你就在他的微信里了。别去开电脑、别去找什么开放平台、别 harvest（微信这条 harvest 会直接报错）。三条硬规矩要先说清楚：**只能私聊**（这个网关没有群）、**只能回不能先说**（回复要带用户上一条消息的凭条，所以你开不了口，得他先发一句）、**暂时只收发文字**（图片、语音、文件先请他从 App 发）。码有效期几分钟，过期系统会自动换一张；一直没扫就作废，重新 add 一次即可。
+- **企业微信**：见上面那条，是另一回事——公司内部同事用的自建应用，接不到外面的个人微信用户。用户说「微信」默认是前者，说「企微 / 企业微信」才是后者，分不清就问一句。
 
 ## 路线二：用户自己建、填卡
 build(aspect=channel, action=add, value="飞书")。系统发凭据卡，卡上有步骤和要填的项。你只说一句「按卡上的步骤建一个机器人，凭据填在卡上」。接上后同样要走第 4 步验收。用户填完系统自动接上并通知你。失败就把原因说成人话，让他核对后重填：request_credentials，integration 填平台名（如「飞书」），系统会重发标准卡（字段是固定的，不用你定）。
@@ -119,7 +122,7 @@ MCP（Model Context Protocol）是把外部系统的能力包装成「工具」�
 - 钉钉：开发者后台 https://open-dev.dingtalk.com/fe/app → 应用开发 → 企业内部应用 → 凭证里的 Client ID（原 AppKey）和 Client Secret（原 AppSecret）；在「权限管理」申请对应接口权限。官方没有稳定的 MCP，社区有零散实现，找不到可用的就按第 3 步写最小服务。
 - 企业微信：管理后台应用页 https://work.weixin.qq.com/wework_admin/frame#apps → 应用管理 → 自建应用 → AgentId 和 Secret；企业 ID（CorpID）在「我的企业」页底部。坑：接口调用要把服务器公网 IP 加进应用的「可信 IP」，本机无固定公网 IP 时会 60020 报错。没有官方 MCP。
 - QQ 邮箱 / 163 / 126 / 企业邮箱：都走 IMAP + SMTP，凭据是「授权码」不是登录密码。QQ：https://mail.qq.com → 设置 › 账户 › 「IMAP/SMTP 服务」点开启 → 短信验证 → 16 位授权码（服务器 imap.qq.com:993 / smtp.qq.com:465）。163：https://mail.163.com → 设置 › POP3/SMTP/IMAP › 开启并「新增授权密码」（imap.163.com:993 / smtp.163.com:465）。没有现成 MCP，按第 3 步让 agent 写一个几十行的 IMAP/SMTP 桥，凭据字段 MAIL_ADDRESS、MAIL_AUTH_CODE。
-- 微信：不要说「微信一律接不了」。个人微信号本体没有开放接口（第三方协议封的是用户自己的号，不做）；要在微信里和人对话，官方的两条是微信客服（kf.weixin.qq.com，走企业微信）和认证服务号的客服消息接口，都要企业主体认证，个人主体的订阅号认证不了、只有 5 秒超时的被动回复。这两条产品还没做桥，如实说没接，别说不可能。
+- 微信：作为 IM 渠道，产品自带（build(aspect=channel, action=add, value="微信") 发二维码，走腾讯的 iLink 网关，扫码即通），不用在这里手动接。要读微信的其它数据（公众号后台、微信客服、支付）没有现成 MCP，按第 3 步自己写，凭据用 request_credentials 发卡。
 - 腾讯文档、语雀、Notion 国内版等：先搜「<平台> MCP server」，一般是 npx 一行加一个 token 环境变量；没有就按第 3 步。
 
 常见报错：
