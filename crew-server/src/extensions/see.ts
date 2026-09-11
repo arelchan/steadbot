@@ -1,3 +1,4 @@
+import { noteUsage } from '../meter.ts';
 import type { InlineExtension } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 import { execFile } from 'node:child_process';
@@ -62,7 +63,7 @@ export function seeExtension(c: BotCtx, eyes: () => Eyes | undefined): InlineExt
           if (IMAGE.test(ext)) {
             const e = eyes();
             if (!e) throw new Error('这套 bot 没有配能看图的模型（设置 visionModel），暂时看不了图片。');
-            return text(await look(e, [imageContent(file, IMAGE_MIME[ext] ?? 'image/png')], p.question), 'vision');
+            return text(await look(e, [imageContent(file, IMAGE_MIME[ext] ?? 'image/png')], p.question, undefined, c.botId), 'vision');
           }
 
           // Decks and documents become a PDF first, so that "render the pages" works for them too. A deck is looked at
@@ -74,7 +75,7 @@ export function seeExtension(c: BotCtx, eyes: () => Eyes | undefined): InlineExt
           if (CONVERTIBLE.test(ext)) {
             if (ext !== '.svg' && !wantLook) {
               const extracted = await extract(file);
-              if (extracted.kind !== 'error' && extracted.text.trim().length > 80) return text(await answer(extracted.text, p.question, eyes()), extracted.kind);
+              if (extracted.kind !== 'error' && extracted.text.trim().length > 80) return text(await answer(extracted.text, p.question, eyes(), c.botId), extracted.kind);
             }
             const { officeBinary, officeToPdf } = await import('../office.ts');
             if (!officeBinary()) throw new Error('这台机器上没装 LibreOffice，这类文件读不出来；用 bash + python 试试。');
@@ -84,7 +85,7 @@ export function seeExtension(c: BotCtx, eyes: () => Eyes | undefined): InlineExt
           if (extname(pdfPath).toLowerCase() === '.pdf') {
             const doc = await extract(pdfPath);
             if (doc.kind === 'error') throw new Error(doc.note ?? '读不出来');
-            if (!wantLook && !doc.thin && doc.text.trim().length > 80) return text(await answer(doc.text, p.question, eyes()), 'pdf');
+            if (!wantLook && !doc.thin && doc.text.trim().length > 80) return text(await answer(doc.text, p.question, eyes(), c.botId), 'pdf');
             // No text layer: it is a scan or a deck of pictures, so look at the pages.
             const e = eyes();
             if (!e) throw new Error('这份文件里没有文字层（扫描件或整页是图），需要一个能看图的模型才能读，但没配 visionModel。');
@@ -97,7 +98,7 @@ export function seeExtension(c: BotCtx, eyes: () => Eyes | undefined): InlineExt
               const images = pages.map((n) => imageContent(join(dir, n), 'image/png'));
               const note = doc.pages && doc.pages > MAX_PAGES ? `\n\n（共 ${doc.pages} 页，只看了前 ${MAX_PAGES} 页。）` : '';
               const brief = wantLook ? `这是一份 ${pages.length} 页的${DECK.test(ext) ? '幻灯片' : '文件'}，按顺序给你。逐页说版面：文字有没有溢出容器或被裁掉、元素有没有重叠、对齐和留白是否均匀、对比度够不够、有没有占位符残留；再概括每页内容。` : `这是一份 ${pages.length} 页的文件，按顺序给你。`;
-              return text((await look(e, images, p.question, brief)) + note, 'pages');
+              return text((await look(e, images, p.question, brief, c.botId)) + note, 'pages');
             } finally {
               if (cleanup) rmSync(cleanup, { recursive: true, force: true });
             }
@@ -105,7 +106,7 @@ export function seeExtension(c: BotCtx, eyes: () => Eyes | undefined): InlineExt
 
           const got = await extract(file);
           if (got.kind === 'error' || (got.kind === 'binary' && !got.text)) throw new Error(got.note ?? '这个格式读不出来，用 bash 试试');
-          return text(await answer(got.text, p.question, eyes()), got.kind);
+          return text(await answer(got.text, p.question, eyes(), c.botId), got.kind);
         },
       });
     },
@@ -135,12 +136,13 @@ async function extract(file: string): Promise<Extracted> {
  * The extracted text, answered. Short files go back whole (the bot reads them itself); a long one with a question
  * is boiled down first so the answer does not cost the bot its whole context.
  */
-async function answer(body: string, question: string | undefined, eyes: Eyes | undefined): Promise<string> {
+async function answer(body: string, question: string | undefined, eyes: Eyes | undefined, who?: string): Promise<string> {
   if (!question?.trim() || body.length < 6000 || !eyes) return body;
   const res = await eyes.runtime.completeSimple(eyes.model, {
     systemPrompt: '你在帮另一个 agent 从一份文件里找答案。只根据文件内容回答，原样引用关键数字和文字；文件里没有就说没有。不要客套。',
     messages: [{ role: 'user', content: `问题：${question}\n\n文件内容：\n${body.slice(0, 120_000)}`, timestamp: Date.now() }],
   });
+  noteUsage('see', who, res);
   return res.content
     .map((x) => (x.type === 'text' ? x.text : ''))
     .join('')

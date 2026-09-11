@@ -1,3 +1,4 @@
+import { recordRaw } from './meter.ts';
 /**
  * Embeddings, on the key everything else already uses.
  *
@@ -36,7 +37,8 @@ export async function embed(texts: string[], timeoutMs = 30_000): Promise<Float3
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 160)}`);
-      const d = (await r.json()) as { data?: { index?: number; embedding?: number[] }[] };
+      const d = (await r.json()) as { data?: { index?: number; embedding?: number[] }[]; usage?: { prompt_tokens?: number; total_tokens?: number } };
+      recordRaw('library', undefined, MODEL, { input: d.usage?.prompt_tokens ?? d.usage?.total_tokens, units: input.length });
       const rows = d.data ?? [];
       if (rows.length !== input.length) throw new Error(`asked for ${input.length} vectors, got ${rows.length}`);
       for (let j = 0; j < rows.length; j += 1) {

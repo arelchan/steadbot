@@ -332,6 +332,20 @@ function Usage() {
           <div className="spark-x"><span>{report.daily[0]?.day.slice(5)}</span><span>{report.daily.at(-1)?.day.slice(5)}</span></div>
         </>
       )}
+      {!!report.kinds?.length && (
+        <>
+          <h4>{t('usage.byKind')}</h4>
+          <ul className="usage-list">
+            {report.kinds.map((k) => (
+              <li key={k.kind}>
+                <span className="ul-n">{t(`usage.kind.${k.kind}`)}</span>
+                <span className="ul-v">{tn('usage.callsN', k.calls)}</span>
+                <span className="ul-c">{fmtMoney(k.cost)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {report.bots.length > 0 && (
         <>
           <h4>{t('usage.byBot')}</h4>

@@ -1,3 +1,4 @@
+import { noteUsage } from './meter.ts';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Api, Model } from '@earendil-works/pi-ai';
@@ -46,6 +47,7 @@ export async function runBuild(d: Deps, botId: string, job: BuildJob, spec: Buil
       .join('\n');
     const askOnce = async (system: string, user: string, maxTokens: number) => {
       const res = await d.runtime!.completeSimple(d.model!, { systemPrompt: system, messages: [{ role: 'user', content: user, timestamp: Date.now() }] }, { maxTokens });
+      noteUsage('build', botId, res);
       const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').replace(/```(?:json)?/g, '');
       const s = raw.indexOf('{');
       const e = raw.lastIndexOf('}');

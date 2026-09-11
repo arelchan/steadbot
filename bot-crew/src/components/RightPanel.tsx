@@ -198,6 +198,32 @@ function AvatarEditor({ bot }: { bot: Bot }) {
   );
 }
 
+/**
+ * 名字和职责：改完才算改。
+ *
+ * 这两个框以前每敲一个字就 patchBot 一次——服务器把新值广播回来，光标跳，输入框看着像在自己刷新；成长记录里
+ * 一个「小集」还会留下四条「改名为…」。现在本地先存着，失焦（名字按回车也算）才提交一次。
+ */
+function Editable({ value, onCommit, multiline, ...rest }: { value: string; onCommit: (v: string) => void; multiline?: boolean } & Record<string, unknown>) {
+  const [draft, setDraft] = useState(value);
+  const editing = useRef(false);
+  useEffect(() => {
+    if (!editing.current) setDraft(value);
+  }, [value]);
+  const commit = () => {
+    editing.current = false;
+    if (draft !== value) onCommit(draft);
+  };
+  const props = {
+    value: draft,
+    onChange: (e: { target: { value: string } }) => setDraft(e.target.value),
+    onFocus: () => (editing.current = true),
+    onBlur: commit,
+    ...rest,
+  };
+  return multiline ? <textarea {...props} /> : <input {...props} onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && e.currentTarget.blur()} />;
+}
+
 function BotIdentity({ bot }: { bot: Bot }) {
   const t = useT();
   const [config, setConfig] = useState(false);
@@ -214,11 +240,10 @@ function BotIdentity({ bot }: { bot: Bot }) {
           {gen ? (
             <Sk w={96} h={16} className="sk-name" />
           ) : (
-            <input
+            <Editable
               className="name-edit fade-in"
               value={bot.name}
-              onChange={(e) => patchBot(bot.id, { name: e.target.value })}
-              onBlur={(e) => { if (!e.target.value.trim()) patchBot(bot.id, { name: t('ident.unnamedBot') }); }}
+              onCommit={(v) => patchBot(bot.id, { name: v.trim() || t('ident.unnamedBot') })}
               title={t('ident.nameTitle')}
             />
           )}
@@ -232,12 +257,13 @@ function BotIdentity({ bot }: { bot: Bot }) {
           <span className="gen-note">{t('ident.generating')}</span>
         </div>
       ) : (
-        <textarea
+        <Editable
+          multiline
           className="role ident-desc fade-in"
           rows={3}
           placeholder={t('ident.rolePlaceholder')}
           value={bot.role}
-          onChange={(e) => patchBot(bot.id, { role: e.target.value })}
+          onCommit={(v) => patchBot(bot.id, { role: v })}
         />
       )}
       </section>

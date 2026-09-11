@@ -1,10 +1,11 @@
-export type Channel = 'app' | 'feishu' | 'wechat' | 'slack' | 'telegram' | 'discord' | 'whatsapp';
+export type Channel = 'app' | 'feishu' | 'wechat' | 'weixin' | 'slack' | 'telegram' | 'discord' | 'whatsapp';
 export type Autonomy = 'tell' | 'prepare' | 'do';
 
 export const CHANNEL_LABEL: Record<Channel, string> = {
   app: '这里',
   feishu: '飞书',
-  wechat: '微信',
+  wechat: '企业微信',
+  weixin: '微信',
   slack: 'Slack',
   telegram: 'Telegram',
   discord: 'Discord',
@@ -222,6 +223,8 @@ export interface UsageRow {
   cost: number;
   calls: number;
 }
+export type UsageKind = 'chat' | 'see' | 'operate' | 'draw' | 'search' | 'memory' | 'library' | 'build' | 'birth' | 'other';
+
 export interface UsageReport {
   days: number;
   since?: number;
@@ -229,6 +232,8 @@ export interface UsageReport {
   bots: (UsageRow & { botId: string; name: string })[];
   daily: (UsageRow & { day: string })[];
   models: (UsageRow & { model: string })[];
+  /** 钱花在什么上（后端 meter.ts 的分类） */
+  kinds?: (UsageRow & { kind: UsageKind })[];
 }
 
 /** 升级：这台电脑上的代码、正在跑的代码，对不对得上 */

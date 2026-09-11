@@ -14,6 +14,7 @@ import { AvatarService } from './avatar.ts';
 import { FakeBrain } from './fake-brain.ts';
 import { blankBot, inferBot, inferSkillDocs, inferSoul } from './infer-bot.ts';
 import { SkillStore, SkillStores, migrateSharedSkills } from './skills.ts';
+import { loadPrices, trimLedger } from './meter.ts';
 import { KIND_LABEL, Library, LIBRARY_CATEGORIES } from './library.ts';
 import { buildLabel, pickupSkills, runBuild } from './builder.ts';
 import { ConnectorManager, POPULAR_TOOLKITS, isChinesePlatform } from './connectors.ts';
@@ -153,6 +154,9 @@ async function main() {
       for (const b of store.data.bots) if ((b.integrationIds ?? []).includes(i.id)) await bots.refreshTools(b.id).catch(() => undefined);
     });
   }
+  // 账本和价格表：价格表用来给那些响应里不带 cost 的调用（向量、图片）算钱，拉不到就按 0 记。
+  trimLedger();
+  void loadPrices();
   seedBuiltinSkills(skills.builtin);
   // Homes written before each bot had its own skills directory.
   if (active) migrateSharedSkills(skills, store.data.bots, [...BUILTIN_SKILL_NAMES, STEWARD_SKILL_NAME], join(config.piAgentDir, 'skills-shared-before'));
@@ -337,6 +341,7 @@ async function main() {
         const identity = inferBot(
           brief,
           {
+            botId: bot.id,
             existing: store.data.bots.filter((b) => b.id !== bot.id).map((b) => ({ name: b.name, tagline: b.tagline || b.role.split(/[。，]/)[0] })),
             profile: everos.profileLines(),
             integrations: store.data.integrations.filter((i) => i.status === 'ok' && i.kind !== 'channel').map((i) => i.name),
@@ -362,7 +367,7 @@ async function main() {
 
         const query = [brief, refined.role, meta.hints.join(' ')].filter(Boolean).join(' ');
         const cands = mergeCandidates(await early, await library.candidates(query, 16).catch(() => []));
-        const picks = await library.pickForBot(refined, brief, cands, bots.modelRuntime, bots.lightModel);
+        const picks = await library.pickForBot({ ...refined, botId: bot.id }, brief, cands, bots.modelRuntime, bots.lightModel);
         const mounted = mountLibrary(bot.id, picks.mount);
         console.log(`[crew] ${refined.name} mounted from library: ${mounted.join('、') || '（没有对上的）'}（候选 ${cands.length}）`);
         // Connections the role needs are part of the build too: reuse an existing authorization, else hand the user a card now.

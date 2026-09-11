@@ -1,3 +1,4 @@
+import { recordImages } from './meter.ts';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { builtinImagesModels } from '@earendil-works/pi-ai/providers/all';
@@ -49,6 +50,7 @@ export class AvatarService {
     if (!model) return proceduralAvatar(seed);
     try {
       const result = await this.images.generateImages(model, { input: [{ type: 'text', text: this.prompt(bot) }] });
+      recordImages('draw', bot.id, config.imageModel, 1, result.usage);
       const img = result.output.find((b) => b.type === 'image');
       if (result.stopReason === 'error' || !img || img.type !== 'image') return proceduralAvatar(seed);
       const ext = img.mimeType.includes('jpeg') ? 'jpg' : 'png';

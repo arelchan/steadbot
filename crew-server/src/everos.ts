@@ -18,6 +18,7 @@ import YAML from 'yaml';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { config } from './config.ts';
+import { PLACEHOLDER, startMeterProxy } from './meter-proxy.ts';
 import type { CrewStore } from './store.ts';
 import { redactSecrets } from './secrets.ts';
 
@@ -210,32 +211,38 @@ async function health(ms = 1500): Promise<boolean> {
 /**
  * Model and key come from the product's own config, through the environment: the engine's own
  * config file never holds a credential. Everything else is left at its defaults.
+ *
+ * The four base URLs point at the local meter (meter-proxy.ts) whenever it is up, so the engine's spending lands
+ * in the same ledger as everything else — and the sidecar gets a placeholder where the key used to be. With no
+ * proxy it talks to OpenRouter directly with the real key, as it always did.
  */
 function childEnv(root: string): Record<string, string> {
-  const key = process.env.OPENROUTER_API_KEY ?? '';
+  const metered = !!proxyBase;
+  const base = proxyBase ?? 'https://openrouter.ai/api/v1';
+  const key = metered ? PLACEHOLDER : (process.env.OPENROUTER_API_KEY ?? '');
   const model = (config.lightModel ?? config.model ?? '').replace(/^openrouter\//, '');
   return {
     ...process.env,
     EVEROS_ROOT: root,
     EVEROS_LLM__MODEL: model,
     EVEROS_LLM__API_KEY: key,
-    EVEROS_LLM__BASE_URL: 'https://openrouter.ai/api/v1',
+    EVEROS_LLM__BASE_URL: base,
     // Cheap, multilingual, and on the same account as everything else. Changing this invalidates every
     // vector in the index, so it is not a knob: a change means a rebuild.
     EVEROS_EMBEDDING__MODEL: process.env.CREW_EMBEDDING_MODEL ?? 'baai/bge-m3',
     EVEROS_EMBEDDING__API_KEY: key,
-    EVEROS_EMBEDDING__BASE_URL: 'https://openrouter.ai/api/v1',
+    EVEROS_EMBEDDING__BASE_URL: base,
     // Parsing an uploaded document (knowledge) goes through a model that can read pages, not the text model.
     EVEROS_MULTIMODAL__MODEL: (config.visionModel ?? 'openrouter/google/gemini-2.5-flash').replace(/^openrouter\//, ''),
     EVEROS_MULTIMODAL__API_KEY: key,
-    EVEROS_MULTIMODAL__BASE_URL: 'https://openrouter.ai/api/v1',
+    EVEROS_MULTIMODAL__BASE_URL: base,
     // Re-scoring for knowledge retrieval and the agent track's hybrid lane. Same account, same key.
     ...(hasRerank()
       ? {
           EVEROS_RERANK__PROVIDER: 'vllm',
           EVEROS_RERANK__MODEL: RERANK_MODEL,
           EVEROS_RERANK__API_KEY: key,
-          EVEROS_RERANK__BASE_URL: 'https://openrouter.ai/api/v1',
+          EVEROS_RERANK__BASE_URL: base,
         }
       : {}),
     // Both tracks: what the user is like, and how a bot got something done.
@@ -259,6 +266,8 @@ async function scaffold(root: string, exe: string): Promise<void> {
  * Bring memory up, or decide there is none. Called once at startup and never awaited by a turn:
  * the first few minutes of a fresh machine run without memory, which is correct — there isn't any yet.
  */
+let proxyBase: string | undefined;
+
 export function startMemory(): Promise<boolean> {
   if (starting) return starting;
   starting = (async () => {
@@ -270,6 +279,8 @@ export function startMemory(): Promise<boolean> {
       console.log('[crew] 记忆：没有 OpenRouter key，先不开');
       return false;
     }
+    // Up before the engine is spawned: its base URLs are written into the environment it starts with.
+    proxyBase = await startMeterProxy();
     // Something already listening (a dev restart, or a sidecar the user runs themselves): use it, once it
     // has shown it can take a write.
     if (await health()) {

@@ -1,3 +1,4 @@
+import { noteUsage } from './meter.ts';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
@@ -282,7 +283,7 @@ export class Library {
    * model reads a dozen lines instead of the whole catalog and only has to draw that line.
    */
   async pickForBot(
-    bot: { name: string; role: string; tagline?: string },
+    bot: { botId?: string; name: string; role: string; tagline?: string },
     brief: string,
     cands: LibraryEntry[],
     runtime?: ModelRuntime,
@@ -313,6 +314,7 @@ export class Library {
           menu,
         messages: [{ role: 'user', content: `bot 名字：${bot.name}\n简介：${bot.tagline ?? ''}\n职责：${bot.role}\n用户的第一句话：${brief}`, timestamp: Date.now() }],
       });
+      noteUsage('library', bot.botId, res);
       const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').replace(/```(?:json)?/g, '');
       const start = raw.indexOf('{');
       const end = raw.lastIndexOf('}');

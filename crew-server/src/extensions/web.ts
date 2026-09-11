@@ -1,3 +1,5 @@
+import type { BotCtx } from './ctx.ts';
+import { recordRaw } from '../meter.ts';
 import type { InlineExtension } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 import { config } from '../config.ts';
@@ -14,7 +16,7 @@ function searchModelId() {
   return spec.startsWith('openrouter/') ? spec.slice('openrouter/'.length) : spec;
 }
 
-export async function webSearch(query: string, signal?: AbortSignal): Promise<{ answer: string; sources: Citation[] }> {
+export async function webSearch(query: string, signal?: AbortSignal, who?: string): Promise<{ answer: string; sources: Citation[] }> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error('产品还没配置搜索能力（缺 OpenRouter 密钥）');
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -29,10 +31,18 @@ export async function webSearch(query: string, signal?: AbortSignal): Promise<{ 
         { role: 'user', content: query },
       ],
       max_tokens: 900,
+      usage: { include: true },
     }),
   });
   if (!res.ok) throw new Error(`搜索服务返回 ${res.status}`);
-  const j = (await res.json()) as { choices?: { message?: { content?: string; annotations?: { type: string; url_citation?: Citation }[] } }[]; error?: { message?: string } };
+  const j = (await res.json()) as {
+    model?: string;
+    usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
+    choices?: { message?: { content?: string; annotations?: { type: string; url_citation?: Citation }[] } }[];
+    error?: { message?: string };
+  };
+  // The web plugin is billed per result on top of the tokens, so the only number with both in it is usage.cost.
+  recordRaw('search', who, j.model ?? searchModelId(), { input: j.usage?.prompt_tokens, output: j.usage?.completion_tokens, cost: j.usage?.cost, units: 1 });
   if (j.error) throw new Error(j.error.message ?? '搜索失败');
   const msg = j.choices?.[0]?.message;
   const seen = new Set<string>();
@@ -72,7 +82,7 @@ export async function fetchUrl(url: string, signal?: AbortSignal): Promise<strin
   return text.length > 8000 ? `${text.slice(0, 8000)}\n…（已截断，共 ${text.length} 字）` : text;
 }
 
-export function webExtension(): InlineExtension {
+export function webExtension(c: BotCtx): InlineExtension {
   return {
     name: 'crew-web',
     factory: (pi) => {
@@ -91,7 +101,7 @@ export function webExtension(): InlineExtension {
           query: Type.String({ description: '搜索问题，一句完整的话，带上必要的地点、日期、名称' }),
         }),
         async execute(_id, p, signal) {
-          const r = await webSearch(p.query, signal);
+          const r = await webSearch(p.query, signal, c.botId);
           const src = r.sources.map((s, i) => `[${i + 1}] ${s.title ?? s.url}\n${s.url}${s.content ? `\n${s.content}` : ''}`).join('\n\n');
           return { content: [{ type: 'text', text: `${r.answer || '（没有综合出答案）'}\n\n来源：\n${src || '（无）'}` }], details: { query: p.query, sources: r.sources.map((s) => s.url) } };
         },

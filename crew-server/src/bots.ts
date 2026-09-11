@@ -269,7 +269,7 @@ export class BotManager extends EventEmitter {
         askExtension(ctx),
         actExtension(ctx, perform),
         rememberExtension(ctx),
-        webExtension(),
+        webExtension(ctx),
         harvestExtension(ctx, () => {
           if (!this.ops) throw new Error('crew ops not ready');
           return this.ops;

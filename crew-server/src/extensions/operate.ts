@@ -54,7 +54,7 @@ export function operateExtension(c: BotCtx, hands: () => Hands | undefined, desk
           const holder = screenHeldBy;
           const me = c.bot().name;
           const waited = holder && holder !== me ? `${holder} 正在用屏幕，等它做完才开始。` : '';
-          const r = await operate(h, p.goal, { display, outDir, context: p.context, maxSteps: p.maxSteps, holder: me });
+          const r = await operate(h, p.goal, { display, outDir, context: p.context, maxSteps: p.maxSteps, holder: me, who: c.botId });
           d?.touch(c.botId);
           const text = `${waited}${r.ok ? '做完了' : '没做完'}（${r.steps} 步）：${r.summary}${r.lastShot ? `\n最后一张截图：${r.lastShot}（用 see 看）` : ''}\n过程记录：${r.log}`;
           return { content: [{ type: 'text' as const, text }], details: { ok: r.ok, steps: r.steps, lastShot: r.lastShot } };

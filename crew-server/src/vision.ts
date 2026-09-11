@@ -1,3 +1,4 @@
+import { noteUsage } from './meter.ts';
 /**
  * Seeing. The model a bot talks with may have no eyes (a cheap text model usually doesn't), so pictures go to a
  * vision model in a single side call and come back as words. That is the shape the industry has settled on: the
@@ -23,7 +24,7 @@ export function imageContent(file: string, mime: string): ImageContent {
  * Ask the vision model about one or more pictures. `question` is what the bot wants to know; without one it gets a
  * full description, because the bot cannot come back for a second look cheaply.
  */
-export async function look(eyes: Eyes, images: ImageContent[], question?: string, context?: string): Promise<string> {
+export async function look(eyes: Eyes, images: ImageContent[], question?: string, context?: string, who?: string): Promise<string> {
   const ask = question?.trim()
     ? `${question.trim()}\n\n只回答看到的内容，不要客套，不要说「这张图片显示」。看不清就说看不清。`
     : '把图里的内容如实说清楚：整体是什么，画面里有什么，所有可读的文字原样抄出来（表格保持行列关系）。不要评价、不要客套。';
@@ -37,6 +38,7 @@ export async function look(eyes: Eyes, images: ImageContent[], question?: string
       },
     ],
   });
+  noteUsage('see', who, res);
   const text = res.content
     .map((c) => (c.type === 'text' ? c.text : ''))
     .join('')

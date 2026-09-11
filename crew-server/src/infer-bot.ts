@@ -1,3 +1,4 @@
+import { noteUsage } from './meter.ts';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import type { Bot } from './types.ts';
@@ -57,6 +58,8 @@ function scriptOf(text: string): string {
 
 /** 出生时它能知道的一切：团队里已经有谁、用户是个什么人、这台机器已经连了什么、说什么语言。 */
 export interface Birthplace {
+  /** 记在谁头上 */
+  botId?: string;
   existing: { name: string; tagline: string }[];
   profile?: string[];
   integrations?: string[];
@@ -87,8 +90,8 @@ export async function inferBot(text: string, place: Birthplace, runtime?: ModelR
         '输出严格 JSON：{"name":"名字","glyph":"1 个字","tagline":"一句话简介","role":"职责与工作方式","soul":"人设","hints":["检索关键词"]}。只输出 JSON。\n\n' +
         '怎么写：\n' +
 
-        '- name 是用户以后每天要叫出口的名字：像给同事起的花名，或者一个现成的职业称呼，念得出、像个词。不要把几个词各取一个字拼成生造词，不要用缩写，不要把这次任务的主题塞进名字。不要和团队里已有的重名，也不要是同一个词换个说法。\n' +
-        '- role 一两句话，用用户对它说话的口气写（「帮我…」「…之前先问我」）：第一句说它以后长期帮我做什么，第二句说什么时候必须回来问我——边界要具体到一个动作（「改别人的会之前问我」），不是「重要操作前确认」。只写这两件事：不要列步骤、不要写交付物和格式、不要定没人要求过的时间点和字数，也不要出现这次活里的专有名词（哪个品类、哪家公司、哪个地方）——它以后接的活不会都关于这一件。\n' +
+        '- name 要有实际语义：一眼看出它管哪一摊。比这次这件活宽一档，不是宽到底——用户要给自己做个人作品集网站，叫「个人作品集设计」正好；叫「小集」这种没信息量的昵称不行，叫「设计助手」「帮手」这种宽到什么都能装的也不行，把几个词各取一个字拼成生造词（「工图」）更不行。不要和团队里已有的重名，也不要是同一个词换个说法。\n' +
+        '- role 一两句话，用用户对它说话的口气写（「帮我…」「…之前先问我」）：第一句说它以后长期帮我做什么——范围和名字一样宽，名字管一摊，职责就写这一摊，不要放大成「各种需要动手的活」——第二句说什么时候必须回来问我——边界要具体到一个动作（「改别人的会之前问我」），不是「重要操作前确认」。只写这两件事：不要列步骤、不要写交付物和格式、不要定没人要求过的时间点和字数，也不要出现这次活里的专有名词（哪个品类、哪家公司、哪个地方）——它以后接的活不会都关于这一件。\n' +
         '- soul 是它的性格、说话方式、待人方式，要能想象出它说话的样子。它可以有脾气、有偏好、有不爱做的事。\n' +
         '- hints 是 3-6 个检索关键词，用来去技能库里找它用得上的手册：写这份工作实际会做的事（「代码评审」「竞品监控」「会议纪要」），中英文都行，不要写「高效」这种。\n\n' +
         '不要写的：不要「专业、高效、贴心、认真负责、热情」这类谁都能安上的词；不要把给你的那句话抄一遍、或拆成条款当职责；不要写这台机器做不到的事；不要和团队里已有的 bot 职责重叠——真撞上就把它写窄，写成已有的人不管的那部分。\n' +
@@ -105,6 +108,7 @@ export async function inferBot(text: string, place: Birthplace, runtime?: ModelR
         },
       ],
     }, { maxTokens: 1500 });
+    noteUsage('birth', place.botId, res);
     const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').replace(/```(?:json)?/g, '');
     const json = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as Partial<NewBot> & { hints?: unknown };
     if (!json.name || !json.role) return fallback;
@@ -126,13 +130,14 @@ export async function inferBot(text: string, place: Birthplace, runtime?: ModelR
 }
 
 /** One-off: write a persona for a bot that predates the soul field. Empty string on failure (stays editable). */
-export async function inferSoul(bot: { name: string; role: string }, runtime?: ModelRuntime, model?: Model<Api>): Promise<string> {
+export async function inferSoul(bot: { id?: string; name: string; role: string }, runtime?: ModelRuntime, model?: Model<Api>): Promise<string> {
   if (!runtime || !model || model.provider === 'faux') return '';
   try {
     const res = await runtime.completeSimple(model, {
       systemPrompt: '为一个长期服务用户的 bot 写人设：性格、说话风格、待人方式，2 句以内，中文，要贴合它的名字和职责，不要泛泛的「专业热情」。只输出这两句，不加引号、不加标题。',
       messages: [{ role: 'user', content: `名字：${bot.name}\n职责：${bot.role}`, timestamp: Date.now() }],
     });
+    noteUsage('birth', bot.id, res);
     return res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').trim().slice(0, 200);
   } catch (e) {
     console.warn('[crew] inferSoul failed:', (e as Error).message);
@@ -158,7 +163,7 @@ function templateSkill(name: string, bot: { name: string; role: string }): Skill
  * Write SKILL.md contents for a bot's skills in one cheap completion. Falls back to a generic
  * template per skill so the bot always has something to load.
  */
-export async function inferSkillDocs(bot: { name: string; role: string }, names: string[], runtime?: ModelRuntime, model?: Model<Api>): Promise<SkillDocInput[]> {
+export async function inferSkillDocs(bot: { id?: string; name: string; role: string }, names: string[], runtime?: ModelRuntime, model?: Model<Api>): Promise<SkillDocInput[]> {
   const fallback = names.map((n) => templateSkill(n, bot));
   if (!runtime || !model || model.provider === 'faux' || !names.length) return fallback;
   try {
@@ -167,6 +172,7 @@ export async function inferSkillDocs(bot: { name: string; role: string }, names:
         '你在为一个长期服务用户的 bot 编写「技能」文档。每个技能是一份可复用的操作手册（Markdown），bot 执行相关任务时会读取它。输出严格 JSON 数组，每项：{"name":"技能名（必须与输入完全一致）","description":"一句话，<=60 字，说明这个技能做什么、什么时候用","body":"Markdown 正文：## 目的 / ## 何时使用 / ## 步骤（编号，具体到可执行） / ## 需要用户确认的点 / ## 注意事项。300-600 字，中文，不要标题以外的一级标题。"}。只输出 JSON。',
       messages: [{ role: 'user', content: `bot 名字：${bot.name}\nbot 职责：${bot.role}\n技能列表：${names.join('、')}`, timestamp: Date.now() }],
     }, { maxTokens: 8000 });
+    noteUsage('build', bot.id, res);
     const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').replace(/```(?:json)?/g, '');
     const start = raw.indexOf('[');
     const end = raw.lastIndexOf(']');

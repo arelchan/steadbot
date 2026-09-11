@@ -624,6 +624,8 @@ export interface UsageRow {
   cost: number;
   calls: number;
 }
+export type UsageKind = 'chat' | 'see' | 'operate' | 'draw' | 'search' | 'memory' | 'library' | 'build' | 'birth' | 'other';
+
 export interface UsageReport {
   days: number;
   /** the earliest call counted, if any */
@@ -632,6 +634,8 @@ export interface UsageReport {
   bots: (UsageRow & { botId: string; name: string })[];
   daily: (UsageRow & { day: string })[];
   models: (UsageRow & { model: string })[];
+  /** 钱花在什么上：对话、看图、操作屏幕、画图、搜索、记忆、找手册、进化、出生 */
+  kinds: (UsageRow & { kind: UsageKind })[];
 }
 
 /** 升级：这台电脑上的代码、正在跑的代码、bot 所在机器上的代码，三者对不对得上（见 upgrade.ts） */

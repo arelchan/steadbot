@@ -63,7 +63,7 @@ export function drawExtension(c: BotCtx): InlineExtension {
             return imageContent(f, mime);
           });
 
-          const drawn = await drawImage(p.prompt, refs, p.style, p.quality as DrawTier | undefined);
+          const drawn = await drawImage(p.prompt, refs, p.style, p.quality as DrawTier | undefined, c.botId);
           const first = drawn[0];
           const wanted = p.path?.trim();
           const file = wanted ? inside(wanted) : join(botDir, 'workspace', 'images', `${slug(p.prompt)}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}.${extFor(first.mimeType)}`);

@@ -1,3 +1,4 @@
+import { recordImages } from './meter.ts';
 /**
  * Drawing. A bot makes pictures the same way it reads them: one call to a model that can do it, saved as a file in
  * its workspace. Without this, a deck, a report or a game has no imagery at all — the bot falls back to coloured
@@ -7,7 +8,7 @@
  * or tier is switching a model id, not adding a credential. It does take two different doors to reach them —
  * see `once` — but that is this file's problem, not the bot's.
  */
-import type { ImageContent, ImagesInputContent } from '@earendil-works/pi-ai';
+import type { ImageContent, ImagesInputContent, Usage } from '@earendil-works/pi-ai';
 import { builtinImagesModels } from '@earendil-works/pi-ai/providers/all';
 import { config } from './config.ts';
 
@@ -142,7 +143,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * One picture from a prompt, optionally with reference images (the same call edits a picture or follows a style,
  * which is how "keep the same character across slides" works — only the models that take image input).
  */
-export async function drawImage(prompt: string, refs: ImageContent[] = [], style?: string, tier?: DrawTier): Promise<Drawn[]> {
+export async function drawImage(prompt: string, refs: ImageContent[] = [], style?: string, tier?: DrawTier, who?: string): Promise<Drawn[]> {
   const m = model(style, tier);
   if (!m) throw new Error('这套 bot 没有配画图模型（imageModel），画不了。');
   if (refs.length && !m.input?.includes('image')) throw new Error(`「${style ?? '插画'}·${tier ?? DEFAULT_TIER}」这个模型不吃参考图，去掉 refs 或换一档。`);
@@ -153,7 +154,11 @@ export async function drawImage(prompt: string, refs: ImageContent[] = [], style
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt) await sleep(700 * 2 ** attempt + Math.random() * 400);
     try {
-      return await gate(() => once(m, input));
+      const drawn = await gate(() => once(m, input));
+      // Whichever of the two doors it came through: pi's path reports what the provider charged, the direct one
+      // does not, and then the count is priced from the table.
+      recordImages('draw', who, `${m.provider}/${m.id}`, drawn.length, lastUsage);
+      return drawn;
     } catch (e) {
       last = e as Error;
       if (!TRANSIENT.test(last.message)) throw last;
@@ -212,8 +217,13 @@ async function viaImagesApi(m: NonNullable<ReturnType<typeof model>>, input: Ima
   return out;
 }
 
+/** What the last picture actually cost, when the provider said so (viaPi only). */
+let lastUsage: Usage | undefined;
+
 async function viaPi(m: NonNullable<ReturnType<typeof model>>, input: ImagesInputContent[]): Promise<Drawn[]> {
+  lastUsage = undefined;
   const result = await images.generateImages(m, { input });
+  lastUsage = result.usage;
   if (result.stopReason === 'error') throw new Error(result.errorMessage ?? '画图失败');
   const out = result.output.filter((b): b is ImageContent => b.type === 'image');
   if (!out.length) {

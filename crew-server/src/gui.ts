@@ -1,3 +1,4 @@
+import { noteUsage } from './meter.ts';
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { platform } from 'node:os';
@@ -290,7 +291,7 @@ export let screenHeldBy: string | undefined;
  * Run one goal to completion (or failure, or the step cap) on a screen. `display` is the X display on Linux;
  * on macOS the Mac's own screen is used. Screenshots and a step log go under `outDir`.
  */
-export async function operate(hands: Hands, goal: string, opts: { display?: string; outDir: string; context?: string; maxSteps?: number; holder: string }): Promise<OperateResult> {
+export async function operate(hands: Hands, goal: string, opts: { display?: string; outDir: string; context?: string; maxSteps?: number; holder: string; who?: string }): Promise<OperateResult> {
   const run = async (): Promise<OperateResult> => {
     screenHeldBy = opts.holder;
     try {
@@ -315,7 +316,7 @@ export async function guiCapability(display?: string): Promise<{ ok: boolean; no
   return { ok: true };
 }
 
-async function operateNow(hands: Hands, goal: string, opts: { display?: string; outDir: string; context?: string; maxSteps?: number }): Promise<OperateResult> {
+async function operateNow(hands: Hands, goal: string, opts: { display?: string; outDir: string; context?: string; maxSteps?: number; who?: string }): Promise<OperateResult> {
   const driver = platform() === 'darwin' ? macDriver() : xDriver(opts.display ?? ':100');
   const maxSteps = Math.max(1, Math.min(60, opts.maxSteps ?? 25));
   const dir = join(opts.outDir, new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19));
@@ -367,6 +368,7 @@ async function operateNow(hands: Hands, goal: string, opts: { display?: string; 
       tools: [ACT_TOOL],
       messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, imageContent(shot.file, 'image/png')], timestamp: Date.now() }],
     });
+    noteUsage('operate', opts.who, res);
     // Any tool call is the action: there is only one tool, and models rename it (`act`, `computer_call`, the
     // namespaced form) often enough that matching on the name loses real actions.
     const call = res.content.find((c): c is Extract<typeof c, { type: 'toolCall' }> => c.type === 'toolCall');

@@ -3,11 +3,16 @@ import { join } from 'node:path';
 import { config } from './config.ts';
 import type { CrewStore } from './store.ts';
 import type { UsageReport } from './types.ts';
+import { entries, type UsageKind } from './meter.ts';
 
 /*
- * What the crew has cost. Every model call is already recorded in the bot's own session log (pi writes one JSONL
- * line per message, with token counts and a cost), so nothing new is tracked at runtime: the report is read off
- * those files on demand, cached briefly, and shown in 设置 › 用量.
+ * What the crew has cost, on two books that do not overlap.
+ *
+ * A bot's own turns are written by pi into that bot's session log, one JSONL line per message with tokens and a
+ * cost — that is the「对话」half, and it is the more accurate of the two because it knows about cache hits. Every
+ * model call that happens outside a session — birth, build, see, operate, draw, search, the pool's vectors, the
+ * memory engine — is filed in the ledger as it happens (meter.ts). The report is the two added up, grouped by bot,
+ * by what the money was spent on, by model and by day.
  */
 
 interface Row {
@@ -28,7 +33,6 @@ const add = (a: Row, b: Partial<Row>) => {
   a.calls += b.calls ?? 0;
 };
 
-const dayOf = (iso: string) => iso.slice(0, 10);
 
 let cache: { at: number; report: UsageReport } | undefined;
 
@@ -39,8 +43,33 @@ export function usageReport(store: CrewStore, days = 30): UsageReport {
   const perBot = new Map<string, Row>();
   const perDay = new Map<string, Row>();
   const perModel = new Map<string, Row>();
+  const perKind = new Map<string, Row>();
   const total = zero();
   let firstAt: number | undefined;
+  /** One call, filed under every heading it belongs to. */
+  // 同一个模型别因为前缀不同排成两行：session 日志写的是裸 id，账本写的是 provider/id。
+  const sameModel = (m: string) => m.replace(/^openrouter\//, '');
+  const file = (one: Partial<Row>, at: number, kind: UsageKind, modelRaw: string, who?: string) => {
+    const model = sameModel(modelRaw);
+    if (at < since) return;
+    if (!firstAt || at < firstAt) firstAt = at;
+    add(total, one);
+    if (who) {
+      const b = perBot.get(who) ?? zero();
+      perBot.set(who, b);
+      add(b, one);
+    }
+    const d = new Date(at).toISOString().slice(0, 10);
+    const dr = perDay.get(d) ?? zero();
+    perDay.set(d, dr);
+    add(dr, one);
+    const mr = perModel.get(model) ?? zero();
+    perModel.set(model, mr);
+    add(mr, one);
+    const kr = perKind.get(kind) ?? zero();
+    perKind.set(kind, kr);
+    add(kr, one);
+  };
 
   for (const bot of store.data.bots) {
     const dir = join(config.botsDir, bot.id, 'sessions');
@@ -50,8 +79,6 @@ export function usageReport(store: CrewStore, days = 30): UsageReport {
     } catch {
       continue;
     }
-    const row = perBot.get(bot.id) ?? zero();
-    perBot.set(bot.id, row);
     for (const f of files) {
       const p = join(dir, f);
       try {
@@ -76,25 +103,16 @@ export function usageReport(store: CrewStore, days = 30): UsageReport {
         const u = r.message?.usage;
         if (!u) continue;
         const ts = r.timestamp ? Date.parse(r.timestamp) : NaN;
-        if (Number.isFinite(ts)) {
-          if (ts < since) continue;
-          if (!firstAt || ts < firstAt) firstAt = ts;
-        }
+        if (Number.isFinite(ts) && ts < since) continue;
         const one: Partial<Row> = { input: u.input ?? 0, output: u.output ?? 0, cacheRead: u.cacheRead ?? 0, cacheWrite: u.cacheWrite ?? 0, cost: u.cost?.total ?? 0, calls: 1 };
-        add(row, one);
-        add(total, one);
-        if (r.timestamp) {
-          const d = dayOf(r.timestamp);
-          const dr = perDay.get(d) ?? zero();
-          perDay.set(d, dr);
-          add(dr, one);
-        }
-        const model = r.message?.model ?? '未知模型';
-        const mr = perModel.get(model) ?? zero();
-        perModel.set(model, mr);
-        add(mr, one);
+        file(one, Number.isFinite(ts) ? ts : Date.now(), 'chat', r.message?.model ?? '未知模型', bot.id);
       }
     }
+  }
+
+  // The other book: everything that happened outside a session.
+  for (const e of entries(since)) {
+    file({ input: e.input, output: e.output, cacheRead: e.cacheRead, cacheWrite: e.cacheWrite, cost: e.cost, calls: 1 }, e.ts, e.kind, e.model, e.who);
   }
 
   const report: UsageReport = {
@@ -107,6 +125,7 @@ export function usageReport(store: CrewStore, days = 30): UsageReport {
       .sort((a, b) => b.cost - a.cost || b.calls - a.calls),
     daily: [...perDay.entries()].map(([day, r]) => ({ day, ...r })).sort((a, b) => (a.day < b.day ? -1 : 1)),
     models: [...perModel.entries()].map(([model, r]) => ({ model, ...r })).sort((a, b) => b.cost - a.cost),
+    kinds: [...perKind.entries()].map(([kind, r]) => ({ kind: kind as UsageKind, ...r })).sort((a, b) => b.cost - a.cost),
   };
   cache = { at: Date.now(), report };
   return report;
