@@ -23,6 +23,8 @@ export interface CrewOps {
   connect(botId: string, threadId: ThreadId, service: string, why?: string): Promise<{ status: 'connected' | 'card' | 'unavailable' | 'unknown'; text: string }>;
   /** lexical search over the curated skill library; empty query lists everything */
   librarySearch(query: string, limit?: number): (LibraryEntry & { categoryLabel: string; kindLabel: string })[];
+  /** The same pool, searched by meaning as well as by words (library.ts). One embedding call, so: not per turn. */
+  libraryFind(query: string, limit?: number): Promise<(LibraryEntry & { categoryLabel: string; kindLabel: string })[]>;
   /** copy a library skill onto a bot (idempotent) */
   /** Equip this bot with one pool entry, whatever kind it is: mount a manual, connect an MCP server, send a
    *  one-click card, download an asset pack. Installing dependencies is part of it. */

@@ -1,4 +1,5 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Api, Model } from '@earendil-works/pi-ai';
@@ -6,6 +7,7 @@ import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import type { LibraryEntry, LibraryKind } from './types.ts';
 import type { SkillStore } from './skills.ts';
 import { POPULAR_TOOLKITS, TOOLKITS, isChinesePlatform } from './connectors.ts';
+import { canEmbed, dot, embed, embedModel, embedOne, packVec, unpackVec } from './embed.ts';
 
 /** How each kind reads in a list the bot sees. */
 export const KIND_LABEL: Record<LibraryKind, string> = { skill: '手册', mcp: '外部工具', assets: '素材包' };
@@ -53,6 +55,8 @@ interface Loaded extends LibraryEntry {
 export class Library {
   private entries = new Map<string, Loaded>();
   private manifest: Manifest = { skills: [] };
+  private vecs = new Map<string, Float32Array>();
+  private indexing?: Promise<void>;
   readonly bundledDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'library');
 
   constructor(private userDir: string) {
@@ -68,6 +72,9 @@ export class Library {
     }
     this.sync();
     this.load();
+    // Meaning-level search over the pool, built in the background: nothing waits for it, and the first bot born on a
+    // fresh machine simply gets the word-overlap half.
+    void this.index();
   }
 
   /**
@@ -174,47 +181,155 @@ export class Library {
     return scored.slice(0, limit).map(({ e }) => strip(e));
   }
 
-  /** Compact catalog for prompts: one line per entry. */
-  catalogText(kind?: LibraryKind) {
-    return this.list()
-      .filter((e) => !kind || (e.kind ?? 'skill') === kind)
-      .map((e) => `${e.slug}｜${KIND_LABEL[e.kind ?? 'skill']}｜${LIBRARY_CATEGORIES[e.category] ?? e.category}｜${e.tags.slice(0, 4).join(' ')}：${e.description.slice(0, 220)}`)
-      .join('\n');
+  /** What a manual is about, as one string: the text both halves of the search look at. */
+  private textOf(e: LibraryEntry) {
+    return `${e.title}｜${e.tags.join(' ')}｜${e.description}`.replace(/\s+/g, ' ').slice(0, 600);
   }
 
   /**
-   * Which library skills should a new bot carry? With a model: one cheap completion over the catalog, which also
-   * says which of the bot's own skill phrases the picked manuals already cover (so they aren't generated twice).
-   * Without: tag matching against the brief. Slugs come back most relevant first, at most `max`.
+   * The pool as vectors, on disk (~/.crew/library/.vectors.json). An entry is re-embedded only when its own text
+   * changes, so a library sync costs a few calls rather than 230, and a machine with no key just never has an index.
    */
-  async pickForBot(bot: { name: string; role: string; skills: string[] }, brief: string, runtime?: ModelRuntime, model?: Model<Api>, max = 5): Promise<{ mount: string[]; covered: string[]; connections: string[] }> {
-    if (!this.entries.size) return { mount: [], covered: [], connections: [] };
+  async index(): Promise<void> {
+    if (this.indexing) return this.indexing;
+    this.indexing = (async () => {
+      if (!canEmbed()) return;
+      const file = join(this.userDir, '.vectors.json');
+      type Cache = { model: string; items: Record<string, { h: string; v: string }> };
+      let cache: Cache = { model: embedModel(), items: {} };
+      try {
+        if (existsSync(file)) {
+          const c = JSON.parse(readFileSync(file, 'utf8')) as Cache;
+          // A different embedding model is a different space: every vector in the file is meaningless, not stale.
+          if (c.model === embedModel() && c.items) cache = c;
+        }
+      } catch {
+        /* rebuild */
+      }
+      const want = [...this.entries.values()].filter((e) => (e.kind ?? 'skill') === 'skill');
+      const hash = (t: string) => createHash('sha1').update(t).digest('hex').slice(0, 12);
+      const missing: { slug: string; text: string; h: string }[] = [];
+      for (const e of want) {
+        const text = this.textOf(e);
+        const h = hash(text);
+        const hit = cache.items[e.slug];
+        if (hit?.h === h) this.vecs.set(e.slug, unpackVec(hit.v));
+        else missing.push({ slug: e.slug, text, h });
+      }
+      if (missing.length) {
+        const t0 = Date.now();
+        const vecs = await embed(missing.map((m) => m.text));
+        if (!vecs) return; // no key, no credit, endpoint down: lexical search carries the product
+        missing.forEach((m, i) => {
+          this.vecs.set(m.slug, vecs[i]);
+          cache.items[m.slug] = { h: m.h, v: packVec(vecs[i]) };
+        });
+        for (const slug of Object.keys(cache.items)) if (!this.vecs.has(slug)) delete cache.items[slug];
+        try {
+          writeFileSync(file, JSON.stringify({ model: embedModel(), items: cache.items }));
+        } catch (e) {
+          console.warn('[crew] pool index not saved:', (e as Error).message);
+        }
+        console.log(`[crew] pool index: ${missing.length} new, ${this.vecs.size} vectors, ${Date.now() - t0}ms`);
+      }
+    })().catch((e: Error) => console.warn('[crew] pool index failed:', e.message));
+    return this.indexing;
+  }
+
+  /** Slugs ranked by meaning. Empty when there is no index — the caller then has only the lexical half. */
+  private async vectorHits(query: string, limit: number): Promise<string[]> {
+    if (!this.vecs.size) return [];
+    const q = await embedOne(query);
+    if (!q) return [];
+    return [...this.vecs.entries()]
+      .map(([slug, v]) => ({ slug, s: dot(q, v) }))
+      .sort((a, b) => b.s - a.s)
+      .slice(0, limit)
+      .map((x) => x.slug);
+  }
+
+  /**
+   * The pool narrowed to what a brief is about: word overlap and meaning, fused by reciprocal rank. No model, so it
+   * runs while the identity call is still in flight; the LLM that follows only has to choose among a dozen relevant
+   * manuals instead of reading the whole catalog.
+   */
+  async candidates(query: string, limit = 16): Promise<LibraryEntry[]> {
+    const lex = this.search(query, limit * 2).map((e) => e.slug);
+    // Index building and the query embedding share a budget: a slow first call must not hold up a birth.
+    const vec = await Promise.race([
+      this.index().then(() => this.vectorHits(query, limit * 2)),
+      new Promise<string[]>((r) => setTimeout(() => r([]), 8000)),
+    ]).catch(() => [] as string[]);
+    const score = new Map<string, number>();
+    const add = (slugs: string[], weight: number) => slugs.forEach((slug, i) => score.set(slug, (score.get(slug) ?? 0) + weight / (10 + i)));
+    add(lex, 1);
+    add(vec, 1);
+    return [...score.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([slug]) => this.entries.get(slug))
+      .filter((e): e is Loaded => !!e)
+      .map(strip);
+  }
+
+  /**
+   * Which manuals does this bot carry from birth?
+   *
+   * A mounted manual is in its system prompt every turn for the rest of its life — that is the whole difference
+   * between mounting and the per-turn recall in identity.ts. So the question is not "might this ever help" (the
+   * recall answers that when the moment comes) but "is this part of the job this bot was hired for". Everything
+   * that is gets mounted; there is no quota. The candidates are already relevant (fused lexical + vector), so the
+   * model reads a dozen lines instead of the whole catalog and only has to draw that line.
+   */
+  async pickForBot(
+    bot: { name: string; role: string; tagline?: string },
+    brief: string,
+    cands: LibraryEntry[],
+    runtime?: ModelRuntime,
+    model?: Model<Api>,
+    max = 8,
+  ): Promise<{ mount: string[]; connections: string[] }> {
+    cands = cands.filter((e) => (e.kind ?? 'skill') === 'skill');
+    if (!cands.length) return { mount: [], connections: [] };
+    // No model, or the call failed: mount only what both halves of the search agree on. Cosine always returns a
+    // best match — for「陪我聊聊天」it is as confident as it is for a real hit — so meaning alone may not decide what
+    // a bot carries for life. Word overlap and meaning pointing at the same manual is a signal; either alone is not.
     const fallback = () => {
-      const q = `${brief} ${bot.role} ${bot.skills.join(' ')}`;
-      return { mount: this.search(q, max).filter((e) => e.category !== 'meta' && (e.kind ?? 'skill') === 'skill').map((e) => e.slug), covered: [], connections: [] };
+      const lex = new Set(this.search(`${brief} ${bot.role}`, 12).map((e) => e.slug));
+      return { mount: cands.filter((e) => lex.has(e.slug) && e.category !== 'meta').slice(0, 3).map((e) => e.slug), connections: [] as string[] };
     };
     if (!runtime || !model || model.provider === 'faux') return fallback();
+    const menu = cands.map((e) => `${e.slug}｜${LIBRARY_CATEGORIES[e.category] ?? e.category}｜${e.tags.slice(0, 4).join(' ')}：${e.description.slice(0, 180)}`).join('\n');
     try {
       const res = await runtime.completeSimple(model, {
         systemPrompt:
-          '下面是一个技能库的目录（每行：slug｜分类｜关键词：说明）和一个刚创建的 bot 的信息。请挑出这个 bot 履行职责时真正会用到的技能，输出严格 JSON：{"mount":["slug",…],"covered":["bot 的能力短语",…],"connections":["服务 slug",…]}。mount 按相关度从高到低，最多 5 个，可以为空；只选和职责直接相关的：代码类 bot 选代码分析、架构图、评审、排错、测试这类；写作类选写作、调研；办公类选文档表格；生活类可能一个都不需要；不要为了凑数选「方法与元技能」类。covered 列出 bot 自己的能力短语里已经被 mount 的手册完全覆盖的那些（原文照抄），没有就空数组。connections 列出这个 bot 履行职责必须接入的外部服务，只能从这些 slug 里选：' +
+          '一个 bot 刚被创建。下面是从技能库里检索出的候选手册，请挑出要装在它身上的。\n' +
+          '判断标准只有一条：这本手册是不是它这份工作的常备本事——它每次干这份活都要照着做的那几本。符合的都选上，不用控制数量；装上的手册每一轮都进它的上下文，是它人设的一部分。\n' +
+          '候选是关键词检索出来的，多数时候是错的：检索只会找「沾边」，而库里本来就没有覆盖所有工作。默认答案是空数组，只有当你能说出「它职责里的这一句，做起来就是照这本手册」时才装。\n' +
+          '「同一个领域」不算数：管发票报销的不需要「财务建模」，陪人练口语的不需要「课程设计」，谁都不需要「对上汇报」——领域沾边、活不是一回事的，一本都不装。\n' +
+          '输出严格 JSON：{"mount":[{"slug":"…","why":"它职责里的哪一句要用到这本"},…],"connections":["服务 slug",…]}。每本都要写 why，写不出来的就是不该装的。mount 按相关度从高到低。connections 是它履行职责必须接入的外部服务，只能从这些里选：' +
           POPULAR_TOOLKITS.join(', ') +
-          '；只选职责里明确需要的（管邮件→gmail，看代码仓库→github，记 Notion→notion），拿不准就不选，没有就空数组。只输出 JSON。\n\n' +
-          this.catalogText('skill'),
-        messages: [{ role: 'user', content: `bot 名字：${bot.name}\n职责：${bot.role}\n能力短语：${bot.skills.join('、') || '（无）'}\n用户的第一句话：${brief}`, timestamp: Date.now() }],
+          '；只选职责里明确需要的（管邮件→gmail，看代码仓库→github，记 Notion→notion），拿不准就不选。只输出 JSON。\n\n候选手册：\n' +
+          menu,
+        messages: [{ role: 'user', content: `bot 名字：${bot.name}\n简介：${bot.tagline ?? ''}\n职责：${bot.role}\n用户的第一句话：${brief}`, timestamp: Date.now() }],
       });
       const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').replace(/```(?:json)?/g, '');
       const start = raw.indexOf('{');
       const end = raw.lastIndexOf('}');
       if (start < 0 || end < 0) return fallback();
-      const json = JSON.parse(raw.slice(start, end + 1)) as { mount?: unknown; covered?: unknown; connections?: unknown };
-      // Only manuals are mounted at birth; the rest of the pool is for the bot to reach for when it meets the need.
-      const mount = (Array.isArray(json.mount) ? json.mount : []).filter((x): x is string => typeof x === 'string' && (this.entries.get(x)?.kind ?? 'skill') === 'skill').slice(0, max);
-      const covered = (Array.isArray(json.covered) ? json.covered : []).filter((x): x is string => typeof x === 'string' && bot.skills.includes(x));
+      const json = JSON.parse(raw.slice(start, end + 1)) as { mount?: unknown; connections?: unknown };
+      const ok = new Set(cands.map((e) => e.slug));
+      // Each pick has to name the part of the job it serves. A manual nobody can write that sentence for is the kind
+      // that ends up in a bot's context for life for no reason.
+      const mount = (Array.isArray(json.mount) ? json.mount : [])
+        .map((x) => (typeof x === 'string' ? { slug: x, why: '' } : (x as { slug?: unknown; why?: unknown })))
+        .filter((x): x is { slug: string; why: string } => typeof x?.slug === 'string' && ok.has(x.slug) && typeof x.why === 'string' && x.why.trim().length > 1)
+        .map((x) => x.slug)
+        .slice(0, max);
       const connections = (Array.isArray(json.connections) ? json.connections : []).filter((x): x is string => typeof x === 'string' && POPULAR_TOOLKITS.includes(x.toLowerCase())).map((x) => x.toLowerCase()).slice(0, 3);
-      return { mount, covered, connections };
+      return { mount, connections };
     } catch (e) {
-      console.warn('[crew] library pick fell back to tags:', (e as Error).message);
+      console.warn('[crew] library pick fell back to search order:', (e as Error).message);
       return fallback();
     }
   }

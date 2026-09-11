@@ -12,7 +12,7 @@ import { Notifier } from './notifier.ts';
 import { Scheduler } from './scheduler.ts';
 import { AvatarService } from './avatar.ts';
 import { FakeBrain } from './fake-brain.ts';
-import { fromTemplate, inferBot, inferSkillDocs, inferSoul } from './infer-bot.ts';
+import { blankBot, inferBot, inferSkillDocs, inferSoul } from './infer-bot.ts';
 import { SkillStore } from './skills.ts';
 import { KIND_LABEL, Library, LIBRARY_CATEGORIES } from './library.ts';
 import { buildLabel, pickupSkills, runBuild } from './builder.ts';
@@ -190,6 +190,18 @@ async function main() {
     }
   };
   const ensureSkills = (bot: Bot) => skills.ensure(bot.skills, (missing) => inferSkillDocs(bot, missing, bots.modelRuntime, bots.lightModel));
+  /** Two passes over the pool — one on the brief, one on the finished role — as one list, best rank first. */
+  const mergeCandidates = (...lists: { slug: string }[][]) => {
+    const score = new Map<string, number>();
+    const seen = new Map<string, { slug: string }>();
+    for (const list of lists)
+      list.forEach((e, i) => {
+        score.set(e.slug, (score.get(e.slug) ?? 0) + 1 / (10 + i));
+        seen.set(e.slug, e);
+      });
+    return [...score.entries()].sort((x, y) => y[1] - x[1]).map(([slug]) => seen.get(slug)!) as ReturnType<Library['list']>;
+  };
+
   /** Copy library skills onto a bot; returns the display names actually added. */
   const mountLibrary = (botId: string, slugs: string[]) => {
     const added: string[] = [];
@@ -207,7 +219,9 @@ async function main() {
         console.warn('[crew] library mount failed:', (e as Error).message);
       }
     }
-    if (added.length) bots.recycle(botId);
+    // The session is built with the skills the bot had: a manual added while it is mid-turn is picked up by the next
+    // one (recycle waits for this turn to settle).
+    if (added.length) void bots.recycle(botId).catch((e: Error) => console.warn('[crew] recycle failed:', e.message));
     return added;
   };
   /**
@@ -275,15 +289,21 @@ async function main() {
   });
 
   /**
-   * The one way bots come into being: template instantly, LLM refinement + skills + avatar in the
-   * background, then the first message (if any) goes to the bot's own pi session.
+   * The one way bots come into being.
+   *
+   * Two things happen at once. The identity is written by the model from the situation the bot is born into
+   * (infer-bot.ts) and nothing else can start before it, because the bot's first turn runs on it. Everything it
+   * carries — manuals from the pool, the services its job needs, what those manuals stand on — is found and equipped
+   * alongside that first turn, not in front of it: the pool search starts on the brief while the identity call is
+   * still in flight, and `recycle` waits for the turn to settle before the session picks the new manuals up. What the
+   * user waits for is one model call, not the whole outfitting.
    */
   async function createBotFromBrief(
     brief: string,
     opts: { userMessageId?: string; name?: string; announce?: (b: Bot) => void; task?: string; fromBotId?: string },
   ): Promise<Bot> {
     const names = store.data.bots.map((b) => b.name);
-    const base = fromTemplate(brief, names);
+    const base = blankBot(brief, names);
     const bot = store.addBot({ ...base, ...(opts.name ? { name: opts.name } : {}), generating: { identity: true, avatar: avatars.available() } });
     opts.announce?.(bot);
     const threadId = botThread(bot.id);
@@ -297,20 +317,51 @@ async function main() {
       : store.addMessage({ id: opts.userMessageId, threadId, author: 'user', text: brief, ts: Date.now(), via: 'app' });
     if (from) store.addMessage({ threadId, author: 'system', text: `由 ${from.name} 创建。${opts.task ? '' : '还没有交给它任务。'}`, ts: Date.now() });
     store.typing(threadId, bot.id, true);
+    // Whatever happens to the identity call, the bot answers exactly once, and it answers as soon as it can.
+    let started = false;
+    const startFirstTurn = () => {
+      if (started) return;
+      started = true;
+      if (from && opts.task) void bots.send(bot.id, { threadId, kind: 'bot', text: `【来自 @${from.name}】${opts.task}`, fromBotId: from.id, depth: 1 });
+      else if (!from) void bots.send(bot.id, { threadId, kind: 'user', text: first, via: 'app', userMessageId: userMsg?.id });
+      else store.typing(threadId, bot.id, false);
+    };
     void (async () => {
+      // No model in this one: it runs on the brief while the identity is being written.
+      const early = library.candidates(brief, 16).catch(() => []);
+      let refined = bot;
       try {
-        const meta = await inferBot(brief, names, bots.modelRuntime, bots.lightModel);
-        // The skill phrases the model proposes are search hints, not skills: matching library manuals get mounted,
-        // the rest is dropped. A bot is never handed a manual that nobody wrote — one it invents for itself at birth
-        // reads like a manual and competes with the real one beside it.
-        const refined = store.patchBot(bot.id, { ...(opts.name ? {} : { name: meta.name }), glyph: meta.glyph, tagline: meta.tagline, role: meta.role, soul: meta.soul, skills: [] }) ?? bot;
+        const identity = inferBot(
+          brief,
+          {
+            existing: store.data.bots.filter((b) => b.id !== bot.id).map((b) => ({ name: b.name, tagline: b.tagline || b.role.split(/[。，]/)[0] })),
+            profile: everos.profileLines(),
+            integrations: store.data.integrations.filter((i) => i.status === 'ok' && i.kind !== 'channel').map((i) => i.name),
+            language: store.data.settings?.language,
+          },
+          bots.modelRuntime,
+          bots.lightModel,
+        );
+        // A light model having a bad minute must not hold the first reply hostage: past this the bot answers as
+        // itself-so-far, and the written identity lands underneath it whenever it arrives.
+        let meta = await Promise.race([identity, new Promise<undefined>((r) => setTimeout(() => r(undefined), 20_000))]);
+        if (!meta) {
+          startFirstTurn();
+          meta = await identity;
+        }
+        refined = store.patchBot(bot.id, { ...(opts.name ? {} : { name: meta.name }), glyph: meta.glyph, tagline: meta.tagline, role: meta.role, soul: meta.soul, skills: [] }) ?? bot;
         setGenerating(bot.id, 'identity', false);
         store.grow(bot.id, 'identity', `生成了名字、职责和人设，叫【${refined.name}】`);
         store.patchMessage(intro.id, { text: refined.role });
         void ensureAvatar(store.bot(bot.id) ?? refined);
-        const picks = await library.pickForBot({ ...refined, skills: meta.skills }, brief, bots.modelRuntime, bots.lightModel);
+        // The identity is in place, so the bot can work. Everything below lands around that first turn.
+        startFirstTurn();
+
+        const query = [brief, refined.role, meta.hints.join(' ')].filter(Boolean).join(' ');
+        const cands = mergeCandidates(await early, await library.candidates(query, 16).catch(() => []));
+        const picks = await library.pickForBot(refined, brief, cands, bots.modelRuntime, bots.lightModel);
         const mounted = mountLibrary(bot.id, picks.mount);
-        console.log(`[crew] ${refined.name} mounted from library: ${mounted.join('、') || '（没有对上的）'}${picks.covered.length ? `（对应 ${picks.covered.join('、')}）` : ''}`);
+        console.log(`[crew] ${refined.name} mounted from library: ${mounted.join('、') || '（没有对上的）'}（候选 ${cands.length}）`);
         // Connections the role needs are part of the build too: reuse an existing authorization, else hand the user a card now.
         for (const service of picks.connections) {
           try {
@@ -324,16 +375,10 @@ async function main() {
         // Inheriting a manual written by another bot means inheriting what it was written on top of.
         await followNeeds(bot.id, (store.bot(bot.id) ?? refined).skills, threadId);
       } catch (e) {
-        console.warn('[crew] identity refinement failed:', (e as Error).message);
+        console.warn('[crew] birth failed:', (e as Error).message);
         setGenerating(bot.id, 'identity', false);
       } finally {
-        if (from && opts.task) {
-          void bots.send(bot.id, { threadId, kind: 'bot', text: `【来自 @${from.name}】${opts.task}`, fromBotId: from.id, depth: 1 });
-        } else if (!from) {
-          void bots.send(bot.id, { threadId, kind: 'user', text: first, via: 'app', userMessageId: userMsg?.id });
-        } else {
-          store.typing(threadId, bot.id, false);
-        }
+        startFirstTurn();
       }
     })();
     return bot;
@@ -572,6 +617,7 @@ async function main() {
       });
     },
     librarySearch: (query, limit = 8) => (query.trim() ? library.search(query, limit) : library.list()).map((e) => ({ ...e, categoryLabel: LIBRARY_CATEGORIES[e.category] ?? e.category, kindLabel: KIND_LABEL[e.kind ?? 'skill'] })),
+    libraryFind: async (query, limit = 8) => (await library.candidates(query, limit)).map((e) => ({ ...e, categoryLabel: LIBRARY_CATEGORIES[e.category] ?? e.category, kindLabel: KIND_LABEL[e.kind ?? 'skill'] })),
     /**
      * Equip a bot with one entry from the pool. Four kinds, four ways in, one door: the bot says what it wants and
      * gets back either "ready" or exactly what is missing. Dependencies, credentials and grants are handled here so

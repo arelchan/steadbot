@@ -22,7 +22,8 @@ export function libraryExtension(c: BotCtx, ops: () => CrewOps): InlineExtension
         promptSnippet: '库里找现成的（手册 / 外部工具 / 素材包）：library(search) 找候选，read 手册路径看全文；值得留的才 build(add)',
         promptGuidelines: [
           '接到一类新任务先 library(search)。搜出来的是候选，不是清单：read 最像的一两份手册看它到底怎么做，其余当没看见。',
-          '看完再判断：这次用一次，就照着手册做完，不装；用户纠正过你、同类任务第二次来、或这次确实靠它才做好，再 build(add, value=slug) 让它长在身上。装上的东西每一轮都占提示词，装一两个最贴的就够。',
+          '看完再判断：这次用一次，就照着手册做完，不装；用户纠正过你、同类任务第二次来、或这次确实靠它才做好，再 build(add, value=slug) 让它长在身上。',
+          '装还是不装，标准是「这是不是我这份工作的常备本事」：装上的每一轮都在你的上下文里，属于你是谁的一部分。属于的就装，几本都行；偶尔用一次的不装——下次需要时你还会在这里搜到它。',
           '外部工具和素材包没法只看不装：这次需要就 build(add)，用完不需要可以 build(remove)。',
           '装上之后直接照着做，不用告诉用户「我装了个东西」；用户问起再说一句。',
         ],
@@ -50,7 +51,8 @@ export function libraryExtension(c: BotCtx, ops: () => CrewOps): InlineExtension
             return text([...byCat.entries()].map(([, es]) => `【${es[0].categoryLabel}】\n${es.map((e) => `- ${e.slug}｜${e.kindLabel}：${e.title} — ${e.description}${owned(e) ? '（已在你身上）' : ''}`).join('\n')}`).join('\n\n'));
           }
           if (!p.query?.trim()) throw new Error('search 需要 query');
-          const hits = ops().librarySearch(p.query, 8);
+          // 用词和库里的用词对不上是常态（「帮我看看 PR 写得行不行」对 code-review），所以这里按意思找，不只按字面。
+          const hits = await ops().libraryFind(p.query, 8);
           if (!hits.length) return text('库里没有匹配的。换个关键词再搜，或者直接做；同类活反复来再用 build(aspect=skill) 自己写一份手册。');
           return text(`${hits.map(line).join('\n')}\n\n先 read 最像的手册看怎么做；这次用一次就照着做，值得留的才 build(add)。`);
         },
