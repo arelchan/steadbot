@@ -20,7 +20,7 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
 
 模型和它们的钥匙在 App 里配：**设置 › 模型**，一行一件事（对话 / 轻模型 / 看图 / 操作屏幕 / 画图 / 联网搜索 / 向量 / 重排），每行自己选 provider 和 model id。provider 目录、每家要什么凭据、每个模型的价格和上下文，都来自 pi 的 `ModelRuntime`，不是我们维护的清单。改完不用重启：写回 config.json → 重新挑模型 → 各 bot 下一轮生效（`models.ts`、`config.ts` 的 getter）。
 
-画图、联网搜索、向量、重排这四行钉死在 OpenRouter：pi 的图像 api 只有 `openrouter-images`，搜索是 OpenRouter 自己的 `web` 插件，embedding 和 rerank 是我们直接发的 HTTP。
+画图和联网搜索只能选 OpenRouter：pi 的图像 api 只有 `openrouter-images`，搜索是 OpenRouter 自己的 `web` 插件。向量和重排是我们自己发的 HTTP，用哪家都行——provider 的 baseUrl 从 pi 读，key 从 `providerKeys` 读（`models.ts` 的 `endpointOf`）。
 
 `$CREW_HOME/config.json`（默认 `~/.crew/config.json`，600 权限）：
 
@@ -31,8 +31,8 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
   "imageModel": "openrouter/google/gemini-2.5-flash-image",
   "visionModel": "openrouter/google/gemini-2.5-flash",
   "guiModel": "openrouter/openai/gpt-6-astra",
-  "embeddingModel": "baai/bge-m3",
-  "rerankModel": "cohere/rerank-v3.5",
+  "embeddingModel": "openrouter/baai/bge-m3",
+  "rerankModel": "openrouter/cohere/rerank-v3.5",
   "providerKeys": { "openrouter": "...", "anthropic": "..." },
   "composioApiKey": "...",
   "modelMeta": { "openrouter/deepseek/deepseek-v4-flash": { "contextWindow": 1048576, "maxTokens": 32000, "vision": false, "costIn": 0.084, "costOut": 0.168 } },
@@ -59,8 +59,10 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
 | 头像 | 图像生成 | `imageModel`，走 pi-ai 的 `ImagesModels`（目前内置 OpenRouter） |
 | 看图 | 能读图的 LLM | `visionModel`，`see` 工具；主模型自己能看图时可留空 |
 | 操作屏幕 | computer-use 模型 | `guiModel`，`operate` 工具；缺省退到 `visionModel` |
-| 向量检索 | embedding | `embeddingModel`，技能库和记忆引擎共用（OpenRouter） |
+| 向量检索 | embedding | `embeddingModel`，技能库和记忆引擎共用；任何 OpenAI 兼容端点 |
 | 重排 | rerank | `rerankModel`，记忆引擎用；`"off"` 关掉 |
+
+记忆引擎（everos）是独立进程，四条腿（LLM / embedding / 多模态 / rerank）各自解析自己的 provider，都经本机记账代理走（`meter-proxy.ts`，路径首段是 provider id），所以换了 provider 也还在同一本账里。
 
 ## 目录
 

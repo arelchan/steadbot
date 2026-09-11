@@ -22,7 +22,6 @@ const KEYS_ROW = '__keys__';
 const short = (spec: string) => spec.replace(/^[a-z0-9-]+\//, '');
 const providerOf = (spec?: string) => (spec && spec.includes('/') ? spec.slice(0, spec.indexOf('/')) : undefined);
 const idOf = (spec?: string) => (spec && spec.includes('/') ? spec.slice(spec.indexOf('/') + 1) : (spec ?? ''));
-const providerName = (p: ModelsPage, id: string) => p.providers.find((x) => x.id === id)?.name ?? id;
 
 export function ModelsTab() {
   const t = useT();
@@ -137,33 +136,44 @@ function SlotView({
   const t = useT();
   // The provider a row is on is the one its model belongs to — until the user picks a different one and has not
   // yet picked a model from it. That in-between lives here, and is forgotten the moment the server answers.
-  const settled = slot.only ?? providerOf(slot.value) ?? providerOf(slot.effective) ?? '';
+  const settled = providerOf(slot.value) ?? providerOf(slot.effective) ?? (slot.only?.length === 1 ? slot.only[0] : '');
   const [picking, setPicking] = useState<{ from: string; to: string }>();
   const prov = picking?.from === settled ? picking.to : settled;
   const setProv = (to: string) => setPicking({ from: settled, to });
   const [manual, setManual] = useState(false);
 
-  // The rows pinned to one provider carry their own list; the rest read the provider's catalog.
-  const list: ModelChoice[] = useMemo(() => page.models[slot.only ? slot.id : prov] ?? [], [page, prov, slot.id, slot.only]);
+  // Chat and vision rows read the provider's own catalog; drawing, vectors and re-ranking have no catalog to read,
+  // so they carry a short list per provider — and where there is none, the row is a text field.
+  const listKey = slot.needs === 'chat' || slot.needs === 'vision' ? prov : `${slot.needs}:${prov}`;
+  const list: ModelChoice[] = useMemo(() => page.models[listKey] ?? [], [page, listKey]);
   const visible = slot.needs === 'vision' ? list.filter((m) => m.vision) : list;
-  const chosen = providerOf(slot.value) === prov || slot.only ? idOf(slot.value) : '';
-  const spec = (id: string) => (slot.only ? id : `${prov}/${id}`);
-  const provider = page.providers.find((p) => p.id === (slot.only ?? prov));
+  const chosen = providerOf(slot.value) === prov ? idOf(slot.value) : '';
+  const spec = (id: string) => `${prov}/${id}`;
+  const provider = page.providers.find((p) => p.id === prov);
+  // Nothing to choose from: the row is a text field rather than a select with one apologetic option.
+  const typeIt = manual || (!!prov && list.length === 0);
+  // Drawing and web search are OpenRouter's alone — pi's image api is its, and web search is its own plugin.
+  const choices = slot.only ? page.providers.filter((p) => slot.only!.includes(p.id)) : page.providers;
   const open = !!provider && asking?.slot === slot.id;
   // A hand-written id: the catalog cannot price it, so the row asks for the numbers itself.
   const unknown = !!slot.effective && slot.effective !== 'off' && !!slot.value && !list.some((x) => x.id === idOf(slot.value));
 
-  const empty = slot.inherits
-    ? t('models.inherit', { what: t(`models.slot.${slot.inherits}`) })
-    : slot.auto
-      ? t('models.auto')
-      : slot.fallback
-        ? t('models.default', { model: short(slot.fallback) })
-        : t('models.none');
+  // What "nothing chosen" means for this row — unless the user has just moved the row to another provider, in
+  // which case the inherited model or the shipped default is on the wrong one and the row is simply waiting.
+  const drifted = !!prov && !!slot.effective && providerOf(slot.effective) !== prov;
+  const empty = drifted
+    ? t('models.pickModel')
+    : slot.inherits
+      ? t('models.inherit', { what: t(`models.slot.${slot.inherits}`) })
+      : slot.auto
+        ? t('models.auto')
+        : slot.fallback
+          ? t('models.default', { model: short(slot.fallback) })
+          : t('models.none');
 
   // Three things the row can say about itself, in the order they matter: what it is for, who is the only one who
   // can do it, and — the only one that asks for anything — that whoever it is set to has no key.
-  const aside = slot.pinned ? t('models.pinned') : slot.only ? t('models.only', { who: providerName(page, slot.only) }) : '';
+  const aside = slot.pinned ? t('models.pinned') : '';
   const note = (
     <>
       {t(`models.what.${slot.id}`)}
@@ -180,27 +190,25 @@ function SlotView({
   return (
     <>
       <Row label={t(`models.slot.${slot.id}`)} note={note}>
-        {!slot.only && (
-          <Pick
-            value={prov}
-            onChange={(v) => {
-              setManual(false);
-              setProv(v);
-              onAsk(v && !page.providers.find((p) => p.id === v)?.keyed ? { slot: slot.id, provider: v } : undefined);
-              // A row cannot be half-changed: picking a new provider drops the old provider's model.
-              if (slot.value && providerOf(slot.value) !== v) onPatch({ slots: { [slot.id]: null } });
-            }}
-          >
-            <option value="">{t('models.pickProvider')}</option>
-            <optgroup label={t('models.connected')}>
-              {page.providers.filter((p) => p.keyed).map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-            </optgroup>
-            <optgroup label={t('models.others')}>
-              {page.providers.filter((p) => !p.keyed).map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-            </optgroup>
-          </Pick>
-        )}
-        {manual ? (
+        <Pick
+          value={prov}
+          onChange={(v) => {
+            setManual(false);
+            setProv(v);
+            onAsk(v && !page.providers.find((p) => p.id === v)?.keyed ? { slot: slot.id, provider: v } : undefined);
+            // A row cannot be half-changed: picking a new provider drops the old provider's model.
+            if (slot.value && providerOf(slot.value) !== v) onPatch({ slots: { [slot.id]: null } });
+          }}
+        >
+          <option value="">{t('models.pickProvider')}</option>
+          <optgroup label={t('models.connected')}>
+            {choices.filter((p) => p.keyed).map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+          </optgroup>
+          <optgroup label={t('models.others')}>
+            {choices.filter((p) => !p.keyed).map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+          </optgroup>
+        </Pick>
+        {typeIt ? (
           <input
             className="in mono"
             defaultValue={chosen}
@@ -210,7 +218,7 @@ function SlotView({
             onBlur={(e) => {
               const v = e.target.value.trim();
               setManual(false);
-              onPatch({ slots: { [slot.id]: v ? spec(v) : null } });
+              if (v !== chosen) onPatch({ slots: { [slot.id]: v ? spec(v) : null } });
             }}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           />
@@ -229,7 +237,7 @@ function SlotView({
                 {m.costIn ? ` · $${m.costIn}/${m.costOut ?? 0}` : ''}
               </option>
             ))}
-            <option value={MANUAL}>{t('models.manual')}</option>
+            {list.length > 0 && <option value={MANUAL}>{t('models.manual')}</option>}
           </Pick>
         )}
       </Row>

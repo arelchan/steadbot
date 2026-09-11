@@ -1,5 +1,6 @@
-import { config, orKey } from './config.ts';
+import { config } from './config.ts';
 import { recordRaw } from './meter.ts';
+import { endpointOf } from './models.ts';
 /**
  * Embeddings, on the key everything else already uses.
  *
@@ -8,12 +9,12 @@ import { recordRaw } from './meter.ts';
  * bge-m3 is what the memory engine indexes with (everos.ts), so meaning-level search costs no new credential and
  * no new model — one HTTP call, and the caller falls back to lexical whenever it fails.
  */
-const URL = 'https://openrouter.ai/api/v1/embeddings';
 const BATCH = 64;
 
-/** Read per call, not once at import: 设置 › 模型 can change either of these while the server is up. */
+/** Read per call, not once at import: 设置 › 模型 can change the provider or the model while the server is up. */
 export const embedModel = () => config.embeddingModel;
-export const canEmbed = () => !!orKey();
+const endpoint = () => endpointOf(config.embeddingModel);
+export const canEmbed = () => !!endpoint();
 
 function normalize(v: number[]): Float32Array {
   const out = new Float32Array(v.length);
@@ -26,20 +27,21 @@ function normalize(v: number[]): Float32Array {
 
 /** Unit vectors for each text, in order. Undefined — never a throw — when there is no key or the endpoint is unhappy. */
 export async function embed(texts: string[], timeoutMs = 30_000): Promise<Float32Array[] | undefined> {
-  if (!canEmbed() || !texts.length) return undefined;
+  const at = endpoint();
+  if (!at || !texts.length) return undefined;
   const out: Float32Array[] = [];
   try {
     for (let i = 0; i < texts.length; i += BATCH) {
       const input = texts.slice(i, i + BATCH).map((t) => t.replace(/\s+/g, ' ').trim().slice(0, 2000) || '-');
-      const r = await fetch(URL, {
+      const r = await fetch(`${at.baseUrl}/embeddings`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${orKey()}` },
-        body: JSON.stringify({ model: embedModel(), input }),
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${at.key}` },
+        body: JSON.stringify({ model: at.model, input }),
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 160)}`);
       const d = (await r.json()) as { data?: { index?: number; embedding?: number[] }[]; usage?: { prompt_tokens?: number; total_tokens?: number } };
-      recordRaw('library', undefined, embedModel(), { input: d.usage?.prompt_tokens ?? d.usage?.total_tokens, units: input.length });
+      recordRaw('library', undefined, `${at.provider}/${at.model}`, { input: d.usage?.prompt_tokens ?? d.usage?.total_tokens, units: input.length });
       const rows = d.data ?? [];
       if (rows.length !== input.length) throw new Error(`asked for ${input.length} vectors, got ${rows.length}`);
       for (let j = 0; j < rows.length; j += 1) {

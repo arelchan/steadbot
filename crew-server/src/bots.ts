@@ -13,7 +13,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import type { Model, Api } from '@earendil-works/pi-ai';
 import { config, metaOf } from './config.ts';
-import { applyProviderKeys } from './models.ts';
+import { applyProviderKeys, migrateSlots, useRuntime } from './models.ts';
 
 /** One entry of pi's extension `models` array — what registerProvider takes, not the resolved Model it returns. */
 type RegisteredModel = { id: string; name: string; api?: Api; baseUrl?: string; reasoning: boolean; input: ('text' | 'image')[]; cost: Model<Api>['cost']; contextWindow: number; maxTokens: number };
@@ -185,6 +185,8 @@ export class BotManager extends EventEmitter {
 
   async init(fakeFactory: () => FakeBrain) {
     this.modelRuntime = await ModelRuntime.create({ allowModelNetwork: false });
+    useRuntime(this.modelRuntime);
+    migrateSlots(this.modelRuntime);
     await applyProviderKeys(this.modelRuntime);
     this.pickModels(fakeFactory);
   }

@@ -681,6 +681,7 @@ export const ko: Record<string, string> = {
   'models.manual': 'id 입력…',
   'models.manualHint': '모델 id',
   'models.pickProvider': '고르기',
+  'models.pickModel': '고르기',
   'models.connected': '연결됨',
   'models.others': '기타',
   'models.only': '{who}에만 있습니다',

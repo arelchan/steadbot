@@ -681,6 +681,7 @@ export const es: Record<string, string> = {
   'models.manual': 'Escribir un id…',
   'models.manualHint': 'id del modelo',
   'models.pickProvider': 'Elige uno',
+  'models.pickModel': 'Elige uno',
   'models.connected': 'Conectados',
   'models.others': 'Otros',
   'models.only': 'Solo {who} lo tiene',

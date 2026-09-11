@@ -681,6 +681,7 @@ export const ja: Record<string, string> = {
   'models.manual': 'id を入力…',
   'models.manualHint': 'モデル id',
   'models.pickProvider': '選ぶ',
+  'models.pickModel': '選ぶ',
   'models.connected': '接続済み',
   'models.others': 'その他',
   'models.only': '{who} にしかありません',

@@ -681,6 +681,7 @@ export const zhTW: Record<string, string> = {
   'models.manual': '手動填寫…',
   'models.manualHint': '直接填模型 id',
   'models.pickProvider': '選一家',
+  'models.pickModel': '選一個',
   'models.connected': '已連',
   'models.others': '其他',
   'models.only': '只有 {who} 有',

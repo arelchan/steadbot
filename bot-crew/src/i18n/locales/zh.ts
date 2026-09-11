@@ -730,6 +730,7 @@ export const zh: Record<string, string> = {
   'models.manual': '手动填写…',
   'models.manualHint': '直接填模型 id',
   'models.pickProvider': '选一家',
+  'models.pickModel': '选一个',
   'models.connected': '已连',
   'models.others': '其他',
   'models.only': '只有 {who} 有',

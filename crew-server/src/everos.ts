@@ -17,7 +17,9 @@ import { promisify } from 'node:util';
 import YAML from 'yaml';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { config, orKey } from './config.ts';
+import { config } from './config.ts';
+import { endpointOf } from './models.ts';
+import { DEFAULT_VISION_MODEL } from './vision.ts';
 import { PLACEHOLDER, startMeterProxy } from './meter-proxy.ts';
 import type { CrewStore } from './store.ts';
 import { redactSecrets } from './secrets.ts';
@@ -40,7 +42,7 @@ const SPACE = 'shared';
  * refuses every `/knowledge/search` method without one, and the agent track's hybrid lane too.
  */
 const rerankModel = () => config.rerankModel;
-const hasRerank = () => !!orKey() && rerankModel() !== 'off';
+const hasRerank = () => rerankModel() !== 'off' && !!endpointOf(rerankModel());
 
 const PORT = Number(process.env.CREW_MEMORY_PORT ?? 5211);
 const BASE = process.env.EVEROS_URL ?? `http://127.0.0.1:${PORT}`;
@@ -217,32 +219,42 @@ async function health(ms = 1500): Promise<boolean> {
  * proxy it talks to OpenRouter directly with the real key, as it always did.
  */
 function childEnv(root: string): Record<string, string> {
-  const metered = !!proxyBase;
-  const base = proxyBase ?? 'https://openrouter.ai/api/v1';
-  const key = metered ? PLACEHOLDER : (orKey() ?? '');
-  const model = (config.lightModel ?? config.model ?? '').replace(/^openrouter\//, '');
+  /**
+   * One leg of the engine: which model, where it goes, and with whose key. Each of the four can be on a different
+   * provider now, so each is resolved on its own — through the meter proxy when it is up (the sidecar then holds a
+   * placeholder rather than a credential), straight at the provider when it is not.
+   */
+  const leg = (spec: string | undefined, fallback: string) => {
+    const at = endpointOf(spec) ?? endpointOf(fallback);
+    if (!at) return undefined;
+    return { model: at.model, base: proxyBase ? `${proxyBase}/${at.provider}` : at.baseUrl, key: proxyBase ? PLACEHOLDER : at.key };
+  };
+  const llm = leg(config.lightModel ?? config.model, 'openrouter/deepseek/deepseek-v4-flash')!;
+  const eyes = leg(config.visionModel, DEFAULT_VISION_MODEL)!;
+  const vec = leg(config.embeddingModel, 'openrouter/baai/bge-m3')!;
+  const re = hasRerank() ? leg(rerankModel(), 'openrouter/cohere/rerank-v3.5') : undefined;
   return {
     ...process.env,
     EVEROS_ROOT: root,
-    EVEROS_LLM__MODEL: model,
-    EVEROS_LLM__API_KEY: key,
-    EVEROS_LLM__BASE_URL: base,
-    // Cheap, multilingual, and on the same account as everything else. Changing this invalidates every
-    // vector in the index, so it is not a knob: a change means a rebuild.
-    EVEROS_EMBEDDING__MODEL: config.embeddingModel,
-    EVEROS_EMBEDDING__API_KEY: key,
-    EVEROS_EMBEDDING__BASE_URL: base,
+    EVEROS_LLM__MODEL: llm.model,
+    EVEROS_LLM__API_KEY: llm.key,
+    EVEROS_LLM__BASE_URL: llm.base,
+    // Cheap and multilingual. Changing this invalidates every vector in the index, so it is not a knob: a
+    // change means a rebuild.
+    EVEROS_EMBEDDING__MODEL: vec.model,
+    EVEROS_EMBEDDING__API_KEY: vec.key,
+    EVEROS_EMBEDDING__BASE_URL: vec.base,
     // Parsing an uploaded document (knowledge) goes through a model that can read pages, not the text model.
-    EVEROS_MULTIMODAL__MODEL: (config.visionModel ?? 'openrouter/google/gemini-2.5-flash').replace(/^openrouter\//, ''),
-    EVEROS_MULTIMODAL__API_KEY: key,
-    EVEROS_MULTIMODAL__BASE_URL: base,
-    // Re-scoring for knowledge retrieval and the agent track's hybrid lane. Same account, same key.
-    ...(hasRerank()
+    EVEROS_MULTIMODAL__MODEL: eyes.model,
+    EVEROS_MULTIMODAL__API_KEY: eyes.key,
+    EVEROS_MULTIMODAL__BASE_URL: eyes.base,
+    // Re-scoring for knowledge retrieval and the agent track's hybrid lane.
+    ...(re
       ? {
           EVEROS_RERANK__PROVIDER: 'vllm',
-          EVEROS_RERANK__MODEL: rerankModel(),
-          EVEROS_RERANK__API_KEY: key,
-          EVEROS_RERANK__BASE_URL: base,
+          EVEROS_RERANK__MODEL: re.model,
+          EVEROS_RERANK__API_KEY: re.key,
+          EVEROS_RERANK__BASE_URL: re.base,
         }
       : {}),
     // Both tracks: what the user is like, and how a bot got something done.
@@ -275,8 +287,8 @@ export function startMemory(): Promise<boolean> {
       console.log('[crew] 记忆：已关闭（CREW_MEMORY=0）');
       return false;
     }
-    if (!orKey()) {
-      console.log('[crew] 记忆：没有 OpenRouter key，先不开');
+    if (!endpointOf(config.lightModel ?? config.model)) {
+      console.log('[crew] 记忆：对话模型还没配钥匙，先不开');
       return false;
     }
     // Up before the engine is spawned: its base URLs are written into the environment it starts with.

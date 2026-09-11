@@ -246,8 +246,8 @@ export type SlotNeeds = 'chat' | 'vision' | 'image' | 'embed' | 'rerank';
 export interface ModelSlot {
   id: SlotId;
   needs: SlotNeeds;
-  /** 只有这家能干（画图、搜索、向量、重排都只有 OpenRouter） */
-  only?: string;
+  /** 只有这几家能干（画图和联网搜索只有 OpenRouter）；没有就是随便哪家 */
+  only?: string[];
   /** 留空就跟着另一行走 */
   inherits?: SlotId;
   /** 留空就用产品自带的 */
@@ -301,7 +301,7 @@ export interface ModelChoice {
 export interface ModelsPage {
   slots: ModelSlot[];
   providers: ModelProvider[];
-  /** 按 provider id；画图/向量/重排三行按槽位名（imageModel / embeddingModel / rerankModel） */
+  /** 对话和看图按 provider id；画图、向量、重排按 `<needs>:<provider>`，没有这个键就是「自己填 id」 */
   models: Record<string, ModelChoice[]>;
 }
 

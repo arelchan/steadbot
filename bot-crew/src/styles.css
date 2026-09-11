@@ -1509,7 +1509,8 @@ li.md-task.done { color: var(--text-2); }
 
 /* 设置 › 模型：一行一件事，右边是「谁来干」和「用哪个模型」 */
 .models.busy { opacity: 0.55; pointer-events: none; }
-.models .set-rc .pick select { max-width: 232px; }
+.models .set-rc { display: grid; grid-template-columns: 168px 236px; gap: 10px; }
+.models .set-rc .pick select, .models .set-rc .in { width: 100%; max-width: none; }
 .models .in { font-size: 12.5px; width: 232px; background: var(--panel-2); border: 1px solid var(--hair-2); border-radius: var(--r-sm); padding: 7px 11px; }
 .models .in:focus { outline: 0; border-color: var(--accent-hair); }
 .models .in.mono { font-family: var(--mono); font-size: 11.5px; }

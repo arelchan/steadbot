@@ -122,8 +122,9 @@ if (!process.env.TZ) {
 }
 
 /** What each slot falls back to when nobody chose: what the product shipped with. */
-export const DEFAULT_EMBEDDING_MODEL = 'baai/bge-m3';
-export const DEFAULT_RERANK_MODEL = 'cohere/rerank-v3.5';
+export const DEFAULT_EMBEDDING_MODEL = 'openrouter/baai/bge-m3';
+export const DEFAULT_RERANK_MODEL = 'openrouter/cohere/rerank-v3.5';
+
 
 export const config = {
   home,

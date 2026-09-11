@@ -708,6 +708,7 @@ export const en: Record<string, string> = {
   'models.manual': 'Type an id…',
   'models.manualHint': 'model id',
   'models.pickProvider': 'Pick one',
+  'models.pickModel': 'Pick one',
   'models.connected': 'Connected',
   'models.others': 'Others',
   'models.only': 'Only {who} has it',

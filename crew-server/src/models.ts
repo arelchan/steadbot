@@ -1,7 +1,7 @@
 import type { Api, Model } from '@earendil-works/pi-ai';
 import { builtinImagesModels } from '@earendil-works/pi-ai/providers/all';
 import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
-import { DEFAULT_EMBEDDING_MODEL, DEFAULT_RERANK_MODEL, config, readFileConfig, updateConfigFile, type ModelInfo } from './config.ts';
+import { DEFAULT_EMBEDDING_MODEL, DEFAULT_RERANK_MODEL, config, orKey, readFileConfig, updateConfigFile, type ModelInfo } from './config.ts';
 import { DRAW_STYLES } from './draw.ts';
 import { DEFAULT_VISION_MODEL } from './vision.ts';
 
@@ -24,8 +24,8 @@ export interface SlotDef {
   id: SlotId;
   /** what the model has to be able to do, which is also what the model list is filtered by */
   needs: 'chat' | 'vision' | 'image' | 'embed' | 'rerank';
-  /** rows that can only be served by one provider (see the note above) */
-  only?: string;
+  /** the providers that can serve this row at all; absent means any of them */
+  only?: string[];
   /** left empty, this row borrows another one */
   inherits?: SlotId;
   /** left empty, this row falls back to a model the product ships with */
@@ -41,10 +41,10 @@ export const SLOTS: SlotDef[] = [
   { id: 'lightModel', needs: 'chat', inherits: 'model' },
   { id: 'visionModel', needs: 'vision', fallback: DEFAULT_VISION_MODEL },
   { id: 'guiModel', needs: 'vision', inherits: 'visionModel' },
-  { id: 'imageModel', needs: 'image', only: 'openrouter', auto: true },
-  { id: 'searchModel', needs: 'chat', only: 'openrouter', inherits: 'lightModel' },
-  { id: 'embeddingModel', needs: 'embed', only: 'openrouter', fallback: DEFAULT_EMBEDDING_MODEL },
-  { id: 'rerankModel', needs: 'rerank', only: 'openrouter', fallback: DEFAULT_RERANK_MODEL, offable: true },
+  { id: 'imageModel', needs: 'image', only: ['openrouter'], auto: true },
+  { id: 'searchModel', needs: 'chat', only: ['openrouter'], inherits: 'lightModel' },
+  { id: 'embeddingModel', needs: 'embed', fallback: DEFAULT_EMBEDDING_MODEL },
+  { id: 'rerankModel', needs: 'rerank', fallback: DEFAULT_RERANK_MODEL, offable: true },
 ];
 
 export interface ProviderRow {
@@ -84,23 +84,37 @@ export interface SlotRow extends SlotDef {
 export interface ModelsPage {
   slots: SlotRow[];
   providers: ProviderRow[];
-  /** model lists, by provider id; only for providers that can actually be reached */
+  /**
+   * What each row may choose from. Chat and vision rows read a provider's own catalog and are keyed by provider id;
+   * drawing, embedding and reranking are keyed `<needs>:<provider>`, and a missing key means "type the id".
+   */
   models: Record<string, ModelRow[]>;
 }
 
 /** The four rows pinned to OpenRouter draw from these lists instead of a chat catalog. */
 const imagesCatalog = builtinImagesModels();
 
-/** Embedding and rerank models are not in anybody's chat catalog; these are the ones this product has run on. */
-const EMBED_MODELS: ModelRow[] = [
-  { id: 'baai/bge-m3', name: 'BGE-M3', vision: false },
-  { id: 'qwen/qwen3-embedding-8b', name: 'Qwen3 Embedding 8B', vision: false },
-  { id: 'openai/text-embedding-3-large', name: 'OpenAI text-embedding-3-large', vision: false },
-];
-const RERANK_MODELS: ModelRow[] = [
-  { id: 'cohere/rerank-v3.5', name: 'Cohere Rerank 3.5', vision: false },
-  { id: 'baai/bge-reranker-v2-m3', name: 'BGE Reranker v2-m3', vision: false },
-];
+/**
+ * Embedding and rerank models are in nobody's catalog — pi does not model them and providers do not publish them
+ * the way they publish chat models. These are the ones this product has actually run on, per provider; any other
+ * provider's row is a text field, which is the honest answer rather than a short list pretending to be complete.
+ */
+const EMBED_MODELS: Record<string, ModelRow[]> = {
+  openrouter: [
+    { id: 'baai/bge-m3', name: 'BGE-M3', vision: false },
+    { id: 'qwen/qwen3-embedding-8b', name: 'Qwen3 Embedding 8B', vision: false },
+  ],
+  openai: [
+    { id: 'text-embedding-3-large', name: 'text-embedding-3-large', vision: false },
+    { id: 'text-embedding-3-small', name: 'text-embedding-3-small', vision: false },
+  ],
+};
+const RERANK_MODELS: Record<string, ModelRow[]> = {
+  openrouter: [
+    { id: 'cohere/rerank-v3.5', name: 'Cohere Rerank 3.5', vision: false },
+    { id: 'baai/bge-reranker-v2-m3', name: 'BGE Reranker v2-m3', vision: false },
+  ],
+};
 
 function imageModels(): ModelRow[] {
   const rows = new Map<string, ModelRow>();
@@ -112,6 +126,22 @@ function imageModels(): ModelRow[] {
       if (!rows.has(id)) rows.set(id, { id, name: id, vision: true });
     }
   return [...rows.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+let runtime: ModelRuntime | undefined;
+/** bots.ts hands the runtime over once it exists; endpointOf and modelsPage read it from here. */
+export const useRuntime = (rt: ModelRuntime) => void (runtime = rt);
+
+/**
+ * Where to send one of our own HTTP calls — embeddings and reranking, which pi has no concept of. The provider's
+ * base URL comes from pi, the key from what the user typed (or, for OpenRouter, the environment).
+ */
+export function endpointOf(spec: string | undefined): { provider: string; model: string; baseUrl: string; key: string } | undefined {
+  const s = splitSpec(spec);
+  if (!s || s.id === 'off') return undefined;
+  const baseUrl = runtime?.getProvider(s.provider)?.baseUrl;
+  const key = s.provider === 'openrouter' ? orKey() : config.providerKeys[s.provider]?.trim();
+  return baseUrl && key ? { provider: s.provider, model: s.id, baseUrl: baseUrl.replace(/\/$/, ''), key } : undefined;
 }
 
 const sees = (m: Model<Api>) => (m.input ?? []).includes('image');
@@ -189,17 +219,17 @@ export function modelsPage(rt: ModelRuntime | undefined): ModelsPage {
     }
     providers.sort((a, b) => (a.keyed && !b.keyed ? -1 : b.keyed && !a.keyed ? 1 : a.name.localeCompare(b.name)));
   }
-  // The pinned rows: their model lists do not come from a provider's chat catalog, so they travel under the
-  // slot's own name rather than a provider id.
-  models.imageModel = imageModels();
-  models.embeddingModel = EMBED_MODELS;
-  models.rerankModel = RERANK_MODELS;
+  // Drawing, embedding and reranking do not read a provider's chat catalog, so their lists travel under
+  // `<what the row needs>:<provider>` and the App asks for them by that key.
+  models['image:openrouter'] = imageModels();
+  for (const [id, rows] of Object.entries(EMBED_MODELS)) models[`embed:${id}`] = rows;
+  for (const [id, rows] of Object.entries(RERANK_MODELS)) models[`rerank:${id}`] = rows;
   const slots: SlotRow[] = SLOTS.map((def) => {
     const value = slotValue(def.id)?.trim() || undefined;
     const effective = effectiveOf(def.id);
     // A row is blocked when the model it would use has nobody paying for it. The pinned rows are blocked by the
     // same rule even when they are on automatic: drawing with no OpenRouter key is still drawing with no key.
-    const providerId = def.only ?? splitSpec(effective)?.provider;
+    const providerId = splitSpec(effective)?.provider ?? (def.only?.length === 1 ? def.only[0] : undefined);
     const keyed = !providerId || !!providers.find((p) => p.id === providerId)?.keyed;
     const blocked = effective !== 'off' && (!!effective || !!def.auto) && !keyed;
     return { ...def, value, effective, blocked, pinned: slotPinned(def.id) || undefined, meta: effective ? config.modelMeta[effective] : undefined };
@@ -211,6 +241,28 @@ export function modelsPage(rt: ModelRuntime | undefined): ModelsPage {
 export async function refreshCatalog(rt: ModelRuntime | undefined): Promise<void> {
   if (!rt) return;
   await rt.refresh({});
+}
+
+/**
+ * `embeddingModel` and `rerankModel` were bare model ids while there was only one place to send them. Now that the
+ * row picks its own provider they are "provider/model-id" like everything else — and only pi can say whether the
+ * first segment of an old value is a provider or the model vendor, so the rewrite happens here, once.
+ */
+export function migrateSlots(rt: ModelRuntime | undefined): void {
+  if (!rt) return;
+  const cur = readFileConfig() as Record<string, string | undefined>;
+  const patch: Partial<Record<SlotId, string>> = {};
+  for (const id of ['embeddingModel', 'rerankModel'] as const) {
+    const v = cur[id]?.trim();
+    if (!v || v === 'off') continue;
+    const head = v.slice(0, v.indexOf('/'));
+    if (head && rt.getProvider(head)) continue;
+    patch[id] = `openrouter/${v}`;
+  }
+  if (Object.keys(patch).length) {
+    saveModels({ slots: patch });
+    console.log('[crew] 模型：向量和重排补上了 provider 前缀', JSON.stringify(patch));
+  }
 }
 
 /** Hand pi every key the user typed. Runtime keys are an in-memory overlay; config.json is where they live. */

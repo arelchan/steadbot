@@ -1,17 +1,20 @@
 /**
  * The memory engine spends on the same key, and until now nobody could say how much.
  *
- * everos is its own process: we hand it the OpenRouter key through the environment and it talks to OpenRouter
+ * everos is its own process: we used to hand it the key through the environment and it talked to the provider
  * directly — memory extraction, embeddings, rerank, document parsing. None of that could reach the ledger, and by
  * the shape of the work it is not small. So its four base URLs point here instead: a loopback forwarder that adds
  * the real key, passes the response through untouched, and files what the response says it cost. The sidecar now
  * holds a placeholder instead of a credential, which is the second reason to do it this way.
+ *
+ * Each leg can be on a different provider now (设置 › 模型 lets the embedding row pick its own), so the base URL
+ * handed over carries the provider id — `http://127.0.0.1:<port>/<provider>` — and the first path segment is what
+ * picks the upstream and the key.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { orKey } from './config.ts';
 import { recordRaw } from './meter.ts';
+import { endpointOf } from './models.ts';
 
-const UPSTREAM = 'https://openrouter.ai/api/v1';
 export const PLACEHOLDER = 'metered-by-crew';
 
 let server: Server | undefined;
@@ -49,13 +52,25 @@ function usageOf(body: string, stream: boolean): { model?: string; input: number
   return undefined;
 }
 
-async function handle(req: IncomingMessage, res: ServerResponse, key: string): Promise<void> {
-  const path = (req.url ?? '/').replace(/^\/+/, '');
+async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const raw = (req.url ?? '/').replace(/^\/+/, '');
+  const slash = raw.indexOf('/');
+  const provider = slash > 0 ? raw.slice(0, slash) : raw;
+  const path = slash > 0 ? raw.slice(slash + 1) : '';
+  // `<provider>/x` is enough to resolve both ends: pi knows the base URL, we know the key.
+  const at = endpointOf(`${provider}/x`);
+  if (!at) {
+    res.writeHead(502, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: { message: `记忆引擎要用的 ${provider} 没有钥匙` } }));
+    return;
+  }
+  const key = at.key;
   const chunks: Buffer[] = [];
   for await (const c of req) chunks.push(c as Buffer);
   let body: Buffer | undefined = chunks.length ? Buffer.concat(chunks) : undefined;
-  // Ask OpenRouter to price it for us; without this a streamed completion reports tokens and no cost.
-  if (body && /chat\/completions|completions$/.test(path)) {
+  // Ask OpenRouter to price it for us; without this a streamed completion reports tokens and no cost. Its own
+  // extension, so only it is asked — another provider would reject the unknown field.
+  if (body && provider === 'openrouter' && /chat\/completions|completions$/.test(path)) {
     try {
       const j = JSON.parse(body.toString('utf8')) as Record<string, unknown>;
       j.usage = { include: true };
@@ -71,7 +86,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, key: string): P
   }
   let upstream: Response;
   try {
-    upstream = await fetch(`${UPSTREAM}/${path}`, { method: req.method, headers, body: body ? new Uint8Array(body) : undefined, signal: AbortSignal.timeout(300_000) });
+    upstream = await fetch(`${at.baseUrl}/${path}`, { method: req.method, headers, body: body ? new Uint8Array(body) : undefined, signal: AbortSignal.timeout(300_000) });
   } catch (e) {
     res.writeHead(502, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ error: { message: `记忆引擎的请求没发出去：${(e as Error).message}` } }));
@@ -93,23 +108,21 @@ async function handle(req: IncomingMessage, res: ServerResponse, key: string): P
 }
 
 /**
- * Start the forwarder and return the base URL to hand the engine. Undefined when there is no key, or the listener
- * will not come up — the caller then points the engine straight at OpenRouter, unmetered but working.
+ * Start the forwarder and return its base, to which the caller appends the provider id of each leg. Undefined when
+ * the listener will not come up — the caller then points the engine straight at the provider, unmetered but working.
  */
 export async function startMeterProxy(): Promise<string | undefined> {
   if (base) return base;
-  const key = orKey();
-  if (!key) return undefined;
   return new Promise((resolve) => {
     const s = createServer((req, res) => {
-      void handle(req, res, key).catch((e: Error) => {
+      void handle(req, res).catch((e: Error) => {
         console.warn('[crew] 记账代理出错：', e.message);
         if (!res.headersSent) res.writeHead(500);
         res.end();
       });
     });
     s.on('error', (e) => {
-      console.warn('[crew] 记账代理起不来，记忆引擎直连 OpenRouter：', e.message);
+      console.warn('[crew] 记账代理起不来，记忆引擎直连各家：', e.message);
       resolve(undefined);
     });
     s.listen(0, '127.0.0.1', () => {

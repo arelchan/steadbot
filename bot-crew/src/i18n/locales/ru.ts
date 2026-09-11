@@ -731,6 +731,7 @@ export const ru: Record<string, string> = {
   'models.manual': 'Ввести id…',
   'models.manualHint': 'id модели',
   'models.pickProvider': 'Выберите',
+  'models.pickModel': 'Выберите',
   'models.connected': 'Подключены',
   'models.others': 'Остальные',
   'models.only': 'Есть только у {who}',
