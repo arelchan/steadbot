@@ -11,8 +11,9 @@
  * `role: "user"` message owns the user track, the `sender_id` of a `role: "assistant"` message owns
  * the agent track — which is why a bot's own id is what we later read back as `agent_id`.
  */
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { promisify } from 'node:util';
 import YAML from 'yaml';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -82,6 +83,9 @@ let starting: Promise<boolean> | undefined;
 /** Compressed resident profile, refreshed after each extraction; injected every turn without a network call. */
 let profileCache: string[] = [];
 const idle = new Map<string, ReturnType<typeof setTimeout>>();
+/** The engine's own last words. It logs to stdout, which nobody would otherwise ever read (see `said`). */
+let tail = '';
+let saidWhy = false;
 /** Which bots have said something in a thread since its last extraction. */
 const contributors = new Map<string, Set<string>>();
 
@@ -101,8 +105,90 @@ function bin(): string | undefined {
   for (const p of [join(homedir(), '.local/bin/everos'), '/usr/local/bin/everos', '/opt/everos/bin/everos']) {
     if (existsSync(p)) return p;
   }
-  // Last resort: let PATH resolve it, and treat a spawn failure as "not installed".
-  return 'everos';
+  return undefined;
+}
+
+const exec = promisify(execFile);
+
+/** The one place every version of the engine is written down; the image reads the same file. */
+function pins(): { everos: string; with: string[] } {
+  const f = join(import.meta.dirname, 'engine.json');
+  const d = JSON.parse(readFileSync(f, 'utf8')) as { everos: string; with: string[] };
+  return { everos: d.everos, with: d.with };
+}
+
+function uvBin(): string | undefined {
+  for (const p of [join(homedir(), '.local/bin/uv'), '/usr/local/bin/uv', '/opt/homebrew/bin/uv']) if (existsSync(p)) return p;
+  return undefined;
+}
+
+/**
+ * Put the engine on this machine, or put it back the way engine.json says it should be.
+ *
+ * The image already carries it, so this is the path for the user's own computer and for anyone who installs
+ * the product fresh: memory is a dependency like any other, and the rule for those is that the machine
+ * converges by itself rather than asking (DESIGN.md §17). It runs in the background, takes minutes the first
+ * time (lancedb and pyarrow are big), and every failure is just "no memory this time".
+ *
+ * `force` reinstalls a broken one — an engine that answers but cannot write is what a floating dependency
+ * looks like from out here.
+ */
+async function installEngine(force = false): Promise<string | undefined> {
+  if (process.env.CREW_MEMORY_INSTALL === '0') return undefined;
+  let uv = uvBin();
+  if (!uv) {
+    console.log('[crew] 记忆：这台机器没有 uv，先装 uv…');
+    try {
+      await exec('/bin/sh', ['-lc', 'curl -LsSf https://astral.sh/uv/install.sh | sh'], { timeout: 5 * 60_000 });
+    } catch (e) {
+      console.warn('[crew] 记忆：uv 装不上 —', (e as Error).message.slice(0, 120));
+      return undefined;
+    }
+    uv = uvBin();
+    if (!uv) return undefined;
+  }
+  const p = pins();
+  const args = ['tool', 'install', '--python', '3.12', ...(force ? ['--force'] : []), ...p.with.flatMap((w) => ['--with', w]), p.everos];
+  console.log(`[crew] 记忆：${force ? '重装' : '装'}记忆引擎（${p.everos}，几分钟）…`);
+  try {
+    await exec(uv, args, { timeout: 20 * 60_000, maxBuffer: 16 << 20 });
+  } catch (e) {
+    console.warn('[crew] 记忆：引擎装不上 —', (e as Error).message.slice(0, 200));
+    return undefined;
+  }
+  const got = bin();
+  if (got) console.log('[crew] 记忆：引擎装好了');
+  return got;
+}
+
+/**
+ * Whether the engine can actually take a memory — which is not the same question as whether it is running.
+ *
+ * `/health` only proves the process is up. On 2026-09-10 the sidecar answered `{"status":"ok"}` for a whole
+ * day while every single write returned 500 (an everalgo version skew), and from the outside that is
+ * indistinguishable from a quiet week: memory just never appears. So startup writes one throwaway line and
+ * looks at the answer. It costs one boundary call per process start.
+ *
+ * The line is an assistant message owned by `crew`: a single message with no tool calls is dropped by the
+ * agent extractor, so nothing is ever made of it, and it never reaches the user track.
+ */
+async function probe(): Promise<boolean> {
+  try {
+    const r = await fetch(`${BASE}/api/v1/memory/add`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ session_id: '__probe__', app_id: APP, project_id: SPACE, messages: [{ sender_id: CREW, role: 'assistant', timestamp: Date.now(), content: '（启动自检）' }] }),
+      signal: AbortSignal.timeout(120_000),
+    });
+    if (r.ok) return true;
+    const j = (await r.json().catch(() => ({}))) as { error?: { message?: string } };
+    console.warn(`[crew] 记忆：引擎起来了但写不进去（${r.status} ${j.error?.message ?? ''}）`);
+    said(r.status);
+    return false;
+  } catch (e) {
+    console.warn('[crew] 记忆：自检没跑通 —', (e as Error).message.slice(0, 120));
+    return false;
+  }
 }
 
 async function health(ms = 1500): Promise<boolean> {
@@ -177,21 +263,28 @@ export function startMemory(): Promise<boolean> {
       console.log('[crew] 记忆：没有 OpenRouter key，先不开');
       return false;
     }
-    // Something already listening (a dev restart, or a sidecar the user runs themselves): use it.
+    // Something already listening (a dev restart, or a sidecar the user runs themselves): use it, once it
+    // has shown it can take a write.
     if (await health()) {
       up = true;
-      console.log(`[crew] 记忆：接上已在跑的 EverOS（${BASE}）`);
-      void refreshProfile();
-      return true;
+      if (await probe()) {
+        console.log(`[crew] 记忆：接上已在跑的 EverOS（${BASE}）`);
+        void refreshProfile();
+        return true;
+      }
+      up = false;
+      console.warn('[crew] 记忆：那个 EverOS 写不进去，先用纯文本那套');
+      return false;
     }
-    const exe = bin();
+    // No engine on this machine: put one there. The image ships it, so this is the user's own computer, or
+    // anyone who just installed the product.
+    const exe = bin() ?? (await installEngine());
     if (!exe) {
-      console.log('[crew] 记忆：这台机器没装 EverOS，先用纯文本那套');
+      console.log('[crew] 记忆：这台机器没装 EverOS，也没装成，先用纯文本那套');
       return false;
     }
     const root = memoryRoot();
     await scaffold(root, exe);
-    let tail = '';
     let missing = false;
     const spawnOne = () => {
       const c = spawn(exe, ['server', 'start', '--host', '127.0.0.1', '--port', String(PORT), '--root', root], {
@@ -223,13 +316,28 @@ export function startMemory(): Promise<boolean> {
     // for a reason that fixes itself: right after this server restarted, the previous sidecar can still be
     // holding the port for a second or two.
     let spawns = 1;
+    let repaired = false;
     for (let i = 0; i < 40; i++) {
       await new Promise((r) => setTimeout(r, 1000));
       if (await health()) {
         up = true;
-        console.log(`[crew] 记忆：EverOS 就位（${BASE}，${root}）`);
-        void refreshProfile();
-        return true;
+        if (await probe()) {
+          console.log(`[crew] 记忆：EverOS 就位（${BASE}，${root}）`);
+          void refreshProfile();
+          return true;
+        }
+        up = false;
+        // It runs and refuses to write. That is what a drifted dependency looks like from here, so put the
+        // whole set back the way engine.json says and try once more.
+        child?.kill();
+        child = undefined;
+        if (repaired) return false;
+        repaired = true;
+        const fixed = await installEngine(true);
+        if (!fixed) return false;
+        child = spawnOne();
+        i = 0;
+        continue;
       }
       if (missing) {
         console.log('[crew] 记忆：这台机器没装 EverOS，先用纯文本那套');
@@ -259,6 +367,20 @@ export function stopMemory() {
   up = false;
 }
 
+/**
+ * What the engine said about itself, once. Its 500s arrive as `{"error": "Internal server error"}` with the
+ * real cause — a version skew inside everalgo, a missing key — only in its own stdout, which this process
+ * drains and drops. Without this, a broken write path looks exactly like a quiet one: memory simply never
+ * appears, and nothing in the log says why.
+ */
+function said(status: number) {
+  if (saidWhy || status < 500 || !tail) return;
+  saidWhy = true;
+  const lines = tail.replace(/\x1b\[[0-9;]*m/g, '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const blame = [...lines].reverse().find((l) => /Error|Exception|Traceback/.test(l)) ?? lines[lines.length - 1];
+  console.warn(`[crew] 记忆：引擎自己报的错 — ${blame.slice(0, 300)}`);
+}
+
 async function call<T>(path: string, body: unknown, ms: number): Promise<T | undefined> {
   if (!up) return undefined;
   try {
@@ -271,6 +393,7 @@ async function call<T>(path: string, body: unknown, ms: number): Promise<T | und
     const j = (await r.json()) as { data?: T; error?: { message?: string } };
     if (!r.ok || j.error) {
       console.warn(`[crew] 记忆 ${path}：${j.error?.message ?? r.status}`);
+      said(r.status);
       return undefined;
     }
     return j.data;

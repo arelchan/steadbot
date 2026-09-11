@@ -214,7 +214,10 @@ async function pullOnMachine(l: MachineLink, want: string, log: (s: string) => v
 
 /** Restart when only code changed; rebuild the image when its inputs did. */
 async function applyOnMachine(l: MachineLink, changed: string[], log: (s: string) => void) {
-  const heavy = changed.some((f) => f === '*' || /^crew-server\/(package(-lock)?\.json|Dockerfile)$/.test(f) || f.startsWith('crew-server/deploy/'));
+  // …and the memory engine's pinned versions: they are installed into the image, not the volume (engine.json).
+  const heavy = changed.some(
+    (f) => f === '*' || /^crew-server\/(package(-lock)?\.json|Dockerfile|src\/engine\.json)$/.test(f) || f.startsWith('crew-server/deploy/'),
+  );
   if (heavy) {
     log('依赖或镜像定义变了，要重建镜像（几分钟）…');
     const r = await root(l, `cd ${CHECKOUT}/crew-server/deploy && CREW_COMMIT=$(git -C ${CHECKOUT} rev-parse HEAD) bash ./install.sh`, 45 * 60_000);

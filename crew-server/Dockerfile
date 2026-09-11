@@ -17,11 +17,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       # cutting the background out of a generated picture (game sprites, stickers, cut-outs): CPU-only, no GPU here
       rembg onnxruntime
 # Memory (everos.ts): the engine runs as a sidecar on loopback. It wants Python 3.12 and Debian ships 3.11, so uv
-# brings its own interpreter. Pinned, because the index on the volume is written by this exact version; and
-# non-fatal, because a machine that cannot install it still runs, just with the plain-text memory it always had.
+# brings its own interpreter. Every version comes from engine.json — the same file the server reads when it has to
+# install the engine on a machine that has none — because `everos` pins itself but not its eight everalgo
+# packages, and a floating one of those silently breaks writing (see the note in engine.json). Non-fatal: a
+# machine that cannot install it still runs, just without memory.
 ENV UV_INSTALL_DIR=/usr/local/bin UV_TOOL_BIN_DIR=/usr/local/bin
+COPY src/engine.json /app/engine.json
 RUN (curl -LsSf https://astral.sh/uv/install.sh | sh \
-      && uv tool install --python 3.12 --with lancedb==0.33.0 'everos[multimodal]==1.1.3' \
+      && uv tool install --python 3.12 \
+           $(python3 -c "import json;d=json.load(open('/app/engine.json'));print(' '.join('--with '+w for w in d['with']))") \
+           "$(python3 -c "import json;print(json.load(open('/app/engine.json'))['everos'])")" \
       && everos --help > /dev/null) \
     || echo "[crew] everos not installed; memory falls back to the plain-text lists"
 WORKDIR /app
