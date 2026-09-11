@@ -101,8 +101,41 @@ interface BotRuntime {
   markupNudged?: boolean;
   /** already handed one message back this turn over a format that does not parse (format-check.ts) */
   formatNudged?: boolean;
+  /** tool calls made this turn, and whether any of them was one that makes something */
+  toolCalls: number;
+  workTool?: boolean;
+  /** the model touched its task list this turn (create / update / close / drop) */
+  todoTouched?: boolean;
+  /** already asked once this turn for the work to be written down */
+  todoNudged?: boolean;
   /** what this turn said and did, handed to the memory engine when it settles (everos.ts) */
   turn?: { threadId: ThreadId; msgs: everos.EvMsg[] };
+}
+
+/**
+ * Tools that make something rather than look something up. A turn that used one of these did work the user
+ * should be able to see in 事项; reading, searching and asking do not count on their own.
+ */
+const WORK_TOOLS = new Set(['bash', 'write', 'edit', 'draw', 'operate', 'computer', 'schedule', 'delegate_agent', 'act']);
+
+/**
+ * Whether to ask the model, once, to write down what it just did. The bar is deliberately high: a turn that
+ * handed the user a file, or ran a few work tools in a row, is a task the user should be able to see in 事项.
+ * A question answered in one line, a lookup, a chat — none of these qualify.
+ */
+export function needsTodoNudge(t: {
+  /** the turn came from a person (a private chat or a group), not from a bot, a routine or the system */
+  fromUser: boolean;
+  /** this turn is already bound to a task (assigned work, or a task the model touched) */
+  boundTodoId?: string;
+  todoTouched?: boolean;
+  alreadyNudged?: boolean;
+  workTool?: boolean;
+  toolCalls: number;
+  filesDelivered: number;
+}): boolean {
+  if (!t.fromUser || t.alreadyNudged || t.todoTouched || t.boundTodoId) return false;
+  return t.filesDelivered > 0 || (!!t.workTool && t.toolCalls >= 3);
 }
 
 /** DeepSeek-style tool-call markup that came out as text: the model meant to call a tool and called nothing. */
@@ -249,7 +282,14 @@ export class BotManager extends EventEmitter {
       factory: (pi) => {
         captured = pi;
         // A user cut in while tools were running: the one in flight finishes, the rest of the batch is dropped.
-        pi.on('tool_call', () => (rt?.interrupt ? { block: true, reason: '用户刚插话了，这个调用作废。先看用户的新消息，再决定要不要做。' } : undefined));
+        pi.on('tool_call', (ev) => {
+          if (rt) {
+            rt.toolCalls += 1;
+            if (ev.toolName === 'todo') rt.todoTouched = true;
+            else if (WORK_TOOLS.has(ev.toolName)) rt.workTool = true;
+          }
+          return rt?.interrupt ? { block: true, reason: '用户刚插话了，这个调用作废。先看用户的新消息，再决定要不要做。' } : undefined;
+        });
       },
     };
     const perform = async (p: { connection: string; action: string; amount?: number }) =>
@@ -362,7 +402,7 @@ export class BotManager extends EventEmitter {
     rt = { botId, session, pi: captured, queue: Promise.resolve(), unsubscribe, refreshTools: async () => {
         await mcpExt.refresh();
         await shellExt.refresh();
-      }, running: false, settledWaiters: [], startWaiters: [], textCount: 0 };
+      }, running: false, settledWaiters: [], startWaiters: [], textCount: 0, toolCalls: 0 };
     return rt;
   }
 
@@ -377,6 +417,10 @@ export class BotManager extends EventEmitter {
           rt.running = true;
           rt.markupNudged = false;
           rt.formatNudged = false;
+          rt.toolCalls = 0;
+          rt.workTool = false;
+          rt.todoTouched = false;
+          rt.todoNudged = false;
           for (const w of rt.startWaiters.splice(0)) w();
         }
         break;
@@ -470,6 +514,28 @@ export class BotManager extends EventEmitter {
         if (cur?.todoId && !cur.receipt) {
           const t = this.store.todo(cur.todoId);
           if (t && t.status !== 'done' && t.status !== 'closed') this.store.patchTodo(cur.todoId, { summary: text.length > 48 ? text.slice(0, 48) + '…' : text });
+        }
+        // Work happened and the task list did not move: the user is looking at a bot that did something and a
+        // 事项 list that says nothing. Ask for the record once, after the reply is out (nothing is held up).
+        if (
+          rt &&
+          needsTodoNudge({
+            fromUser: cur?.kind === 'user' || cur?.kind === 'group',
+            boundTodoId: cur?.todoId,
+            todoTouched: rt.todoTouched,
+            alreadyNudged: rt.todoNudged,
+            workTool: rt.workTool,
+            toolCalls: rt.toolCalls,
+            filesDelivered: files.length,
+          })
+        ) {
+          rt.todoNudged = true;
+          void this.send(botId, {
+            threadId,
+            kind: 'system',
+            text: '【系统】这一轮你动手做了东西，事项本却没动，用户在界面上看不到这件事。现在补上：对得上你手上某一条就 todo(update)，是件新活就 todo(create)（已经做完的补一条再 close），summary 写这一轮的结果。只调工具，不用再对用户说一遍。',
+            depth: (cur?.depth ?? 0) + 1,
+          });
         }
         for (const to of mentions) {
           this.events.emit('crew:handoff', { from: botId, to, text, threadId, matterId: cur?.matterId, depth: (cur?.depth ?? 0) + 1 });
