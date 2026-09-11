@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { select } from '../store';
+import { select, dropEvent } from '../store';
 import { agent } from '../services/agent';
-import { botThread, type Bot, type Routine } from '../types';
+import { botThread, type Bot, type CrewEvent, type Routine } from '../types';
 import { Avatar } from './Avatar';
 import { BotConfigModal, sayWhen } from './BotConfigModal';
 import { cx, dayLabel, fmtTime } from '../utils';
@@ -24,15 +24,18 @@ import { useT } from '../i18n';
  *   那半（谁到场、到场做什么）才是控件。
  * - **用不上的字段不留位置。** 例行不谈参与人，会议不谈「结果发到哪」。
  */
-export type Ev = {
-  kind: 'routine';
-  bot: Bot;
-  r: Routine;
-  /** 落在格子上的那一次。常驻型（每 30 分钟）和后台不认的写法没有具体时刻 */
-  at?: number;
-  /** unknown = 后台不认这个写法，它从来没被触发过 */
-  state?: 'todo' | 'done' | 'missed' | 'unknown';
-};
+export type Ev =
+  | {
+      kind: 'routine';
+      bot: Bot;
+      r: Routine;
+      /** 落在格子上的那一次。常驻型（每 30 分钟）和后台不认的写法没有具体时刻 */
+      at?: number;
+      /** unknown = 后台不认这个写法，它从来没被触发过 */
+      state?: 'todo' | 'done' | 'missed' | 'unknown';
+    }
+  /** bot 用 schedule 工具排在日程上的一件事 */
+  | { kind: 'plan'; bot: Bot; e: CrewEvent };
 
 export function EventCard({ ev, onClose }: { ev: Ev; onClose: () => void }) {
   const t = useT();
@@ -43,7 +46,52 @@ export function EventCard({ ev, onClose }: { ev: Ev; onClose: () => void }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const { bot, r } = ev;
+  const bot = ev.bot;
+  const who = (
+    <button className="ev-who" onClick={() => { select(botThread(bot.id)); onClose(); }}>
+      <Avatar bot={bot} size="sm" />
+      <span className="ev-who-n">{bot.name}</span>
+      <span className="chev">›</span>
+    </button>
+  );
+  const frame = (title: string, body: ReactNode) =>
+    createPortal(
+      <div className="overlay" onClick={onClose}>
+        <div className="modal ev" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label={title}>
+          <button className="cfg-close" onClick={onClose} title={t('common.closeEsc')}>×</button>
+          <h2>{title}</h2>
+          {body}
+        </div>
+      </div>,
+      document.body,
+    );
+
+  // bot 排在日程上的一件事：谁做是这张卡最要紧的一行，动作只有一个——撤掉。
+  if (ev.kind === 'plan') {
+    const e = ev.e;
+    const end = e.minutes ? `–${fmtTime(e.at + e.minutes * 60_000)}` : '';
+    return frame(
+      e.title,
+      <>
+        <div className="ev-when">
+          <span>{dayLabel(e.at)} {fmtTime(e.at)}{end}</span>
+          <span className="chip">{t('ev.plan')}</span>
+        </div>
+        {e.firedAt ? <div className="ev-state">{t('ev.fired')}</div> : null}
+        {who}
+        <dl className="ev-kv">
+          <dt>{t('ev.whoDoes')}</dt>
+          <dd>{e.who === 'user' ? t('ev.forUser') : t('ev.forBot')}</dd>
+          {e.note ? <><dt>{t('ev.what')}</dt><dd>{e.note}</dd></> : null}
+        </dl>
+        <div className="actions">
+          <button className="btn" onClick={() => { dropEvent(e.id); onClose(); }}>{t('ev.drop')}</button>
+        </div>
+      </>,
+    );
+  }
+
+  const r = ev.r;
   // 真源就是那张例行任务的表单：卡片本身不是编辑器。
   if (editing) return <BotConfigModal bot={bot} tab="routines" routineId={r.id} onClose={onClose} />;
 
@@ -65,11 +113,9 @@ export function EventCard({ ev, onClose }: { ev: Ev; onClose: () => void }) {
     onClose();
   };
 
-  return createPortal(
-    <div className="overlay" onClick={onClose}>
-      <div className="modal ev" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label={title}>
-        <button className="cfg-close" onClick={onClose} title={t('common.closeEsc')}>×</button>
-        <h2>{title}</h2>
+  return frame(
+    title,
+    <>
         <div className="ev-when">
           {ev.at !== undefined && <span>{dayLabel(ev.at)} {fmtTime(ev.at)}</span>}
           <span className="chip">{t('ev.routine')}</span>
@@ -77,11 +123,7 @@ export function EventCard({ ev, onClose }: { ev: Ev; onClose: () => void }) {
 
         {state && <div className={cx('ev-state', ev.state)}>{state}</div>}
 
-        <button className="ev-who" onClick={() => { select(botThread(bot.id)); onClose(); }}>
-          <Avatar bot={bot} size="sm" />
-          <span className="ev-who-n">{bot.name}</span>
-          <span className="chev">›</span>
-        </button>
+        {who}
 
         <dl className="ev-kv">
           <dt>{t('ev.when')}</dt>
@@ -93,8 +135,6 @@ export function EventCard({ ev, onClose }: { ev: Ev; onClose: () => void }) {
           <button className={cx('btn', rescue === 'run' && 'primary')} onClick={runNow}>{t('ev.runNow')}</button>
           <button className={cx('btn', rescue === 'edit' && 'primary')} onClick={() => setEditing(true)}>{t('ev.edit')}</button>
         </div>
-      </div>
-    </div>,
-    document.body,
+    </>,
   );
 }

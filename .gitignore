@@ -7,7 +7,7 @@
 !/DESIGN.md
 
 # never the build output, dependencies, or local data
-node_modules/
+node_modules
 dist/
 .DS_Store
 *.log

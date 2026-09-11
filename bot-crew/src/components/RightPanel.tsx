@@ -34,8 +34,8 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
   const s = useStore((x) => x);
   const identity = s.panels.identity && (bot || matter);
   const todos = s.todos.filter((t) => (bot ? t.botId === bot.id : matter ? t.matterId === matter.id : false));
-  const open = todos.filter((t) => t.status !== 'done').length;
-  const wait = todos.filter((t) => t.status === 'waiting' || t.status === 'blocked').length;
+  const open = todos.filter((t) => t.status !== 'done' && t.status !== 'closed').length;
+  const wait = todos.filter((t) => t.status === 'waiting').length;
   const detail = s.panel.mode === 'task';
   const computer = s.computer;
   const using = (computer?.state === 'on' ? (computer.users ?? []) : []).map((id) => s.bots.find((b) => b.id === id)?.name).filter((n): n is string => !!n);
@@ -301,8 +301,8 @@ function GroupInfo({ matter }: { matter: Matter }) {
     patchMatter(matter.id, { participantBotIds: rest, ownerBotId: matter.ownerBotId === id ? rest[0] : matter.ownerBotId });
   };
   const statusOf = (botId: string) => {
-    const mine = s.todos.filter((t) => t.botId === botId && t.matterId === matter.id && t.status !== 'done');
-    const wait = mine.filter((t) => t.status === 'waiting' || t.status === 'blocked').length;
+    const mine = s.todos.filter((t) => t.botId === botId && t.matterId === matter.id && t.status !== 'done' && t.status !== 'closed');
+    const wait = mine.filter((t) => t.status === 'waiting').length;
     if (mine.length === 0) return t('ident.idle');
     return `${tn('ident.doingN', mine.length)}${wait ? tn('ws.taskWait', wait) : ''}`;
   };
@@ -424,7 +424,7 @@ function TasksPanel({ bot, matter }: { bot?: Bot; matter?: Matter }) {
   return null;
 }
 
-const ORDER: TodoStatus[] = ['blocked', 'waiting', 'doing', 'open', 'done'];
+const ORDER: TodoStatus[] = ['waiting', 'doing', 'done', 'closed'];
 
 export function TaskBoard({ filter, showBot }: { filter: (t: Todo) => boolean; showBot?: boolean }) {
   const t = useT();
@@ -435,7 +435,7 @@ export function TaskBoard({ filter, showBot }: { filter: (t: Todo) => boolean; s
 
   if (showBot) {
     // Group board: who is doing what. One block per bot, tasks that need the user first, done last.
-    const rank = (x: Todo) => (x.status === 'waiting' || x.status === 'blocked' ? 0 : x.status === 'done' ? 2 : 1);
+    const rank = (x: Todo) => (x.status === 'waiting' ? 0 : x.status === 'doing' ? 1 : 2);
     const byBot = new Map<string, Todo[]>();
     for (const x of todos) byBot.set(x.botId, [...(byBot.get(x.botId) ?? []), x]);
     const blocks = [...byBot.entries()]
@@ -445,8 +445,9 @@ export function TaskBoard({ filter, showBot }: { filter: (t: Todo) => boolean; s
       <div className="board">
         {todos.length === 0 && <div className="quiet" style={{ padding: '12px 0' }}>{t('task.none')}</div>}
         {blocks.map(({ bot, items }) => {
-          const open = items.filter((x) => x.status !== 'done');
-          const shown = showDone ? items : items.filter((x) => x.status !== 'done').concat(items.filter((x) => x.status === 'done').slice(0, 1));
+          const open = items.filter((x) => x.status !== 'done' && x.status !== 'closed');
+          const ended = (x: Todo) => x.status === 'done' || x.status === 'closed';
+          const shown = showDone ? items : items.filter((x) => !ended(x)).concat(items.filter(ended).slice(0, 1));
           return (
             <div className="bgroup" key={bot?.id ?? '?'}>
               <div className="bgroup-hd bot">

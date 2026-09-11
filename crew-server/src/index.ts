@@ -1185,6 +1185,10 @@ async function main() {
           if (bot && msg.patch.integrationIds) void bots.refreshTools(bot.id);
           break;
         }
+        case 'drop_event': {
+          store.dropEvent(msg.id);
+          break;
+        }
         case 'run_routine': {
           if (!scheduler.runNow(msg.botId, msg.routineId)) throw new Error('这条例行任务不在了');
           break;

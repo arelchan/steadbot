@@ -15,11 +15,17 @@ function load(): State {
     if (raw) {
       const parsed = JSON.parse(raw) as State;
       const bots: Bot[] = parsed.bots.map((b) => ({ ...({ routines: [], notify: true, pinned: false, skills: [] } as Partial<Bot>), ...b }));
+      // 五态并成四态：本地存着的老事项也跟着迁。
+      for (const t of parsed.todos ?? []) {
+        if ((t.status as string) === 'open') t.status = 'doing';
+        else if ((t.status as string) === 'blocked') t.status = 'waiting';
+      }
       const matters: Matter[] = parsed.matters.map((m) => ({ ...({ notify: true, pinned: false } as Partial<Matter>), ...m }));
       return {
         ...parsed,
         bots,
         matters,
+        events: parsed.events ?? [],
         skills: parsed.skills ?? [],
         library: parsed.library ?? [],
         integrations: parsed.integrations ?? [],
@@ -84,6 +90,7 @@ export interface RemoteSink {
   setSettings(patch: CrewSettings): void;
   undoAction(id: string): void;
   deleteBot(id: string): void;
+  dropEvent(id: string): void;
   deleteMatter(id: string): void;
   patchSkill(name: string, patch: { description?: string; body?: string }): void;
   mountLibrarySkill(botId: string, slug: string): void;
@@ -195,6 +202,12 @@ export const addBot = (b: Omit<Bot, 'id' | 'createdAt'>): Bot => {
 };
 
 /** Remove a bot locally (its thread, todos, pendings, actions go with it) and tell the backend. */
+/** 用户在日程上把 bot 排的这条撤掉。 */
+export const dropEvent = (id: string) => {
+  setState((s) => ({ events: s.events.filter((e) => e.id !== id) }));
+  forward()?.dropEvent(id);
+};
+
 export const removeBot = (id: string) => {
   // 助理是产品自带的，删不掉（界面上也没有这一项）。
   if (getState().bots.find((b) => b.id === id)?.kind === 'steward') return;

@@ -216,6 +216,7 @@ export const seedState = (): State => ({
   bots: BOTS,
   matters: MATTERS,
   todos: TODOS,
+  events: [],
   pendings: PENDINGS,
   actions: ACTIONS,
   messages: MESSAGES,

@@ -52,6 +52,7 @@ export interface AgentService {
   computerFocus(): void;
   /** 例行任务试跑：不等到点，现在就让它跑一次 */
   runRoutine(botId: string, routineId: string): void;
+  dropEvent(id: string): void;
   start(): void;
   stop(): void;
 }
@@ -364,7 +365,7 @@ export class MockAgentService implements AgentService {
     } else if (isQuestion) {
       receipt = { kind: 'reply', text: '只是问一句，没记事项' };
     } else {
-      const todo = addTodo({ botId: bot.id, matterId, title: summarize(t), status: 'open' });
+      const todo = addTodo({ botId: bot.id, matterId, title: summarize(t), status: 'doing' });
       receipt = { kind: 'created', text: `记为新事项：${todo.title}`, todoId: todo.id };
       todoId = todo.id;
     }
@@ -425,6 +426,9 @@ export class MockAgentService implements AgentService {
   computerFocus() {
     /* mock: no computer */
   }
+  dropEvent() {
+    /* mock: the store already dropped it */
+  }
   runRoutine() {
     /* mock: no scheduler */
   }
@@ -474,7 +478,7 @@ export class MockAgentService implements AgentService {
     }
     if (optionId === 'later') {
       await botSays(bot, threadId, '好，先放着。余票或价格有变我会再叫你，其他情况不打扰。', { todoId });
-      if (todoId) patchTodo(todoId, { status: 'open' });
+      if (todoId) patchTodo(todoId, { status: 'doing' });
       return;
     }
     if (optionId === 'switch') {
@@ -543,7 +547,7 @@ export class MockAgentService implements AgentService {
         botId: bot.id, threadId: botThread(bot.id), matterId: 'hz', todoId: todo?.id, kind: 'blocked', title: '12306 登录过期', detail: '需要你在浏览器里重新登一次', messageId: msgId,
         options: [{ id: 'relogin', label: '我登好了', primary: true }],
       });
-      if (todo) patchTodo(todo.id, { status: 'blocked' });
+      if (todo) patchTodo(todo.id, { status: 'waiting' });
       const bots = s.bots.map((b) => (b.id === 'trip' ? { ...b, connections: b.connections.map((c) => (c.id === 'c1' ? { ...c, status: 'expired' as const } : c)) } : b));
       setState({ bots });
       await botSays(bot, botThread(bot.id), '卡住了：12306 的登录态过期了，我查不了余票。你在浏览器里重新登一次，登好点一下我接着办。这期间我不会动任何订单。', {

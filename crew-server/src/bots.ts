@@ -45,6 +45,7 @@ import type { ConnectorManager } from './connectors.ts';
 import type { BotCtx, CurrentTurn } from './extensions/ctx.ts';
 import { identityExtension } from './extensions/identity.ts';
 import { todoExtension } from './extensions/todo.ts';
+import { scheduleExtension } from './extensions/schedule.ts';
 import { askExtension } from './extensions/ask.ts';
 import { actExtension } from './extensions/act.ts';
 import { rememberExtension } from './extensions/remember.ts';
@@ -264,6 +265,7 @@ export class BotManager extends EventEmitter {
         bridge,
         identityExtension(ctx, () => this.skills, () => this.ops),
         todoExtension(ctx),
+        scheduleExtension(ctx),
         askExtension(ctx),
         actExtension(ctx, perform),
         rememberExtension(ctx),
@@ -464,7 +466,7 @@ export class BotManager extends EventEmitter {
         // summary is a written progress line; a truncated reply is a poor substitute for it.
         if (cur?.todoId && !cur.receipt) {
           const t = this.store.todo(cur.todoId);
-          if (t && t.status !== 'done') this.store.patchTodo(cur.todoId, { summary: text.length > 48 ? text.slice(0, 48) + '…' : text, ...(t.status === 'open' ? { status: 'doing' as const } : {}) });
+          if (t && t.status !== 'done' && t.status !== 'closed') this.store.patchTodo(cur.todoId, { summary: text.length > 48 ? text.slice(0, 48) + '…' : text });
         }
         for (const to of mentions) {
           this.events.emit('crew:handoff', { from: botId, to, text, threadId, matterId: cur?.matterId, depth: (cur?.depth ?? 0) + 1 });

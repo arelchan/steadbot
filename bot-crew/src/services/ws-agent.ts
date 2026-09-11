@@ -1,10 +1,10 @@
 import { setRuntime, healRuntimeTarget } from './runtime';
 import type { AgentService } from './agent';
 import { showIdentity, getState, setState, select, setTyping, pushToast, resolvePending, removeBot, removeMatter, upsertSkill, upsertIntegration, clearThread, uid, setRemoteSink, remoteApply } from '../store';
-import { botThread, type Action, type Bot, type Channel, type Computer, type CrewSettings, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo } from '../types';
+import { botThread, type Action, type Bot, type Channel, type Computer, type CrewEvent, type CrewSettings, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo } from '../types';
 import { t } from '../i18n';
 
-type Snapshot = Pick<ReturnType<typeof getState>, 'bots' | 'matters' | 'todos' | 'pendings' | 'actions' | 'messages' | 'sharedProfile'> & { skills?: SkillDoc[]; library?: LibraryEntry[]; integrations?: Integration[]; typing?: Record<string, string[]>; runtime?: RuntimeInfo; settings?: CrewSettings; computer?: Computer };
+type Snapshot = Pick<ReturnType<typeof getState>, 'bots' | 'matters' | 'todos' | 'pendings' | 'actions' | 'messages' | 'sharedProfile'> & { events?: CrewEvent[]; skills?: SkillDoc[]; library?: LibraryEntry[]; integrations?: Integration[]; typing?: Record<string, string[]>; runtime?: RuntimeInfo; settings?: CrewSettings; computer?: Computer };
 
 type ServerMessage =
   | { type: 'migrate_progress'; sent: number; total: number }
@@ -15,6 +15,8 @@ type ServerMessage =
   | { type: 'message_patch'; id: string; patch: Partial<Message> }
   | { type: 'typing'; threadId: ThreadId; botId: string; on: boolean }
   | { type: 'todo'; todo: Todo }
+  | { type: 'event'; event: CrewEvent }
+  | { type: 'event_deleted'; id: string }
   | { type: 'pending'; pending: Pending }
   | { type: 'action'; action: Action }
   | { type: 'bot'; bot: Bot }
@@ -72,6 +74,7 @@ export class WsAgentService implements AgentService {
       setSharedProfile: (lines) => this.send({ type: 'set_shared_profile', lines }),
       undoAction: (actionId) => this.send({ type: 'undo_action', actionId }),
       deleteBot: (id) => this.send({ type: 'delete_bot', id }),
+      dropEvent: (id) => this.send({ type: 'drop_event', id }),
       deleteMatter: (id) => this.send({ type: 'delete_matter', id }),
       patchSkill: (name, patch) => this.send({ type: 'patch_skill', name, patch }),
       mountLibrarySkill: (botId, slug) => this.send({ type: 'mount_library_skill', botId, slug }),
@@ -196,6 +199,10 @@ export class WsAgentService implements AgentService {
     this.send({ type: 'computer_power', on });
   }
 
+  dropEvent(id: string) {
+    this.send({ type: 'drop_event', id });
+  }
+
   runRoutine(botId: string, routineId: string) {
     this.send({ type: 'run_routine', botId, routineId });
   }
@@ -231,7 +238,7 @@ export class WsAgentService implements AgentService {
             const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
             if (tz && !m.state.settings?.timezone) this.send({ type: 'set_settings', patch: { timezone: tz } });
           }
-          setState({ ...m.state, skills: m.state.skills ?? [], library: m.state.library ?? [], integrations: m.state.integrations ?? [], typing: m.state.typing ?? {}, runtime: m.state.runtime, settings: m.state.settings, computer: m.state.computer, selection: valid(s.selection) ? s.selection : first ? 'week' : 'draft-bot' });
+          setState({ ...m.state, events: m.state.events ?? [], skills: m.state.skills ?? [], library: m.state.library ?? [], integrations: m.state.integrations ?? [], typing: m.state.typing ?? {}, runtime: m.state.runtime, settings: m.state.settings, computer: m.state.computer, selection: valid(s.selection) ? s.selection : first ? 'week' : 'draft-bot' });
           break;
         }
         case 'message':
@@ -245,6 +252,12 @@ export class WsAgentService implements AgentService {
           break;
         case 'todo':
           setState((s) => ({ todos: upsert(s.todos, m.todo) }));
+          break;
+        case 'event':
+          setState((s) => ({ events: upsert(s.events, m.event) }));
+          break;
+        case 'event_deleted':
+          setState((s) => ({ events: s.events.filter((e) => e.id !== m.id) }));
           break;
         case 'pending':
           setState((s) => ({ pendings: upsert(s.pendings, m.pending) }));

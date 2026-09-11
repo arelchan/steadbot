@@ -171,7 +171,15 @@ export interface Integration {
   owner?: string;
 }
 
-export type TodoStatus = 'open' | 'doing' | 'waiting' | 'blocked' | 'done';
+/**
+ * 事项的四态，也就是用户在日程右边那栏看到的四叠：
+ * doing 进行中 ｜ waiting 待确认（不给东西就动不了）｜ done 已完成（做成了）｜ closed 已关闭（不做了）。
+ *
+ * 原来是五态（另有 open 和 blocked）：open 对用户和 doing 没区别——bot 接下了就是在做；blocked 对用户
+ * 和 waiting 也没区别——都是「不理它就停在这」，界面里这两个本来就一直成对出现。「卡住了」那份紧迫感
+ * 由卡片的种类表达（confirm / clarify / blocked 三种没变），不靠事项状态。
+ */
+export type TodoStatus = 'doing' | 'waiting' | 'done' | 'closed';
 
 /**
  * 这条事项是怎么来的：谁交办的、用户从哪个入口说的、在哪条会话里。建的时候由运行时快照，
@@ -204,6 +212,33 @@ export interface Todo {
   fromMessageId?: string;
   /** 怎么来的：谁交办、哪个入口、哪条会话。老数据没有。 */
   origin?: TodoOrigin;
+}
+
+/**
+ * 日程上我们自己排的一件事。
+ *
+ * 例行任务是「每天 / 每周反复」，这是「某一刻的一次」——bot 觉得用户需要一个日程时排的：到点提醒用户，
+ * 或者它自己到点要做的事。到点了系统把它交回给排它的那个 bot（和例行任务同一条路），由 bot 决定说什么、
+ * 做什么；提醒就是它的一条消息，不另起一套通知通道。
+ */
+export interface CrewEvent {
+  id: string;
+  /** 谁排的；到点了也交回给它 */
+  botId: string;
+  title: string;
+  /** 开始时刻 */
+  at: number;
+  /** 有时长的才有；没有就是时间轴上的一个点 */
+  minutes?: number;
+  /** user = 到点提醒用户；bot = 到点它自己做 */
+  who: 'user' | 'bot';
+  /** 到点要说的话 / 要做的事，越具体越好 */
+  note?: string;
+  /** 从哪条会话排的，用来跳回原文 */
+  threadId?: ThreadId;
+  createdAt: number;
+  /** 已经到点、交回给 bot 了 */
+  firedAt?: number;
 }
 
 export type PendingKind = 'confirm' | 'clarify' | 'blocked';
@@ -451,6 +486,8 @@ export interface Snapshot {
   bots: Bot[];
   matters: Matter[];
   todos: Todo[];
+  /** 日程上我们自己排的事（例行任务不在这里，它长在 bot 身上） */
+  events: CrewEvent[];
   pendings: Pending[];
   actions: Action[];
   messages: Message[];
@@ -482,6 +519,8 @@ export type ClientMessage =
   | { type: 'patch_bot'; id: string; patch: Partial<Bot> }
   /** 例行任务的「试跑」：不等到点，现在就让它跑一次 */
   | { type: 'run_routine'; botId: string; routineId: string }
+  /** 用户在日程上把 bot 排的这条撤掉 */
+  | { type: 'drop_event'; id: string }
   | { type: 'patch_matter'; id: string; patch: Partial<Matter> }
   | { type: 'create_matter'; id?: string; title: string; summary?: string; memberIds: string[]; leadId: string }
   | { type: 'set_shared_profile'; lines: string[] }
