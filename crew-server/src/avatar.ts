@@ -4,6 +4,10 @@ import { builtinImagesModels } from '@earendil-works/pi-ai/providers/all';
 import { config } from './config.ts';
 import type { Bot } from './types.ts';
 import { proceduralAvatar } from './util.ts';
+import { model as drawModel, type DrawTier } from './draw.ts';
+
+/** Which tier a face is drawn at: see the note at AvatarService.generate. */
+const AVATAR_TIER: DrawTier = '标准';
 
 /**
  * Avatar generation through pi-ai's image surface (`ImagesModels.generateImages`, one-shot,
@@ -14,12 +18,7 @@ export class AvatarService {
   private images = builtinImagesModels();
 
   available(): boolean {
-    const [provider] = config.imageModel.split('/');
-    try {
-      return !!this.images.getModel(provider, config.imageModel.slice(provider.length + 1)) && !!process.env.OPENROUTER_API_KEY;
-    } catch {
-      return false;
-    }
+    return !!drawModel('插画', AVATAR_TIER) && !!process.env.OPENROUTER_API_KEY;
   }
 
   prompt(bot: Bot) {
@@ -44,8 +43,9 @@ export class AvatarService {
    *  avatars survive a move to another machine and work behind the token gate. */
   async generate(bot: Bot, seed: string): Promise<string> {
     if (!this.available()) return proceduralAvatar(seed);
-    const [provider] = config.imageModel.split('/');
-    const model = this.images.getModel(provider, config.imageModel.slice(provider.length + 1));
+    // 标准, not 快: the fast illustration model is 4.7× the price for 2.4× the speed, and nobody is watching a
+    // face get drawn in the background (draw.ts has the measurements).
+    const model = drawModel('插画', AVATAR_TIER);
     if (!model) return proceduralAvatar(seed);
     try {
       const result = await this.images.generateImages(model, { input: [{ type: 'text', text: this.prompt(bot) }] });
