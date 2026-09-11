@@ -152,12 +152,28 @@ export const fileUrl = (botId: string, rel: string) => `/files/${botId}/${rel.sp
 export function filesMentioned(text: string, botDir: string, publicUrl: string, botId: string): FileRef[] {
   const workspace = join(botDir, 'workspace');
   const out = new Map<string, FileRef>();
+  /*
+   * 同一条消息里提到的目录也算数：模型很爱把位置写在一行（「都在 …/dist/ 里」），文件名写在下面的
+   * 表格或列表里。那种裸文件名相对工作区根目录是找不到的，于是一张卡都挂不上——先把消息里提到的
+   * 目录收出来，解析文件名时挨个试。
+   */
+  const dirs = [workspace];
+  for (const raw of text.match(/(?:\/|~\/|\.\/)[\w.\-\u4e00-\u9fff]+(?:\/[\w.\-\u4e00-\u9fff]+)*\/?/g) ?? []) {
+    if (dirs.length > 6) break;
+    const c = raw.replace(/^~\//, `${process.env.HOME ?? ''}/`);
+    const abs = isAbsolute(c) ? normalize(c) : normalize(join(workspace, c.replace(/^\.\//, '')));
+    try {
+      if (statSync(abs).isDirectory() && !dirs.includes(abs)) dirs.push(abs);
+    } catch {
+      /* 不是目录就算了 */
+    }
+  }
   const candidates = text.match(/(?:\/|~\/|\.\/)?[\w.\-\u4e00-\u9fff]+(?:\/[\w.\-\u4e00-\u9fff]+)*\.[A-Za-z0-9]{1,6}\b/g) ?? [];
   for (const raw of candidates) {
     const c = raw.replace(/^~\//, `${process.env.HOME ?? ''}/`);
     if (/^(https?:|www\.)/.test(raw) || /\.(com|cn|org|net|io|ai|dev)$/i.test(raw)) continue;
-    let abs = isAbsolute(c) ? normalize(c) : normalize(join(workspace, c.replace(/^\.\//, '')));
-    if (!existsSync(abs)) continue;
+    let abs = isAbsolute(c) ? normalize(c) : (dirs.map((d) => normalize(join(d, c.replace(/^\.\//, '')))).find((p) => existsSync(p)) ?? '');
+    if (!abs || !existsSync(abs)) continue;
     let st;
     try {
       st = statSync(abs);
