@@ -358,6 +358,8 @@ export type Card =
       /** qr：该用哪个 App 的哪个入口扫（服务端按站点给的，不是模型编的） */
       how?: string;
       done?: boolean;
+      /** 结束时是成功（扫上了 / 填了）还是作废（过期、服务重启） */
+      ok?: boolean;
       /** 结束的原因，正常登录成功时没有 */
       note?: string;
     }

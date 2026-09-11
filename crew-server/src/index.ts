@@ -907,7 +907,7 @@ async function main() {
   // A login card points at a live page through an ask that only exists in memory. After a restart there is nothing
   // behind it, so the card would sit there forever showing a broken image: close them out as soon as we come up.
   for (const m of store.data.messages) {
-    if (m.card?.type === 'login' && !m.card.done) store.patchMessage(m.id, { card: { ...m.card, done: true, note: '已失效（服务重启过）' } });
+    if (m.card?.type === 'login' && !m.card.done) store.patchMessage(m.id, { card: { ...m.card, done: true, ok: false, note: '已失效（服务重启过）' } });
   }
 
   // 微信 is joined by scanning, not by filling a card: the pairing desk posts the code and hands the token that

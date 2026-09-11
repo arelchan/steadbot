@@ -189,6 +189,6 @@ export class LoginDesk {
     const m = this.store.data.messages.findLast((x) => x.card?.type === 'login' && x.card.askId === ask.id);
     // The card outlives the thing it points at: once the ask is gone the image endpoint has nothing to serve, so
     // the card has to stop being a live code and say what happened instead.
-    if (m?.card?.type === 'login') this.store.patchMessage(m.id, { card: { ...m.card, done: true, note: why } });
+    if (m?.card?.type === 'login') this.store.patchMessage(m.id, { card: { ...m.card, done: true, ok: !why, note: why } });
   }
 }

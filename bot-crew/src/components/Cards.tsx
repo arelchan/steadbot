@@ -40,21 +40,24 @@ export function CardView({ card, messageId }: { card: Card; messageId?: string }
           </div>
           <span className="cn-mark" aria-hidden>{card.done ? '✓' : dead ? '!' : '↗'}</span>
         </div>
-        {card.done ? null : dead ? (
-          <div className="c-actions">
+        <div className="c-actions">
+          {card.done ? (
+            <button className="btn picked" disabled>✓ {t('card.authorized')}</button>
+          ) : dead ? (
             <button className="btn" onClick={retry}>{t('common.retry')}</button>
-          </div>
-        ) : (
-          <div className="c-actions">
+          ) : (
             <a className="btn primary" href={card.url} target="_blank" rel="noopener noreferrer">{t('card.authorize', { name: card.name })}</a>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   }
 
   const resolved = pending?.resolved;
   const choose = (id: string) => agent.onPendingChoice(card.pendingId, id);
+  // What came back is the option's label (a free-text reply is the text itself), so match on it both ways.
+  const picked = (label: string) => !!resolved && (label === resolved.choice || label.startsWith(resolved.choice) || resolved.choice.startsWith(label));
+  const offList = !!resolved && !(pending?.options ?? []).some((o) => picked(o.label));
 
   if (card.type === 'confirm') {
     return (
@@ -66,17 +69,19 @@ export function CardView({ card, messageId }: { card: Card; messageId?: string }
           </div>
           <div className="c-amt">¥{card.amount}</div>
         </div>
-        {resolved ? (
-          <div className="c-resolved">✓ {resolved.choice}</div>
-        ) : (
-          <div className="c-actions">
-            {(pending?.options ?? []).map((o) => (
-              <button key={o.id} className={cx('btn', o.primary && 'primary')} onClick={() => choose(o.id)}>
-                {o.label}{o.primary && card.amount ? ` ¥${card.amount}` : ''}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="c-actions">
+          {(pending?.options ?? []).map((o) => (
+            <button
+              key={o.id}
+              className={cx('btn', o.primary && !resolved && 'primary', picked(o.label) && 'picked')}
+              disabled={!!resolved}
+              onClick={() => choose(o.id)}
+            >
+              {picked(o.label) ? '✓ ' : ''}{o.label}{o.primary && card.amount ? ` ¥${card.amount}` : ''}
+            </button>
+          ))}
+        </div>
+        {offList ? <div className="c-said">{t('card.youSaid', { text: resolved!.choice })}</div> : null}
       </div>
     );
   }
@@ -88,7 +93,7 @@ export function CardView({ card, messageId }: { card: Card; messageId?: string }
           {card.options.map((o) => (
             <button
               key={o.id}
-              className={cx('opt', resolved?.choice && o.label.startsWith(resolved.choice) && 'picked')}
+              className={cx('opt', picked(o.label) && 'picked')}
               disabled={!!resolved}
               onClick={() => choose(o.id)}
             >
@@ -97,7 +102,7 @@ export function CardView({ card, messageId }: { card: Card; messageId?: string }
             </button>
           ))}
         </div>
-        {resolved ? <div className="c-resolved">✓ {resolved.choice}</div> : null}
+        {offList ? <div className="c-said">{t('card.youSaid', { text: resolved!.choice })}</div> : null}
       </div>
     );
   }
@@ -111,15 +116,19 @@ export function CardView({ card, messageId }: { card: Card; messageId?: string }
             <div className="c-sub">{card.sub}</div>
           </div>
         </div>
-        {resolved ? (
-          <div className="c-resolved">✓ {resolved.choice}</div>
-        ) : (
-          <div className="c-actions">
-            {(pending?.options ?? []).map((o) => (
-              <button key={o.id} className={cx('btn', o.primary && 'primary')} onClick={() => choose(o.id)}>{o.label}</button>
-            ))}
-          </div>
-        )}
+        <div className="c-actions">
+          {(pending?.options ?? []).map((o) => (
+            <button
+              key={o.id}
+              className={cx('btn', o.primary && !resolved && 'primary', picked(o.label) && 'picked')}
+              disabled={!!resolved}
+              onClick={() => choose(o.id)}
+            >
+              {picked(o.label) ? '✓ ' : ''}{o.label}
+            </button>
+          ))}
+        </div>
+        {offList ? <div className="c-said">{t('card.youSaid', { text: resolved!.choice })}</div> : null}
       </div>
     );
   }
@@ -144,36 +153,31 @@ function LoginCard({ card, messageId }: { card: Extract<Card, { type: 'login' }>
     const timer = setInterval(() => setTick((n) => n + 1), 8000);
     return () => clearInterval(timer);
   }, [card.kind, card.done, dead]);
-  if (card.done || sent) {
-    return (
-      <div className="card connect resolved">
-        <div className="c-head">
-          <div>
-            <div className="c-title">{card.title}</div>
-            <div className="c-sub">{card.note ?? t('card.loginDone')}</div>
-          </div>
-          <span className="cn-mark" aria-hidden>✓</span>
-        </div>
-      </div>
-    );
-  }
+  // Three states, one shape: still open, done and it worked, done because it went stale (nothing was filled).
+  const done = card.done || sent;
+  const stale = card.done && card.ok === false && !sent;
+  const over = done && !stale;
   const ready = (card.fields ?? []).every((f) => f.secret === false || (values[f.key] ?? '').trim());
   return (
-    <div className="card connect secrets">
+    <div className={cx('card connect secrets', over && 'resolved', stale && 'dead')}>
       <div className="c-head">
         <div>
           <div className="c-title">{card.title}</div>
-          <div className="c-sub">{card.kind === 'qr' ? (dead ? t('card.loginStale') : t('card.loginScan')) : t('card.secretsNote')}</div>
+          <div className="c-sub">{done ? (card.note ?? t('card.loginDone')) : card.kind === 'qr' ? (dead ? t('card.loginStale') : t('card.loginScan')) : t('card.secretsNote')}</div>
         </div>
-        <span className="cn-mark" aria-hidden>⌁</span>
+        <span className="cn-mark" aria-hidden>{stale ? '!' : over ? '✓' : '⌁'}</span>
       </div>
       {card.kind === 'qr' ? (
         <>
-          <div className={cx('login-qr-wrap', dead && 'dead')}>
-            <img className="login-qr" src={withToken(`${httpBase || window.location.origin}/login/${card.askId}.png?t=${tick}`)} alt={card.title} onError={() => setDead(true)} />
-            {dead && <span className="login-dead">{t('card.loginStale')}</span>}
+          <div className={cx('login-qr-wrap', (dead || stale) && !over && 'dead', done && 'done')}>
+            {done ? (
+              <div className={cx('login-ok', stale && 'off')} aria-hidden>{stale ? '⊘' : '✓'}</div>
+            ) : (
+              <img className="login-qr" src={withToken(`${httpBase || window.location.origin}/login/${card.askId}.png?t=${tick}`)} alt={card.title} onError={() => setDead(true)} />
+            )}
+            {dead && !done && <span className="login-dead">{t('card.loginStale')}</span>}
           </div>
-          {card.how && !dead && <div className="login-how">{card.how}</div>}
+          {card.how && !dead && !done && <div className="login-how">{card.how}</div>}
         </>
       ) : (
         <>
@@ -185,7 +189,9 @@ function LoginCard({ card, messageId }: { card: Extract<Card, { type: 'login' }>
                   type={f.secret === false ? 'text' : 'password'}
                   autoComplete="off"
                   spellCheck={false}
-                  value={values[f.key] ?? ''}
+                  disabled={done}
+                  value={done ? '' : (values[f.key] ?? '')}
+                  placeholder={over ? '••••••••' : ''}
                   onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
                 />
               </label>
@@ -193,8 +199,8 @@ function LoginCard({ card, messageId }: { card: Extract<Card, { type: 'login' }>
           </div>
           <div className="c-actions">
             <button
-              className="btn primary"
-              disabled={!ready || !messageId}
+              className={cx('btn', over ? 'picked' : 'primary')}
+              disabled={done || !ready || !messageId}
               onClick={() => {
                 if (!messageId) return;
                 agent.submitLogin(messageId, card.askId, values);
@@ -202,7 +208,7 @@ function LoginCard({ card, messageId }: { card: Extract<Card, { type: 'login' }>
                 setSent(true);
               }}
             >
-              {t('card.loginGo')}
+              {over ? `✓ ${t('card.loginSubmitted')}` : t('card.loginGo')}
             </button>
           </div>
         </>
@@ -216,27 +222,15 @@ function SecretsCard({ card, messageId }: { card: Extract<Card, { type: 'secrets
   const [values, setValues] = useState<Record<string, string>>({});
   const [sent, setSent] = useState(false);
   const ready = card.fields.every((f) => (values[f.key] ?? '').trim());
-  if (card.done || sent) {
-    return (
-      <div className="card connect resolved">
-        <div className="c-head">
-          <div>
-            <div className="c-title">{card.title}</div>
-            <div className="c-sub">{card.done ? t('card.secretsFilled') : t('card.secretsSent')}</div>
-          </div>
-          <span className="cn-mark" aria-hidden>✓</span>
-        </div>
-      </div>
-    );
-  }
+  const over = card.done || sent;
   return (
-    <div className="card connect secrets">
+    <div className={cx('card connect secrets', over && 'resolved')}>
       <div className="c-head">
         <div>
           <div className="c-title">{card.title}</div>
-          <div className="c-sub">{t('card.secretsNote')}</div>
+          <div className="c-sub">{over ? (card.done ? t('card.secretsFilled') : t('card.secretsSent')) : t('card.secretsNote')}</div>
         </div>
-        <span className="cn-mark" aria-hidden>⌁</span>
+        <span className="cn-mark" aria-hidden>{over ? '✓' : '⌁'}</span>
       </div>
       {card.help && (card.help.steps?.length || card.help.url) ? (
         <div className="sc-help">
@@ -258,17 +252,18 @@ function SecretsCard({ card, messageId }: { card: Extract<Card, { type: 'secrets
               type={f.secret === false ? 'text' : 'password'}
               autoComplete="off"
               spellCheck={false}
-              value={values[f.key] ?? ''}
+              disabled={over}
+              value={over ? '' : (values[f.key] ?? '')}
               onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
-              placeholder={f.hint ?? ''}
+              placeholder={over ? '••••••••' : (f.hint ?? '')}
             />
           </label>
         ))}
       </div>
       <div className="c-actions">
         <button
-          className="btn primary"
-          disabled={!ready || !messageId}
+          className={cx('btn', over ? 'picked' : 'primary')}
+          disabled={over || !ready || !messageId}
           onClick={() => {
             if (!messageId) return;
             agent.submitSecrets(messageId, card.integrationId, values);
@@ -276,7 +271,7 @@ function SecretsCard({ card, messageId }: { card: Extract<Card, { type: 'secrets
             setSent(true);
           }}
         >
-          {t('card.secretsSubmit')}
+          {over ? `✓ ${t('card.secretsDone')}` : t('card.secretsSubmit')}
         </button>
       </div>
     </div>
@@ -285,12 +280,19 @@ function SecretsCard({ card, messageId }: { card: Extract<Card, { type: 'secrets
 
 /** Compact action row used by the inbox and the matter panel. */
 export function PendingActions({ p, small }: { p: Pending; small?: boolean }) {
-  if (p.resolved) return <span className="quiet">✓ {p.resolved.choice}</span>;
+  const done = p.resolved;
+  const picked = (label: string) => !!done && (label === done.choice || label.startsWith(done.choice) || done.choice.startsWith(label));
+  if (done && !p.options.some((o) => picked(o.label))) return <span className="quiet">✓ {done.choice}</span>;
   return (
     <>
       {p.options.map((o) => (
-        <button key={o.id} className={cx('btn', small && 'sm', o.primary && 'primary')} onClick={() => agent.onPendingChoice(p.id, o.id)}>
-          {o.label}{o.primary && p.kind === 'confirm' && p.amount ? ` ¥${p.amount}` : ''}
+        <button
+          key={o.id}
+          className={cx('btn', small && 'sm', o.primary && !done && 'primary', picked(o.label) && 'picked')}
+          disabled={!!done}
+          onClick={() => agent.onPendingChoice(p.id, o.id)}
+        >
+          {picked(o.label) ? '✓ ' : ''}{o.label}{o.primary && p.kind === 'confirm' && p.amount ? ` ¥${p.amount}` : ''}
         </button>
       ))}
     </>

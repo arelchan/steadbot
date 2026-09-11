@@ -357,8 +357,9 @@ body.resizing * { transition: none !important; }
 .card .c-sub { color: var(--text-2); font-size: 12px; margin-top: 3px; line-height: 1.5; }
 .card .c-amt { font-weight: 600; white-space: nowrap; font-size: 15px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .card .c-actions { display: flex; gap: 8px; padding: 6px 14px 12px; flex-wrap: wrap; }
-.card.resolved { opacity: 0.72; }
-.card .c-resolved { padding: 9px 14px 10px; color: var(--ok); font-size: 12px; border-top: 1px solid var(--hair-2); }
+/* A card that has been acted on keeps its shape: the state shows on the control that was used, not as a
+   collapsed summary line. Only the free-text case (no option to mark) still needs a line of its own. */
+.card .c-said { padding: 9px 14px 10px; color: var(--text-2); font-size: 12px; border-top: 1px solid var(--hair-2); }
 
 .btn {
   height: 30px; padding: 0 14px; border-radius: 999px;
@@ -370,7 +371,10 @@ body.resizing * { transition: none !important; }
 .btn:active { transform: scale(0.98); }
 .btn.primary { background: var(--accent); color: #fff; box-shadow: none; }
 .btn.primary:hover { background: var(--accent-2); box-shadow: none; }
-.btn:disabled { opacity: 0.5; cursor: default; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+/* the one that was chosen (or filled): full strength, accent tint, no hover */
+.btn.picked, .btn.picked:disabled { opacity: 1; background: var(--accent-bg); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-hair); }
+.btn.picked:hover { background: var(--accent-bg); box-shadow: inset 0 0 0 1px var(--accent-hair); }
 .btn.sm { height: 26px; padding: 0 11px; font-size: 11.5px; }
 
 /* option cards: tappable rows */
@@ -389,6 +393,7 @@ body.resizing * { transition: none !important; }
 .opt::after { content: '›'; grid-column: 2; grid-row: 1 / span 2; color: var(--muted); font-size: 16px; }
 .opt.picked::after { content: '✓'; color: var(--accent); font-size: 13px; }
 .opt:disabled:not(.picked)::after { content: ''; }
+.opt:disabled:not(.picked) { opacity: 0.5; }
 
 .card.connect .c-head { align-items: center; }
 .card.connect .cn-mark { color: var(--accent); font-size: 16px; }
@@ -402,6 +407,9 @@ body.resizing * { transition: none !important; }
 .sc-label { font-size: 11.5px; color: var(--text-2); }
 .sc-field input { width: 100%; border: 1px solid var(--hair); border-radius: var(--r-sm); padding: 7px 10px; background: var(--panel); font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .sc-field input:focus { outline: 0; border-color: var(--accent-hair); }
+/* filled in: the field stays where it was, showing that something is in it and that it cannot be read back */
+.sc-field input:disabled { background: var(--panel-2); color: var(--muted); border-color: var(--hair-2); letter-spacing: 0.12em; }
+.sc-field input:disabled::placeholder { color: var(--text-2); }
 .card.connect.dead .c-sub { color: var(--warn); }
 .card.connect .btn { text-decoration: none; display: inline-flex; align-items: center; }
 .env-add { resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; }
@@ -1080,6 +1088,10 @@ li.md-task.done { color: var(--text-2); }
 .login-qr-wrap { position: relative; display: flex; justify-content: center; }
 .login-qr { display: block; margin: 10px auto 2px; width: 100%; max-width: 260px; border-radius: var(--r-sm); background: #fff; }
 .login-qr-wrap.dead .login-qr { filter: grayscale(1) brightness(0.55); }
+/* scanned: the code's box stays, so the card does not jump when it resolves */
+.login-qr-wrap.done { margin: 10px auto 2px; width: 100%; max-width: 260px; aspect-ratio: 1; border-radius: var(--r-sm); background: var(--panel-2); align-items: center; }
+.login-qr-wrap .login-ok { color: var(--ok); font-size: 40px; line-height: 1; }
+.login-qr-wrap .login-ok.off { color: var(--muted); }
 .login-how { margin: 8px 2px 2px; font-size: 12px; line-height: 1.5; color: var(--text-2); }
 .login-dead { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 12px; letter-spacing: 0.02em; }
 .bubble .md-hr, .md .md-hr { border: 0; border-top: 1px solid var(--hair); margin: 8px 0; }

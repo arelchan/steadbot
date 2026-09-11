@@ -137,12 +137,12 @@ export class WeixinPairing {
   private fail(ask: Ask, why: string) {
     ask.done = true;
     this.asks.delete(ask.id);
-    this.markCard(ask, why);
+    this.markCard(ask, why, false);
     this.tellBot(ask.botId, `【系统】微信扫码没成：${why}。要接的话重新发一张码（build(aspect=channel, action=add, value="微信")）。`);
   }
 
-  private markCard(ask: Ask, note: string) {
+  private markCard(ask: Ask, note: string, ok = true) {
     const m = this.store.data.messages.findLast((x) => x.card?.type === 'login' && x.card.askId === ask.id);
-    if (m?.card?.type === 'login') this.store.patchMessage(m.id, { card: { ...m.card, done: true, note } });
+    if (m?.card?.type === 'login') this.store.patchMessage(m.id, { card: { ...m.card, done: true, ok, note } });
   }
 }
