@@ -45,6 +45,7 @@ import type { ConnectorManager } from './connectors.ts';
 import type { BotCtx, CurrentTurn } from './extensions/ctx.ts';
 import { identityExtension } from './extensions/identity.ts';
 import { todoExtension } from './extensions/todo.ts';
+import { deliverExtension } from './extensions/deliver.ts';
 import { scheduleExtension } from './extensions/schedule.ts';
 import { askExtension } from './extensions/ask.ts';
 import { actExtension } from './extensions/act.ts';
@@ -305,6 +306,7 @@ export class BotManager extends EventEmitter {
         bridge,
         identityExtension(ctx, () => this.skills.of(botId), () => this.ops),
         todoExtension(ctx),
+        deliverExtension(ctx),
         scheduleExtension(ctx),
         askExtension(ctx),
         actExtension(ctx, perform),
@@ -507,7 +509,9 @@ export class BotManager extends EventEmitter {
             void this.send(botId, { threadId, kind: 'system', text: `你刚才 @ 的 ${names} 不在群「${matter.title}」里，没有收到。需要它参与就先 configure(target=matter, field=members, action=add, value="它的名字") 把它拉进群，再在回复里 @它；不需要就不用管。`, depth: (cur?.depth ?? 0) + 1 });
           }
         }
-        const files = filesMentioned(text, join(config.botsDir, botId), config.publicUrl, botId);
+        // deliver 明确交出去的排前面，再补上正文里提到、又确实存在的那些。
+        const mentioned = filesMentioned(text, join(config.botsDir, botId), config.publicUrl, botId);
+        const files = [...(cur?.files ?? []), ...mentioned.filter((f) => !(cur?.files ?? []).some((x) => x.path === f.path))].slice(0, 8);
         this.store.addMessage({ threadId, author: 'bot', botId, text, ts: Date.now(), todoId: cur?.todoId, via: cur?.via, to: cur?.to, mentions: mentions.length ? mentions : undefined, files: files.length ? files : undefined });
         // Fallback bookkeeping: only when the model did not touch the todo itself this turn. Its own
         // summary is a written progress line; a truncated reply is a poor substitute for it.

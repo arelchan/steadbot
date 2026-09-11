@@ -1,7 +1,7 @@
 import type { EventEmitter } from 'node:events';
 import type { CrewStore } from '../store.ts';
 import type { PendingBroker } from '../broker.ts';
-import type { Bot, Channel, ThreadId } from '../types.ts';
+import type { Bot, Channel, FileRef, ThreadId } from '../types.ts';
 
 /** What the bot is doing right now: which thread triggered this run and which message it answers. */
 export interface CurrentTurn {
@@ -19,6 +19,8 @@ export interface CurrentTurn {
   /** hops in a bot-to-bot handoff chain */
   depth: number;
   receipt?: 'created' | 'updated' | 'closed';
+  /** 这一轮 deliver 交出去的东西，发消息时挂在消息上 */
+  files?: FileRef[];
 }
 
 /** Everything a crew extension needs, bound to one bot. */
