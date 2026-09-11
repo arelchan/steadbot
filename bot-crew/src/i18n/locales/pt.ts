@@ -184,12 +184,6 @@ export const pt: Record<string, string> = {
   'ident.removeOut': 'Tirar do grupo',
   'ident.makeLead': 'Passar a condução',
   'ident.setLead': 'Deixar conduzindo',
-
-  'task.group.blocked': 'Travadas',
-  'task.group.waiting': 'Para você',
-  'task.group.doing': 'Em andamento',
-  'task.group.open': 'Na fila',
-  'task.group.done': 'Concluídas',
   'task.none': 'Sem tarefas',
   'task.unknownBot': 'bot desconhecido',
   'task.doingCount.one': '{n} em andamento',

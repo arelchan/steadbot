@@ -12,9 +12,9 @@ import { avatarService, fileToAvatar } from '../services/avatar';
 import { PendingActions } from './Cards';
 import { BotConfigModal, sayWhen } from './BotConfigModal';
 import { ScreenCard } from './Screen';
-import { statusLabel } from '../services/agent';
 import { cx, fmtTime, shortDay } from '../utils';
 import { useT, tn, t as tr } from '../i18n';
+import { statusLabel } from '../services/agent';
 
 const when = (ts: number) => (shortDay(ts) === fmtTime(ts) ? fmtTime(ts) : `${shortDay(ts)} ${fmtTime(ts)}`);
 
@@ -60,7 +60,7 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
         )}
         <Section
           title={t('ws.tasks')}
-          hint={`${tn('ws.taskCount', open)}${wait ? tn('ws.taskWait', wait) : ''}`}
+          hint={open ? `${tn('ws.taskCount', open)}${wait ? tn('ws.taskWait', wait) : ''}` : ''}
           startOpen
           grow
           lead={detail ? <button className="link" onClick={() => setPanel({ mode: 'board' })}>{t('ws.backTasks')}</button> : undefined}
@@ -426,12 +426,21 @@ function TasksPanel({ bot, matter }: { bot?: Bot; matter?: Matter }) {
 
 const ORDER: TodoStatus[] = ['waiting', 'doing', 'done', 'closed'];
 
+/**
+ * 默认展开哪几叠：要你动的和正在动的展开，已经结束的收起——收起的那两叠是「查」的，不是「看」的。
+ * 例外是全都结束了：这时候再把它们收起来，这一栏看着就是空的。
+ */
+const opensByDefault = (st: TodoStatus, hasLive: boolean) => st === 'waiting' || st === 'doing' || !hasLive;
+
 export function TaskBoard({ filter, showBot }: { filter: (t: Todo) => boolean; showBot?: boolean }) {
   const t = useT();
   const s = useStore((x) => x);
   const [showDone, setShowDone] = useState(false);
+  // 用户自己点过的那几叠记在这一轮里（不存盘：下次进来还是按默认策略）。
+  const [toggled, setToggled] = useState<Partial<Record<TodoStatus, boolean>>>({});
   const todos = s.todos.filter(filter).sort((a, b) => b.updatedAt - a.updatedAt);
   const groups = ORDER.map((st) => ({ st, items: todos.filter((t) => t.status === st) })).filter((g) => g.items.length);
+  const hasLive = groups.some((g) => g.st === 'waiting' || g.st === 'doing');
 
   if (showBot) {
     // Group board: who is doing what. One block per bot, tasks that need the user first, done last.
@@ -467,20 +476,19 @@ export function TaskBoard({ filter, showBot }: { filter: (t: Todo) => boolean; s
   return (
     <div className="board">
       {todos.length === 0 && <div className="quiet" style={{ padding: '12px 0' }}>{t('task.none')}</div>}
-      {groups.map(({ st, items }) => (
-        <div className="bgroup" key={st}>
-          <div className={cx('bgroup-hd', st)}>
-            <span>{t(`task.group.${st}`)}</span>
-            <span className="cnt">{items.length}</span>
-            {st === 'done' && items.length > 2 && (
-              <button className="link" onClick={() => setShowDone(!showDone)}>{showDone ? t('common.collapse') : t('common.all')}</button>
-            )}
+      {groups.map(({ st, items }) => {
+        const open = toggled[st] ?? opensByDefault(st, hasLive);
+        return (
+          <div className="bgroup" key={st}>
+            <button className={cx('bgroup-hd', st)} onClick={() => setToggled({ ...toggled, [st]: !open })}>
+              <span>{t(`status.${st}`)}</span>
+              <span className="cnt">{items.length}</span>
+              <span className={cx('ws-chev', open && 'open')} aria-hidden>›</span>
+            </button>
+            {open && items.map((x) => <TaskRow key={x.id} t={x} showBot={showBot} />)}
           </div>
-          {(st === 'done' && !showDone ? items.slice(0, 2) : items).map((x) => (
-            <TaskRow key={x.id} t={x} showBot={showBot} />
-          ))}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -503,7 +511,6 @@ function TaskRow({ t: todo, showBot }: { t: Todo; showBot?: boolean }) {
         <span className="task-t">{todo.title}</span>
         {group && <span className="chip task-grp" role="link" onClick={(e) => { e.stopPropagation(); select(matterThread(group.id)); }} title={t('task.fromGroup')}>{group.title}</span>}
         {origin && <span className="chip task-org">{origin}</span>}
-        <span className={cx('st', todo.status)}>{statusLabel(todo.status)}</span>
       </div>
       {todo.summary && <div className="task-s">{todo.summary}</div>}
       <div className="task-m">

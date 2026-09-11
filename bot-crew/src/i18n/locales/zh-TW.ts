@@ -184,12 +184,6 @@ export const zhTW: Record<string, string> = {
   'ident.removeOut': '移出群組',
   'ident.makeLead': '改為主責',
   'ident.setLead': '設為主責',
-
-  'task.group.blocked': '卡住了',
-  'task.group.waiting': '等你',
-  'task.group.doing': '它在做',
-  'task.group.open': '排隊中',
-  'task.group.done': '做完的',
   'task.none': '沒有事項',
   'task.unknownBot': '未知 bot',
   'task.doingCount.one': '{n} 件在做',

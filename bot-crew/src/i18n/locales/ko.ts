@@ -184,12 +184,6 @@ export const ko: Record<string, string> = {
   'ident.removeOut': '그룹에서 빼기',
   'ident.makeLead': '리드로 지정',
   'ident.setLead': '리드로',
-
-  'task.group.blocked': '막힘',
-  'task.group.waiting': '내 확인 대기',
-  'task.group.doing': '진행 중',
-  'task.group.open': '대기열',
-  'task.group.done': '완료',
   'task.none': '할 일이 없습니다',
   'task.unknownBot': '알 수 없는 bot',
   'task.doingCount.one': '{n}건 진행 중',

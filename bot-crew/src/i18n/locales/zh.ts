@@ -212,11 +212,6 @@ export const zh: Record<string, string> = {
   'ident.setLead': '设为牵头',
 
   /* ---- 事项 ---- */
-  'task.group.blocked': '卡住了',
-  'task.group.waiting': '等你',
-  'task.group.doing': '它在做',
-  'task.group.open': '排队中',
-  'task.group.done': '做完的',
   'task.none': '没有事项',
   'task.unknownBot': '未知 bot',
   'task.doingCount.one': '{n} 件在做',

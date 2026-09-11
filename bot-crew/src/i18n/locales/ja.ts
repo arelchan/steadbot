@@ -184,12 +184,6 @@ export const ja: Record<string, string> = {
   'ident.removeOut': 'グループから外す',
   'ident.makeLead': 'まとめ役にする',
   'ident.setLead': 'まとめ役に',
-
-  'task.group.blocked': '停止',
-  'task.group.waiting': 'あなた待ち',
-  'task.group.doing': '対応中',
-  'task.group.open': '待機中',
-  'task.group.done': '完了',
   'task.none': 'タスクはありません',
   'task.unknownBot': '不明な bot',
   'task.doingCount.one': '{n} 件対応中',

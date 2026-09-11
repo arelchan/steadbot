@@ -210,12 +210,6 @@ export const ru: Record<string, string> = {
   'ident.removeOut': 'Убрать из группы',
   'ident.makeLead': 'Сделать ведущим',
   'ident.setLead': 'Ведущим',
-
-  'task.group.blocked': 'Застряли',
-  'task.group.waiting': 'За вами',
-  'task.group.doing': 'В работе',
-  'task.group.open': 'В очереди',
-  'task.group.done': 'Готово',
   'task.none': 'Задач нет',
   'task.unknownBot': 'неизвестный бот',
   'task.doingCount.one': '{n} в работе',
