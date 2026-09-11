@@ -5,6 +5,9 @@ import { summarize } from './util.ts';
 
 export type NewBot = Omit<Bot, 'id' | 'createdAt'>;
 
+/** One character, counted the way a reader counts them: an emoji is one, and half of one is 「�」. */
+const firstChar = (s: string) => [...s][0] ?? '';
+
 function uniqueName(name: string, existing: string[]) {
   if (!existing.includes(name)) return name;
   let i = 2;
@@ -80,17 +83,27 @@ export async function inferBot(text: string, place: Birthplace, runtime?: ModelR
   try {
     const res = await runtime.completeSimple(model, {
       systemPrompt:
-        '用户要创建一个长期为自己服务的 bot，下面是他对它说的第一句话，以及这个 bot 出生的处境。为它写一个身份。\n' +
+        '用户要创建一个长期为自己服务的 bot。下面是它以后长期管的那一摊活，和它出生的处境。为它写一个身份。\n' +
         '输出严格 JSON：{"name":"名字","glyph":"1 个字","tagline":"一句话简介","role":"职责与工作方式","soul":"人设","hints":["检索关键词"]}。只输出 JSON。\n\n' +
         '怎么写：\n' +
-        '- name 是用户以后每天叫它的名字：短、好念、一眼知道它管什么；不要和团队里已有的重名，也不要是同一个词换个说法。\n' +
-        '- role 以「我」为用户视角写：它管哪些事、按什么顺序做、做到哪一步要回来问我。边界要具体到一个动作（「改别人的会之前问我」），不要「重要操作前确认」这种。长短由你定，说清为止。\n' +
+
+        '- name 是用户以后每天要叫出口的名字：像给同事起的花名，或者一个现成的职业称呼，念得出、像个词。不要把几个词各取一个字拼成生造词，不要用缩写，不要把这次任务的主题塞进名字。不要和团队里已有的重名，也不要是同一个词换个说法。\n' +
+        '- role 一两句话，用用户对它说话的口气写（「帮我…」「…之前先问我」）：第一句说它以后长期帮我做什么，第二句说什么时候必须回来问我——边界要具体到一个动作（「改别人的会之前问我」），不是「重要操作前确认」。只写这两件事：不要列步骤、不要写交付物和格式、不要定没人要求过的时间点和字数，也不要出现这次活里的专有名词（哪个品类、哪家公司、哪个地方）——它以后接的活不会都关于这一件。\n' +
         '- soul 是它的性格、说话方式、待人方式，要能想象出它说话的样子。它可以有脾气、有偏好、有不爱做的事。\n' +
         '- hints 是 3-6 个检索关键词，用来去技能库里找它用得上的手册：写这份工作实际会做的事（「代码评审」「竞品监控」「会议纪要」），中英文都行，不要写「高效」这种。\n\n' +
-        '不要写的：不要「专业、高效、贴心、认真负责、热情」这类谁都能安上的词；不要把用户的原话抄一遍当职责；不要写这台机器做不到的事；不要和团队里已有的 bot 职责重叠——真撞上就把它写窄，写成已有的人不管的那部分。\n' +
+        '不要写的：不要「专业、高效、贴心、认真负责、热情」这类谁都能安上的词；不要把给你的那句话抄一遍、或拆成条款当职责；不要写这台机器做不到的事；不要和团队里已有的 bot 职责重叠——真撞上就把它写窄，写成已有的人不管的那部分。\n' +
         `${lang}。\n\n` +
         `团队里已经有的 bot：\n${team}\n\n关于用户（已知的）：\n${about}\n\n这台机器已经接入：${reach}`,
-      messages: [{ role: 'user', content: text, timestamp: Date.now() }],
+      messages: [
+        {
+          role: 'user',
+          // The sentence is a task, not a job description, and saying so beside it beats saying it once at the top:
+          // told only in the rules above, the light model writes「交付两个文件：HTML 和 PPTX」into the standing role
+          // about half the time — it is the most concrete thing in front of it.
+          content: `他对它说的第一句话：「${text.replace(/\s+/g, ' ').slice(0, 400)}」\n\n（这是它接到的第一件活，不是它的工作说明书。里面的主题、配色、格式、文件、页数、时间都是这一次的要求，一个都不要写进身份；也不要凭空添没人要求过的规矩。）`,
+          timestamp: Date.now(),
+        },
+      ],
     }, { maxTokens: 1500 });
     const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').replace(/```(?:json)?/g, '');
     const json = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as Partial<NewBot> & { hints?: unknown };
@@ -99,7 +112,7 @@ export async function inferBot(text: string, place: Birthplace, runtime?: ModelR
     return {
       ...fallback,
       name,
-      glyph: (String(json.glyph ?? name[0]).trim().slice(0, 1) || name[0]),
+      glyph: firstChar(String(json.glyph ?? '').trim()) || firstChar(name),
       tagline: json.tagline?.trim() || fallback.tagline,
       role: json.role.trim(),
       soul: typeof json.soul === 'string' && json.soul.trim() ? json.soul.trim() : fallback.soul,
