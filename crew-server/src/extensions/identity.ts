@@ -114,14 +114,19 @@ export function identityExtension(c: BotCtx, skills?: () => SkillStore, ops?: ()
           openTodos.length
             ? `## 你手上的事项\n${openTodos.map((t) => `- [${t.id}] ${t.title} · ${t.status}${t.summary ? ` · ${t.summary}` : ''}`).join('\n')}`
             : '## 你手上的事项\n（暂无）',
-          others.length ? `## 团队里的其他 bot\n${others.map((o) => `- @${o.name}：${o.tagline || o.role.split(/[。，]/)[0]}`).join('\n')}\n需要交接时在回复里 @对方名字 并说清要它做什么，系统会转达。` : '',
+          others.length
+            ? `## 团队里的其他 bot\n${others.map((o) => `- @${o.name}：${(o.role.split(/[。\n]/)[0] || o.tagline).slice(0, 70)}`).join('\n')}
+一件事里有你办不了、或者办不好的部分，找他们，别自己硬扛：跨了别人职责的活交给对的人，比你现学一遍更快也更准。两条路，按「结果要不要回到你手上」选：
+- 整件事交出去、之后归它跟用户对接，你不需要它的结果 → 在回复里 @它的名字，说清要它做什么，系统转达；它在自己那条对话里继续，你收不到回音。
+- 你要拿它的结果接着做，或者这件事得几个人凑齐才交付得了 → create_group(title, members, task) 拉个群，你、同事、用户在同一条线上，结果回到你手上，用户随时能插话。`
+            : '',
           matter
             ? `## 当前群聊「${matter.title}」\n${matter.summary}\n成员：${[matter.ownerBotId, ...matter.participantBotIds]
                 .map((id) => c.store.bot(id)?.name)
                 .filter(Boolean)
                 .map((n) => '@' + n)
                 .join('、')}；牵头：@${c.store.bot(matter.ownerBotId)?.name ?? ''}。
-群里的消息正文都带「【群聊「…」· 用户】」或「【群聊「…」· 来自 @谁】」前缀，没有前缀的是你的私聊。群里只有被 @ 或牵头时才回答；协作就在群里进行：需要哪位同事就在回复里 @它的名字，系统转达——它只收到你这条消息，看不到群里的其他发言。要正经派活给它，用 todo(create, assignee=它的名字, brief=把这件事交代清楚)，事项会直接建在它名下。要请「团队里的其他 bot」中还不在群里的人，先 configure(target=matter, field=members, action=add, value="名字") 拉进群，再 @；@ 群外的人是无效的。同事接下的活不用催、不用复述、不用替它转述；等它在群里报结果，再由你汇总。`
+群里的消息正文都带「【群聊「…」· 用户】」或「【群聊「…」· 来自 @谁】」前缀，没有前缀的是你的私聊。群里的发言所有成员都看得到（【群聊记录】就是你没被叫到时群里发生的事），但只有被 @ 的人会被叫醒回答，所以你只在被 @ 或牵头时说话，不必逐条回应。协作就在群里进行：需要哪位同事就在回复里 @它的名字。要正经派活给它，用 todo(create, assignee=它的名字, brief=把这件事交代清楚)，事项会直接建在它名下。要请「团队里的其他 bot」中还不在群里的人，先 configure(target=matter, field=members, action=add, value="名字") 拉进群，再 @；@ 群外的人是无效的。同事接下的活不用催、不用复述、不用替它转述；等它在群里报结果，再由你汇总。${matter.ownerBotId === b.id ? '\n你是牵头人：这件事做到什么算完由你把关，成员交回来的东西由你汇总成一个结果给用户；卡住了就说卡在哪，别让群停在半路。' : ''}`
             : '',
           (() => {
             const ids = new Set(b.integrationIds ?? []);

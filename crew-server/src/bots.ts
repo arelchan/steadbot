@@ -469,6 +469,17 @@ export class BotManager extends EventEmitter {
         for (const to of mentions) {
           this.events.emit('crew:handoff', { from: botId, to, text, threadId, matterId: cur?.matterId, depth: (cur?.depth ?? 0) + 1 });
         }
+        // In a group everyone hears what was said, but only the ones spoken to wake up: the rest get it as
+        // transcript (queued for their next turn, no model call), the same way a user's message in a group
+        // reaches the members it did not name. Without this a 群聊 is just @ with a thread the user can read,
+        // and the bots have no reason to prefer it.
+        if (matter) {
+          const me = this.store.bot(botId)?.name ?? botId;
+          for (const id of [matter.ownerBotId, ...matter.participantBotIds]) {
+            if (id === botId || mentions.includes(id)) continue;
+            void this.send(id, { threadId, kind: 'group', text: `【群聊记录】${me} 在「${matter.title}」里说：${text}` });
+          }
+        }
         break;
       }
       default:

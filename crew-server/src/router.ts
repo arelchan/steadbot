@@ -88,7 +88,12 @@ export class Router {
     return this.broker.resolve(pendingId, optionId);
   }
 
-  createMatter(input: { id?: string; title: string; summary?: string; memberIds: string[]; leadId: string }) {
+  /**
+   * Opens a 群聊. `quiet` is for the caller that is about to drop a task in and wake the lead itself
+   * (create_group); everywhere else the lead says the first word, because a group nobody opens is the
+   * group that stays empty — which is exactly what both of the user's hand-made groups did.
+   */
+  createMatter(input: { id?: string; title: string; summary?: string; memberIds: string[]; leadId: string; quiet?: boolean }) {
     const ids = Array.from(new Set([input.leadId, ...input.memberIds])).filter((x) => this.store.bot(x));
     const lead = ids[0];
     const others = ids.slice(1);
@@ -106,7 +111,18 @@ export class Router {
     const names = ids.map((x) => this.store.bot(x)!.name);
     for (const b of ids) this.store.grow(b, 'group', `加入群聊【${matter.title}】${b === lead ? '，牵头' : ''}`);
     this.store.addMessage({ threadId: matterThread(matter.id), author: 'system', text: `群聊创建了。成员：${names.join('、')}；牵头：${names[0]}。`, ts: Date.now() });
-    for (const b of ids) void this.bots.send(b, { threadId: matterThread(matter.id), kind: 'group', text: `【群聊记录】你被加入群聊「${matter.title}」，成员：${names.join('、')}，牵头：${names[0]}。${matter.summary}` });
+    const joined = `你被加入群聊「${matter.title}」，成员：${names.join('、')}，牵头：${names[0]}。${matter.summary}`;
+    for (const b of ids) {
+      if (b === lead && !input.quiet) continue;
+      void this.bots.send(b, { threadId: matterThread(matter.id), kind: 'group', text: `【群聊记录】${joined}` });
+    }
+    if (!input.quiet) {
+      void this.bots.send(lead, {
+        threadId: matterThread(matter.id),
+        kind: 'system',
+        text: `${joined}\n群里还没人说话，你牵头，开个头：群名和描述已经说得清要做什么，就直接分工——自己做一部分，要别人做的用 todo(create, assignee=名字, brief=交代清楚) 派下去再 @它；看不出要做什么，就一句话问用户这个群要做什么。只说一句，别寒暄，别自我介绍。`,
+      });
+    }
     return matter;
   }
 

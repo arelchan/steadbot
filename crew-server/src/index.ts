@@ -691,15 +691,25 @@ async function main() {
       return { kind, text: added.status === 'ok' ? `「${e.title}」接好了，${added.tools ?? 0} 个工具已经在你的列表里。${m.tools ?? ''}` : `「${e.title}」连接建好了，状态 ${added.status}：${added.note ?? ''}` };
     },
     async createGroup(o) {
-      const matter = router.createMatter({ title: o.title, summary: o.summary, memberIds: o.memberIds, leadId: o.leadId });
+      const matter = router.createMatter({ title: o.title, summary: o.summary, memberIds: o.memberIds, leadId: o.leadId, quiet: !!o.task });
       if (o.task) {
         const from = store.bot(o.byBotId);
         const threadId = matterThread(matter.id);
         store.addMessage({ threadId, author: 'bot', botId: o.byBotId, text: o.task, ts: Date.now() });
+        const line = `【群聊「${matter.title}」· 来自 @${from?.name ?? o.byBotId}】${o.task}`;
+        // One task wakes one bot — whoever leads. Sending it to every member as a direct message had all of
+        // them start the same work at once while the lead (the creator, by default) did nothing.
+        const lead = matter.ownerBotId;
         for (const id of [matter.ownerBotId, ...matter.participantBotIds]) {
-          if (id === o.byBotId) continue;
-          void bots.send(id, { threadId, kind: 'bot', text: `【群聊「${matter.title}」· 来自 @${from?.name ?? o.byBotId}】${o.task}`, fromBotId: o.byBotId, depth: 1 });
+          if (id === lead) continue;
+          void bots.send(id, { threadId, kind: 'group', text: `【群聊记录】${from?.name ?? o.byBotId} 在「${matter.title}」里说：${o.task}` });
         }
+        void bots.send(
+          lead,
+          lead === o.byBotId
+            ? { threadId, kind: 'system', text: `你在群「${matter.title}」里开了这件事：${o.task}\n你牵头，从现在起在群里推进：自己能做的直接做，要成员做的用 todo(create, assignee=名字, brief=交代清楚) 派下去再 @它。`, depth: 1 }
+            : { threadId, kind: 'bot', text: line, fromBotId: o.byBotId, depth: 1 },
+        );
       }
       return matter;
     },

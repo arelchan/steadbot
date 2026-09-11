@@ -61,6 +61,10 @@ export class FakeBrain {
     const update = /改|换|变成|加上|早点|晚点|换成|推迟|提前/.test(text) && !!latest;
     const question = /[?？]$|吗$|呢$|怎么|多少|什么时候|哪个/.test(text) && !update && !money;
     const wantsHandoff = /报销|发票/.test(text) && bot?.id !== 'bill' && !!this.store.bot('bill');
+    // Pulling a group is a path of its own now (one task must wake the lead and nobody else), so the
+    // scripted brain can walk it too: any ask that names two teammates and no group yet.
+    const mates = bot ? this.store.data.bots.filter((x) => x.id !== bot.id) : [];
+    const wantsGroup = /拉个群|拉群|一起/.test(text) && mates.length >= 2 && !/## 当前群聊/.test(ctx.systemPrompt ?? '');
 
     // Step 0: land the todo (create / update / close).
     if (toolResults.length === 0) {
@@ -83,6 +87,12 @@ export class FakeBrain {
       if (routine) return fauxAssistantMessage([fauxToolCall('todo', { action: 'close', todoId, result: '例行任务跑完了，没有需要你处理的。' })], { stopReason: 'toolUse' });
       if (lateChoice) return fauxAssistantMessage(`好，按「${lateChoice[2]}」继续办。`, { stopReason: 'stop' });
       if (fromBot) return fauxAssistantMessage(`收到，@${fromBot[1]} 转来的这件我接了。`, { stopReason: 'stop' });
+      if (wantsGroup) {
+        return fauxAssistantMessage(
+          [fauxToolCall('create_group', { title: summarize(text), members: mates.slice(0, 2).map((x) => x.name), summary: text, task: `${text}。各管一段，做完在群里说一声。` })],
+          { stopReason: 'toolUse' },
+        );
+      }
       if (money) {
         const amount = Number(/(\d{2,6})\s*元|¥\s*(\d{2,6})/.exec(text)?.[1] ?? /(\d{2,6})\s*元|¥\s*(\d{2,6})/.exec(text)?.[2] ?? 553);
         if (/酒店|住/.test(text)) {
@@ -102,6 +112,8 @@ export class FakeBrain {
       if (update) return fauxAssistantMessage(`改好了：${summarize(text)}。`, { stopReason: 'stop' });
       return fauxAssistantMessage(wantsHandoff ? `记下了，我来办。@账单管家 这笔到时候要报销，抬头用公司的。` : `记下了，我来办。有需要你拍板的再找你。`, { stopReason: 'stop' });
     }
+
+    if (last.toolName === 'create_group') return fauxAssistantMessage(`${lastText.split('，')[0]}，各管一段，出结果我在群里汇总给你。`, { stopReason: 'stop' });
 
     // Step 2: after a clarify -> act (pay) through the autonomy gate.
     if (last.toolName === 'ask_user') {

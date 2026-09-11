@@ -111,7 +111,12 @@ export const config = {
   /** the memory engine's root: md files are the truth, the vector index next to them is rebuildable (everos.ts) */
   memoryDir: join(home, 'memory'),
   tools: { pipIndex: process.env.CREW_PIP_INDEX ?? file.tools?.pipIndex, npmRegistry: process.env.CREW_NPM_REGISTRY ?? file.tools?.npmRegistry },
-  handoffDepth: 3,
+  /**
+   * How many bot→bot relays one user turn may chain before the runtime cuts it, the guard against two bots
+   * @-ing each other forever. Three was below what one round of group work costs: a lead that fans a task out
+   * to two members and collects both answers is already four.
+   */
+  handoffDepth: 8,
 };
 
 for (const d of [config.piAgentDir, config.avatarsDir, config.botsDir, config.sharedDir, join(config.piAgentDir, 'skills')]) {
