@@ -129,8 +129,18 @@ function imageModels(): ModelRow[] {
 }
 
 let runtime: ModelRuntime | undefined;
+let announce: ((rt: ModelRuntime) => void) | undefined;
+/**
+ * The runtime is created inside bots.init, and the memory engine starts before that — it needs to know where its
+ * four legs go, so it waits on this rather than reading an empty provider list and deciding it has no key.
+ */
+export const runtimeReady: Promise<ModelRuntime> = new Promise((resolve) => (announce = resolve));
+
 /** bots.ts hands the runtime over once it exists; endpointOf and modelsPage read it from here. */
-export const useRuntime = (rt: ModelRuntime) => void (runtime = rt);
+export const useRuntime = (rt: ModelRuntime) => {
+  runtime = rt;
+  announce?.(rt);
+};
 
 /**
  * Where to send one of our own HTTP calls — embeddings and reranking, which pi has no concept of. The provider's

@@ -18,7 +18,7 @@ import YAML from 'yaml';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { config } from './config.ts';
-import { endpointOf } from './models.ts';
+import { endpointOf, runtimeReady } from './models.ts';
 import { DEFAULT_VISION_MODEL } from './vision.ts';
 import { PLACEHOLDER, startMeterProxy } from './meter-proxy.ts';
 import type { CrewStore } from './store.ts';
@@ -287,6 +287,8 @@ export function startMemory(): Promise<boolean> {
       console.log('[crew] 记忆：已关闭（CREW_MEMORY=0）');
       return false;
     }
+    // Started before the models are resolved (index.ts): wait for them, or every leg below reads as unkeyed.
+    await runtimeReady;
     if (!endpointOf(config.lightModel ?? config.model)) {
       console.log('[crew] 记忆：对话模型还没配钥匙，先不开');
       return false;
