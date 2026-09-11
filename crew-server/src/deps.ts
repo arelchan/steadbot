@@ -49,7 +49,7 @@ const has = (r: Requires) => !!(r.pip?.length || r.npm?.length || r.bin?.length)
 const names = (r: Requires) => [...(r.pip ?? []), ...(r.npm ?? []), ...(r.bin ?? [])];
 
 interface Sources {
-  skills: () => SkillStore;
+  skills: () => SkillStore[];
   integrations: () => Integration[];
 }
 
@@ -68,10 +68,11 @@ export function initDeps(s: Sources) {
 export function wantSet(): { entry: string; req: Requires }[] {
   if (!sources) return [];
   const out: { entry: string; req: Requires }[] = [];
-  const sk = sources.skills();
-  for (const d of sk.list()) {
-    const r = sk.requiresOf(d.name);
-    if (r && has(r)) out.push({ entry: `skill:${d.name}`, req: sanitize(r) });
+  for (const sk of sources.skills()) {
+    for (const d of sk.list()) {
+      const r = sk.requiresOf(d.name);
+      if (r && has(r)) out.push({ entry: `skill:${d.name}`, req: sanitize(r) });
+    }
   }
   for (const i of sources.integrations()) {
     const r = sanitize(mcpRequires(i));

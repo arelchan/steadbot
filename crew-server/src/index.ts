@@ -13,7 +13,7 @@ import { Scheduler } from './scheduler.ts';
 import { AvatarService } from './avatar.ts';
 import { FakeBrain } from './fake-brain.ts';
 import { blankBot, inferBot, inferSkillDocs, inferSoul } from './infer-bot.ts';
-import { SkillStore } from './skills.ts';
+import { SkillStore, SkillStores, migrateSharedSkills } from './skills.ts';
 import { KIND_LABEL, Library, LIBRARY_CATEGORIES } from './library.ts';
 import { buildLabel, pickupSkills, runBuild } from './builder.ts';
 import { ConnectorManager, POPULAR_TOOLKITS, isChinesePlatform } from './connectors.ts';
@@ -40,7 +40,7 @@ import { authorized } from './ws.ts';
 import { createReadStream, statSync as statSyncFs } from 'node:fs';
 import { Readable } from 'node:stream';
 import type { Card, GrowthKind } from './types.ts';
-import { seedBuiltinSkills } from './builtin-skills.ts';
+import { BUILTIN_SKILL_NAMES, seedBuiltinSkills } from './builtin-skills.ts';
 import type { CrewOps } from './extensions/crew-tools.ts';
 import { startServer } from './ws.ts';
 import { botThread, matterThread, parseThread, type Bot, type FileRef, type Integration, type ThreadId } from './types.ts';
@@ -69,12 +69,13 @@ async function main() {
   const events = new EventEmitter();
   const memory = new MemoryStore(store, config.botsDir, config.sharedDir);
   const broker = new PendingBroker(store, config.askTimeoutMs);
-  const skills = new SkillStore(join(config.piAgentDir, 'skills'));
+  // The product's own manuals live in the shared agentDir; everything a bot mounts or writes lives in its own.
+  const skills = new SkillStores(config.botsDir, new SkillStore(join(config.piAgentDir, 'skills')));
   const library = new Library(config.libraryDir);
   // Packages a bot installed for a skill live on the data volume, not in the image: put back whatever this machine
   // lost, then converge to what the manuals and connections that are here actually need (deps.ts). Both run in the
   // background: a machine that just arrived is missing everything, and nothing should wait for that.
-  initDeps({ skills: () => skills, integrations: () => store.data.integrations });
+  initDeps({ skills: () => skills.all(store.data.bots.map((b) => b.id)), integrations: () => store.data.integrations });
   // Memory: an EverOS sidecar on loopback (everos.ts). Also in the background, and also fine to be missing —
   // without it the bots keep the two plain-text lists they have always had.
   everos.initMemory({
@@ -131,7 +132,7 @@ async function main() {
   // 成长动线是后加的：老 bot 从已有痕迹里补出一条（诞生、技能、进化、连接），之后的变化实时记录。
   for (const b of store.data.bots) {
     if (b.growth) continue;
-    const docs = new Map(skills.list().map((d) => [d.name, d]));
+    const docs = new Map(skills.of(b.id).list().map((d) => [d.name, d]));
     const evs: { ts: number; kind: GrowthKind; text: string }[] = [{ ts: b.createdAt, kind: 'born', text: '由你创建' }];
     for (const k of b.skills) {
       const d = docs.get(k);
@@ -152,7 +153,9 @@ async function main() {
       for (const b of store.data.bots) if ((b.integrationIds ?? []).includes(i.id)) await bots.refreshTools(b.id).catch(() => undefined);
     });
   }
-  seedBuiltinSkills(skills);
+  seedBuiltinSkills(skills.builtin);
+  // Homes written before each bot had its own skills directory.
+  if (active) migrateSharedSkills(skills, store.data.bots, [...BUILTIN_SKILL_NAMES, STEWARD_SKILL_NAME], join(config.piAgentDir, 'skills-shared-before'));
   if (active) resumeInterruptedTurns();
   // Reconnect MCP servers that were healthy last time (background).
   for (const i of store.data.integrations) if (i.kind === 'mcp' && i.status !== 'off') void mcp.connect(i.id);
@@ -189,7 +192,7 @@ async function main() {
       setGenerating(bot.id, 'avatar', false);
     }
   };
-  const ensureSkills = (bot: Bot) => skills.ensure(bot.skills, (missing) => inferSkillDocs(bot, missing, bots.modelRuntime, bots.lightModel));
+  const ensureSkills = (bot: Bot) => skills.of(bot.id).ensure(bot.skills, (missing) => inferSkillDocs(bot, missing, bots.modelRuntime, bots.lightModel));
   /** Two passes over the pool — one on the brief, one on the finished role — as one list, best rank first. */
   const mergeCandidates = (...lists: { slug: string }[][]) => {
     const score = new Map<string, number>();
@@ -207,7 +210,7 @@ async function main() {
     const added: string[] = [];
     for (const slug of slugs) {
       try {
-        const { name } = library.mount(slug, skills);
+        const { name } = library.mount(slug, skills.of(botId));
         const cur = store.bot(botId);
         if (!cur) break;
         if (!cur.skills.includes(name)) {
@@ -245,7 +248,7 @@ async function main() {
   /** A bot that gains a manual gains what the manual stands on. */
   const followNeeds = async (botId: string, names: string[], threadId: ThreadId) => {
     for (const name of names) {
-      for (const slug of skills.get(name)?.needs ?? []) {
+      for (const slug of skills.of(botId).get(name)?.needs ?? []) {
         try {
           await bots.ops!.equip(botId, slug, threadId);
         } catch (e) {
@@ -274,7 +277,7 @@ async function main() {
     }
     // A skill name with no manual behind it is dropped, not written for: bots carry only manuals somebody wrote.
     for (const b of store.data.bots) {
-      const have = b.skills.filter((n) => skills.has(n));
+      const have = b.skills.filter((n) => skills.of(b.id).has(n) || skills.builtin.has(n));
       if (have.length !== b.skills.length) store.patchBot(b.id, { skills: have }, { growth: false });
     }
   })();
@@ -637,7 +640,7 @@ async function main() {
         const added = mountLibrary(botId, [e.slug]);
         const already = !added.length && before.includes(e.title);
         // A manual whose tools are not here is worse than no manual: the bot follows it and hits the wall halfway.
-        const req = skills.requiresOf(e.title);
+        const req = skills.of(botId).requiresOf(e.title);
         const r = req ? await depsReady(req, e.slug) : undefined;
         const head = already ? `「${e.title}」已经在你的技能里了，直接照着做。` : `已挂上「${e.title}」，按手册的步骤做。`;
         if (r?.ok === false && r.pending) return { kind, text: `${head}\n${r.note}。先做别的，或者过一会儿再用到那一步。` };
@@ -732,7 +735,7 @@ async function main() {
       if (!bot) throw new Error('找不到这个 bot');
       const job = { id: `bld_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, aspect: spec.aspect, label: buildLabel(spec), since: Date.now(), skill: spec.skill };
       store.patchBot(botId, { building: [...(bot.building ?? []), job] });
-      void runBuild({ store, skills, runtime: bots.modelRuntime, model: bots.lightModel, onSkillWritten: (id) => bots.recycle(id), needs: needsFor }, botId, job, spec);
+      void runBuild({ store, skills: (id) => skills.of(id), runtime: bots.modelRuntime, model: bots.lightModel, onSkillWritten: (id) => bots.recycle(id), needs: needsFor }, botId, job, spec);
       return job;
     },
     async connect(botId, threadId, service, why) {
@@ -904,7 +907,7 @@ async function main() {
 
   const server = startServer(store, config.port, config.avatarsDir, {
     snapshotMode: () => bots.mode,
-    snapshotExtra: () => ({ runtime: runtime.info(), skills: skills.list(), library: library.list(), typing: store.typingSnapshot(), upgrade: upgrader.status() }),
+    snapshotExtra: () => ({ runtime: runtime.info(), skills: skills.list(store.data.bots.map((b) => b.id)), library: library.list(), typing: store.typingSnapshot(), upgrade: upgrader.status() }),
     // Only the runtime that runs the bots borrows agents; a signpost has no bots to lend them to.
     onHost: active ? (socket) => hosts.attach(socket) : undefined,
     onVnc: active ? (req, socket, head) => desktops.proxy(req, socket, head) : undefined,
@@ -1407,7 +1410,7 @@ async function main() {
           break;
         }
         case 'patch_skill':
-          skills.patch(msg.name, msg.patch);
+          skills.of(msg.botId).patch(msg.name, msg.patch);
           break;
         case 'mount_library_skill':
           if (!store.bot(msg.botId)) throw new Error('bot 不存在');
@@ -1464,6 +1467,8 @@ async function main() {
           const bot = store.deleteBot(msg.id);
           if (!bot) break;
           await bots.retire(bot.id);
+          // Its manuals live in its directory, so they go with it.
+          skills.drop(bot.id);
           rmSync(join(config.botsDir, bot.id), { recursive: true, force: true });
           for (const ext of ['png', 'jpg']) rmSync(join(config.avatarsDir, `${bot.id}.${ext}`), { force: true });
           break;

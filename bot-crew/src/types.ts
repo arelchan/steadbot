@@ -417,6 +417,8 @@ export interface Message {
 export interface SkillDoc {
   name: string;
   slug: string;
+  /** 这份手册是谁的。产品自带的手册没有这个字段，所有 bot 共用。 */
+  botId?: string;
   description: string;
   body: string;
   updatedAt: number;

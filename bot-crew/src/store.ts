@@ -92,7 +92,7 @@ export interface RemoteSink {
   deleteBot(id: string): void;
   dropEvent(id: string): void;
   deleteMatter(id: string): void;
-  patchSkill(name: string, patch: { description?: string; body?: string }): void;
+  patchSkill(botId: string, name: string, patch: { description?: string; body?: string }): void;
   mountLibrarySkill(botId: string, slug: string): void;
   addIntegration(i: Partial<Integration> & { kind: Integration['kind']; name: string; id: string }): void;
   patchIntegration(id: string, patch: Partial<Integration>): void;
@@ -251,18 +251,21 @@ export const patchMatter = (id: string, patch: Partial<Matter>) => {
   forward()?.patchMatter(id, patch);
 };
 
+// 手册是某个 bot 的：名字只在它自己名下唯一，两个 bot 可以各有一份「日报」。
+const sameSkill = (a: SkillDoc, b: { botId?: string; name: string }) => a.name === b.name && a.botId === b.botId;
+
 export const upsertSkill = (doc: SkillDoc) =>
   setState((s) => {
-    const i = s.skills.findIndex((k) => k.name === doc.name);
+    const i = s.skills.findIndex((k) => sameSkill(k, doc));
     const skills = s.skills.slice();
     if (i < 0) skills.push(doc);
     else skills[i] = doc;
     return { skills };
   });
 
-export const patchSkill = (name: string, patch: { description?: string; body?: string }) => {
-  setState((s) => ({ skills: s.skills.map((k) => (k.name === name ? { ...k, ...patch, updatedAt: Date.now() } : k)) }));
-  forward()?.patchSkill(name, patch);
+export const patchSkill = (botId: string, name: string, patch: { description?: string; body?: string }) => {
+  setState((s) => ({ skills: s.skills.map((k) => (sameSkill(k, { botId, name }) ? { ...k, ...patch, updatedAt: Date.now() } : k)) }));
+  forward()?.patchSkill(botId, name, patch);
 };
 
 /** Mount a library skill on a bot. Live mode: the backend copies the document and patches the bot; local mode: just the name. */

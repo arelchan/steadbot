@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readRequires, writeRequires } from './requires.ts';
 import type { SkillDoc } from './types.ts';
@@ -15,7 +15,10 @@ export class SkillStore extends EventEmitter {
   private indexFile: string;
   private generating = new Set<string>();
 
-  constructor(private dir: string) {
+  constructor(
+    private dir: string,
+    readonly botId?: string,
+  ) {
     super();
     mkdirSync(dir, { recursive: true });
     this.indexFile = join(dir, '..', 'skills-index.json');
@@ -96,6 +99,7 @@ export class SkillStore extends EventEmitter {
     return {
       name,
       slug,
+      botId: this.botId,
       description,
       body,
       updatedAt: Number(/updatedAt:\s*(\d+)/.exec(m?.[1] ?? '')?.[1] ?? 0),
@@ -125,7 +129,7 @@ export class SkillStore extends EventEmitter {
     for (const name of Object.keys(this.index)) {
       const d = this.read(name);
       if (d) docs.push(d);
-      else if (this.generating.has(name)) docs.push({ name, slug: this.index[name], description: '', body: '', updatedAt: 0, generating: true });
+      else if (this.generating.has(name)) docs.push({ name, slug: this.index[name], botId: this.botId, description: '', body: '', updatedAt: 0, generating: true });
     }
     return docs;
   }
@@ -188,7 +192,7 @@ export class SkillStore extends EventEmitter {
     for (const n of missing) {
       this.generating.add(n);
       this.slugFor(n);
-      this.emit('change', { name: n, slug: this.index[n], description: '', body: '', updatedAt: 0, generating: true } satisfies SkillDoc);
+      this.emit('change', { name: n, slug: this.index[n], botId: this.botId, description: '', body: '', updatedAt: 0, generating: true } satisfies SkillDoc);
     }
     try {
       const docs = await gen(missing);
@@ -201,4 +205,85 @@ export class SkillStore extends EventEmitter {
       for (const n of missing) this.write(n, '', `# ${n}\n\n（说明生成失败，可以在这里手写。）`);
     }
   }
+}
+
+/**
+ * One skill directory per bot.
+ *
+ * A manual is the bot's own: it mounts it, then rewrites it with `build` as it learns. While every bot's manuals
+ * sat in one shared directory that was quietly false — 调研助手 and 调研助手 2 pointed at the same three files, so
+ * either one evolving「deep-research」rewrote the other's copy, and no two bots could ever both keep a manual called
+ *「日报」. Each bot's manuals now live under its own workspace at `<botDir>/.pi/skills`, which is also where pi looks
+ * for "project" skills when the session's cwd is that bot's directory. What a bot carries is what is in its own
+ * directory; `<agentDir>/skills` is left to the product's own built-in manuals, which every bot shares by design.
+ */
+export class SkillStores extends EventEmitter {
+  private stores = new Map<string, SkillStore>();
+
+  constructor(
+    private botsDir: string,
+    readonly builtin: SkillStore,
+  ) {
+    super();
+  }
+
+  of(botId: string): SkillStore {
+    let s = this.stores.get(botId);
+    if (!s) {
+      s = new SkillStore(join(this.botsDir, botId, '.pi', 'skills'), botId);
+      s.on('change', (d: SkillDoc) => this.emit('change', d));
+      this.stores.set(botId, s);
+    }
+    return s;
+  }
+
+  /** Every store there is: one per bot, plus the product's own. */
+  all(botIds: string[]): SkillStore[] {
+    return [...botIds.map((id) => this.of(id)), this.builtin];
+  }
+
+  /** Every bot's manuals plus the product's own, as the app lists them. */
+  list(botIds: string[]): SkillDoc[] {
+    return this.all(botIds).flatMap((s) => s.list());
+  }
+
+  drop(botId: string) {
+    this.stores.delete(botId);
+  }
+}
+
+/**
+ * Homes written before bots had their own directories: give each bot a copy of what its record says it carries,
+ * then leave the shared directory holding only the product's own manuals. Everything taken out of it is set aside
+ * rather than deleted — a manual nobody claims (a deleted bot's, or one written by the birth path that no longer
+ * exists) is unreachable either way, and throwing away somebody's writing to tidy a directory is not a trade worth
+ * making.
+ */
+export function migrateSharedSkills(stores: SkillStores, bots: { id: string; skills: string[] }[], keep: string[], asideDir: string): number {
+  const legacy = stores.builtin;
+  const keepSet = new Set(keep);
+  let moved = 0;
+  for (const b of bots) {
+    const own = stores.of(b.id);
+    for (const name of b.skills) {
+      // The product's own manuals stay where they are: every bot reads them out of the shared directory.
+      if (keepSet.has(name) || !legacy.has(name) || own.has(name)) continue;
+      cpSync(legacy.dirFor(name), own.dirFor(name), { recursive: true });
+      moved += 1;
+    }
+  }
+  let aside = 0;
+  for (const name of legacy.list().map((d) => d.name)) {
+    if (keepSet.has(name)) continue;
+    try {
+      mkdirSync(asideDir, { recursive: true });
+      renameSync(legacy.dirFor(name), join(asideDir, legacy.slugFor(name)));
+      legacy.remove(name);
+      aside += 1;
+    } catch (e) {
+      console.warn(`[crew] 技能「${name}」没能从公共目录挪走：`, (e as Error).message);
+    }
+  }
+  if (moved || aside) console.log(`[crew] 技能搬家：${moved} 份进了各自 bot 的目录，公共目录留下产品自带的，另外 ${aside} 份没人认领的挪到了 ${asideDir}`);
+  return moved;
 }

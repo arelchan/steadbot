@@ -11,7 +11,8 @@ import { botThread } from './types.ts';
 
 interface Deps {
   store: CrewStore;
-  skills: SkillStore;
+  /** The bot's own manuals: a build rewrites what this bot carries, not a copy some other bot also points at. */
+  skills: (botId: string) => SkillStore;
   runtime?: ModelRuntime;
   model?: Model<Api>;
   /** called after a skill manual was written so the bot's session can pick it up */
@@ -84,7 +85,7 @@ export async function runBuild(d: Deps, botId: string, job: BuildJob, spec: Buil
     }
     // skill
     const name = spec.skill!;
-    const existing = d.skills.get(name);
+    const existing = d.skills(botId).get(name);
     const r = await ask(
       '一个长期服务用户的 bot 决定给自己写（或改写）一份技能手册。手册是它以后执行同类任务时读的操作步骤，Markdown。根据触发事件、想要的改变和最近的对话，写出手册。输出严格 JSON：{"description":"一句话，<=60 字，这个技能做什么、什么时候用","body":"Markdown 正文：## 目的 / ## 何时使用 / ## 步骤（编号，具体到可执行，写进这次学到的教训） / ## 需要用户确认的点 / ## 注意事项。300-700 字，中文。","summary":"一句话（<=30 字）说明这份手册新增或改了什么"}。只输出 JSON。',
       `${ctx}\n\n技能名：${name}\n${existing ? `现有手册：\n${existing.body}` : '（还没有这份手册）'}`,
@@ -96,10 +97,10 @@ export async function runBuild(d: Deps, botId: string, job: BuildJob, spec: Buil
     let body = r.body.trim();
     while (/^(?:>\s*)?需要：/.test(body)) body = body.replace(/^[^\n]*\n?/, '').trimStart();
     const needs = d.needs?.(botId);
-    d.skills.write(name, r.description ?? '', needs ? `> 需要：${needs.line}\n\n${body}` : body, needs ? { needs: needs.slugs } : undefined);
+    d.skills(botId).write(name, r.description ?? '', needs ? `> 需要：${needs.line}\n\n${body}` : body, needs ? { needs: needs.slugs } : undefined);
     // A manual the bot wrote for itself gets the same treatment as one from the library: whatever it says to run,
     // install it now rather than at the worst possible moment.
-    const req = d.skills.requiresOf(name);
+    const req = d.skills(botId).requiresOf(name);
     if (req && (req.pip?.length || req.npm?.length || req.bin?.length)) {
       const r = await depsReady(req, `skill:${name}`).catch((e: Error) => ({ ok: false, note: e.message }) as { ok: boolean; note?: string });
       if (!r.ok) console.warn(`[crew] 技能「${name}」的依赖：${r.note ?? ''}`);

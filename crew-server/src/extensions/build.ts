@@ -140,7 +140,7 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
               // The model sees its own manuals listed by pi slug (s-xxxx) and reaches for build to "load" one. Nothing to
               // install: point it at the file.
               const owned = b.skills.find((n) => n === ref || skills().slugFor(n) === ref);
-              if (owned) return done(`「${owned}」已经在你身上，不用装。手册在 ${join(config.piAgentDir, 'skills', skills().slugFor(owned), 'SKILL.md')}，read 它照着做。`, { label: owned });
+              if (owned) return done(`「${owned}」已经在你身上，不用装。手册在 ${join(skills().dirFor(owned), 'SKILL.md')}，read 它照着做。`, { label: owned });
             }
             const r = await ops().equip(c.botId, ref, threadId);
             return done(r.text, { label: ref });

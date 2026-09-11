@@ -76,7 +76,7 @@ export class WsAgentService implements AgentService {
       deleteBot: (id) => this.send({ type: 'delete_bot', id }),
       dropEvent: (id) => this.send({ type: 'drop_event', id }),
       deleteMatter: (id) => this.send({ type: 'delete_matter', id }),
-      patchSkill: (name, patch) => this.send({ type: 'patch_skill', name, patch }),
+      patchSkill: (botId, name, patch) => this.send({ type: 'patch_skill', botId, name, patch }),
       mountLibrarySkill: (botId, slug) => this.send({ type: 'mount_library_skill', botId, slug }),
       addIntegration: (i) => this.send({ type: 'add_integration', integration: i }),
       patchIntegration: (id, patch) => this.send({ type: 'patch_integration', id, patch: nullify(patch) }),

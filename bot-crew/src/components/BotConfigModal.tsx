@@ -181,11 +181,12 @@ function Instructions({ bot }: { bot: Bot }) {
 
 function Skills({ bot }: { bot: Bot }) {
   const t = useT();
-  const docs = useStore((s) => s.skills);
+  const all = useStore((s) => s.skills);
+  const docs = all.filter((d) => !d.botId || d.botId === bot.id);
   const library = useStore((s) => s.library);
   const [open, setOpen] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
-  if (open) return <SkillDetail name={open} doc={docs.find((d) => d.name === open)} onBack={() => setOpen(null)} />;
+  if (open) return <SkillDetail botId={bot.id} name={open} doc={docs.find((d) => d.name === open)} onBack={() => setOpen(null)} />;
   if (picking) return <LibraryPicker bot={bot} onBack={() => setPicking(false)} />;
   return (
     <>
@@ -272,7 +273,7 @@ function LibraryPicker({ bot, onBack }: { bot: Bot; onBack: () => void }) {
 }
 
 /** One skill's SKILL.md: rendered by default, editable in place. */
-function SkillDetail({ name, doc, onBack }: { name: string; doc?: SkillDoc; onBack: () => void }) {
+function SkillDetail({ botId, name, doc, onBack }: { botId: string; name: string; doc?: SkillDoc; onBack: () => void }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(doc?.body ?? '');
@@ -295,7 +296,7 @@ function SkillDetail({ name, doc, onBack }: { name: string; doc?: SkillDoc; onBa
             <button
               className="btn sm primary"
               onClick={() => {
-                patchSkill(name, { description: desc.trim(), body });
+                patchSkill(botId, name, { description: desc.trim(), body });
                 setEditing(false);
               }}
             >

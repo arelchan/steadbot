@@ -415,6 +415,8 @@ export interface Toast {
 export interface SkillDoc {
   name: string;
   slug: string;
+  /** Whose manual this is. Absent on the product's own built-in manuals, which every bot shares. */
+  botId?: string;
   description: string;
   body: string;
   updatedAt: number;
@@ -528,7 +530,7 @@ export type ClientMessage =
   | { type: 'avatar'; botId: string; op: 'regen' | 'reset' | 'upload'; dataUrl?: string }
   | { type: 'delete_bot'; id: string }
   | { type: 'delete_matter'; id: string }
-  | { type: 'patch_skill'; name: string; patch: { description?: string; body?: string } }
+  | { type: 'patch_skill'; botId: string; name: string; patch: { description?: string; body?: string } }
   | { type: 'mount_library_skill'; botId: string; slug: string }
   | { type: 'submit_secrets'; messageId: string; integrationId: string; values: Record<string, string> }
   | { type: 'submit_login'; messageId: string; askId: string; values: Record<string, string> }

@@ -17,7 +17,7 @@ import type { CrewStore } from './store.ts';
 import type { PendingBroker } from './broker.ts';
 import { createBotUiContext } from './broker.ts';
 import type { FakeBrain } from './fake-brain.ts';
-import type { SkillStore } from './skills.ts';
+import type { SkillStores } from './skills.ts';
 import type { AgentRunner, McpManager } from './integrations.ts';
 import { agentExtension, mcpExtension } from './extensions/integrations.ts';
 import { crewToolsExtension, type CrewOps } from './extensions/crew-tools.ts';
@@ -135,7 +135,7 @@ export class BotManager extends EventEmitter {
     private store: CrewStore,
     private broker: PendingBroker,
     private events: EventEmitter,
-    private skills: SkillStore,
+    private skills: SkillStores,
     private mcp: McpManager,
     private runner: AgentRunner,
     private connectors: ConnectorManager,
@@ -263,7 +263,7 @@ export class BotManager extends EventEmitter {
       noExtensions: true,
       extensionFactories: [
         bridge,
-        identityExtension(ctx, () => this.skills, () => this.ops),
+        identityExtension(ctx, () => this.skills.of(botId), () => this.ops),
         todoExtension(ctx),
         scheduleExtension(ctx),
         askExtension(ctx),
@@ -291,7 +291,7 @@ export class BotManager extends EventEmitter {
           if (!this.ops) throw new Error('crew ops not ready');
           return this.ops;
         }),
-        buildExtension(ctx, () => this.skills, () => {
+        buildExtension(ctx, () => this.skills.of(botId), () => {
           if (!this.ops) throw new Error('crew ops not ready');
           return this.ops;
         }),
@@ -326,8 +326,11 @@ export class BotManager extends EventEmitter {
         }),
       ],
       skillsOverride: (base) => {
-        // Bot.skills holds display names; pi skill names are the slugs written by SkillStore.
-        const mine = new Set([...(this.store.bot(botId)?.skills ?? bot.skills), ...BUILTIN_SKILL_NAMES].map((n) => this.skills.slugFor(n)));
+        // Two directories reach this list: the product's built-in manuals (agentDir, shared by every bot) and this
+        // bot's own (<botDir>/.pi/skills, what it mounted and wrote). Bot.skills holds display names; pi skill names
+        // are the slugs. The filter is what keeps the steward's manual off everyone else.
+        const own = this.skills.of(botId);
+        const mine = new Set([...(this.store.bot(botId)?.skills ?? bot.skills), ...BUILTIN_SKILL_NAMES].map((n) => own.slugFor(n)));
         return { skills: base.skills.filter((s) => mine.has(s.name)), diagnostics: base.diagnostics };
       },
       systemPromptOverride: () => '你是用户团队里的一个 bot。用中文，简短、直接。',
