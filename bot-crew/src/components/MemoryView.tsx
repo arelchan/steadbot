@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore, type MemoryTab } from '../store';
 import { memory, type CaseItem, type EpisodeItem, type ProfileDoc, type SkillItem } from '../services/agent';
 import { Avatar } from './Avatar';
+import { Sk } from './Skeleton';
 import { useT } from '../i18n';
 import { cx } from '../utils';
 
@@ -94,6 +95,40 @@ export function MemoryView({ focus }: { focus?: { tab: MemoryTab; botId?: string
   );
 }
 
+/** Waiting on the engine. A search is 0.4–6 seconds, so every tab shows the shape of what is coming. */
+function Loading({ doc }: { doc?: boolean }) {
+  if (doc) {
+    return (
+      <div className="mem-doc">
+        <Sk w="72%" h={15} style={{ marginBottom: 18 }} />
+        {[0, 1, 2].map((g) => (
+          <div key={g} style={{ marginTop: 18 }}>
+            <Sk w={72} h={9} style={{ marginBottom: 10 }} />
+            {[0, 1].map((i) => <Sk key={i} w={i ? '68%' : '90%'} h={12} style={{ display: 'block', marginBottom: 9 }} />)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="mem-split">
+      <div className="mem-list">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="mem-it">
+            <Sk w={i % 2 ? '70%' : '85%'} h={13} style={{ display: 'block', marginBottom: 7 }} />
+            <Sk w="95%" h={11} style={{ display: 'block', marginBottom: 5 }} />
+            <Sk w={90} h={10} />
+          </div>
+        ))}
+      </div>
+      <div className="mem-pane">
+        <Sk w="60%" h={15} style={{ marginBottom: 14 }} />
+        {[0, 1, 2, 3, 4].map((i) => <Sk key={i} w={i === 4 ? '55%' : '100%'} h={12} style={{ display: 'block', marginBottom: 8 }} />)}
+      </div>
+    </div>
+  );
+}
+
 /** Nothing of this kind yet: the kind's name and one word, centred in the space the list and pane would take. */
 function Empty({ kind, note }: { kind: string; note: string }) {
   return (
@@ -106,14 +141,27 @@ function Empty({ kind, note }: { kind: string; note: string }) {
 
 /* ---------------- Profile ---------------- */
 
+/**
+ * The profile is one document, not a list of rows: a lead sentence, then what the engine has grouped under
+ * each heading, then what it has inferred. So it is laid out as one column of reading width — the master /
+ * detail split the other three tabs use would be pretending there are two things here.
+ *
+ * Two things the engine does that the page has to undo: it repeats its own summary as the first fact, and it
+ * writes every line with the subject spelled out ("用户chen偏好…") because each one has to stand alone in a
+ * retrieval result. On a page titled with his name, both just read as noise.
+ */
+const SUBJECT = /^\s*(?:用户\s*)?(?:chen|Chen|陈)?\s*[,，:：]?\s*/;
+const strip = (s: string) => s.replace(SUBJECT, '').trim() || s.trim();
+
 function ProfileTab() {
   const t = useT();
   const [alive, setAlive] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [doc, setDoc] = useState<ProfileDoc | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ kind: 'explicit' | 'trait'; index: number; text: string } | null>(null);
   const [draft, setDraft] = useState('');
-  const load = () => void memory.profile().then((r) => { setAlive(r.alive); setDoc(r.profile); });
+  const load = () => void memory.profile().then((r) => { setAlive(r.alive); setDoc(r.profile); setLoading(false); });
   useEffect(load, []);
   // The engine takes a while to come up after a restart: keep asking until it answers rather than showing "off" for good.
   useEffect(() => {
@@ -123,7 +171,10 @@ function ProfileTab() {
   }, [alive]);
   const groups = useMemo(() => {
     const m = new Map<string, { index: number; description: string; evidence?: string; dup: boolean }[]>();
+    const sum = doc?.summary ?? '';
     (doc?.explicit ?? []).forEach((e, index) => {
+      // The engine's own summary, repeated as a fact: shown once, at the top, not twice.
+      if (sum && similar(sum, e.description)) return;
       const dup = (doc?.explicit ?? []).some((o, j) => j < index && similar(o.description, e.description));
       const k = e.category ?? '';
       (m.get(k) ?? m.set(k, []).get(k)!).push({ index, description: e.description, evidence: e.evidence, dup });
@@ -137,11 +188,13 @@ function ProfileTab() {
     load();
   };
   const remove = async (kind: 'explicit' | 'trait', index: number) => { await memory.editProfile(kind, index, null); load(); };
+  if (loading) return <Loading doc />;
   if (!alive) return <Empty kind="Profile" note={t('mem.off')} />;
   if (!doc) return <Empty kind="Profile" note={t('common.none')} />;
   const line = (kind: 'explicit' | 'trait', index: number, text: string, fold?: { label: string; body?: string }, extra?: React.ReactNode) => {
     const key = `${kind}:${index}`;
     const isEd = editing?.kind === kind && editing.index === index;
+    const shown = strip(text);
     return (
       <div className="mem-pf" key={key}>
         <div className="t">
@@ -153,7 +206,8 @@ function ProfileTab() {
             </>
           ) : (
             <>
-              <span className="txt" onClick={() => setEditing({ kind, index, text })}>{extra}{text}</span>
+              {/* Editing starts from what is on screen, so the subject stays gone once a line has been touched. */}
+              <span className="txt" onClick={() => setEditing({ kind, index, text: shown })}>{extra}{shown}</span>
               {fold?.body && <button className="fold" onClick={() => setOpen(open === key ? null : key)}>{open === key ? '▾' : '▸'} {fold.label}</button>}
               {fold?.body && open === key && <div className="mem-ev">{fold.body}</div>}
             </>
@@ -164,24 +218,22 @@ function ProfileTab() {
     );
   };
   return (
-    <div className={cx('mem-split profile', !doc.traits.length && 'solo')}>
-      <div className="mem-list">
-        {doc.summary && <p className="mem-summary">{doc.summary}</p>}
-        {groups.map(([cat, items]) => (
-          <div key={cat || '_'}>
-            {cat && <div className="mem-grp">{cat}</div>}
-            {items.map((e) => line('explicit', e.index, e.description, { label: t('mem.evidence'), body: e.evidence }, e.dup ? <span className="mem-dup">{t('mem.dup')}</span> : null))}
-          </div>
-        ))}
-        <input className="mem-add" placeholder={t('mem.add')} value={draft} onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={async (e) => { if (e.key === 'Enter' && draft.trim()) { const v = draft.trim(); setDraft(''); await memory.addFact(v); load(); } }} />
-      </div>
+    <div className="mem-doc">
+      {doc.summary && <p className="mem-lead">{strip(doc.summary)}</p>}
+      {groups.map(([cat, items]) => (
+        <section key={cat || '_'}>
+          {cat && <div className="mem-grp">{cat}</div>}
+          {items.map((e) => line('explicit', e.index, e.description, { label: t('mem.evidence'), body: e.evidence }, e.dup ? <span className="mem-dup">{t('mem.dup')}</span> : null))}
+        </section>
+      ))}
       {doc.traits.length > 0 && (
-        <div className="mem-pane">
+        <section className="mem-traits">
           <div className="mem-grp">{t('mem.traits')}</div>
-          {doc.traits.map((e, i) => line('trait', i, e.description, { label: t('mem.basis'), body: [e.basis, e.evidence].filter(Boolean).join(' · ') }, e.trait ? <b>{e.trait}<br /></b> : null))}
-        </div>
+          {doc.traits.map((e, i) => line('trait', i, e.description, { label: t('mem.basis'), body: [e.basis, e.evidence].filter(Boolean).join(' · ') }, e.trait ? <b>{e.trait}</b> : null))}
+        </section>
       )}
+      <input className="mem-add" placeholder={t('mem.add')} value={draft} onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={async (e) => { if (e.key === 'Enter' && draft.trim()) { const v = draft.trim(); setDraft(''); await memory.addFact(v); load(); } }} />
     </div>
   );
 }
@@ -191,14 +243,17 @@ function ProfileTab() {
 function EpisodeTab({ q, botName }: { q: string; botName: (id: string) => string }) {
   const t = useT();
   const [items, setItems] = useState<EpisodeItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [sel, setSel] = useState<string | null>(null);
   useEffect(() => {
-    const h = setTimeout(() => void memory.episodes(q).then((r) => { setItems(r.items); setTotal(r.total); setSel((s) => s ?? r.items[0]?.id ?? null); }), q ? 350 : 0);
+    setLoading(true);
+    const h = setTimeout(() => void memory.episodes(q).then((r) => { setItems(r.items); setTotal(r.total); setSel((s) => s ?? r.items[0]?.id ?? null); setLoading(false); }), q ? 350 : 0);
     return () => clearTimeout(h);
   }, [q]);
   const cur = items.find((e) => e.id === sel) ?? items[0];
   let lastDay = '';
+  if (loading) return <Loading />;
   if (!items.length) return <Empty kind="Episode" note={q ? t('mem.found', { n: '0' }) : t('common.none')} />;
   return (
     <div className={cx('mem-split', !cur && 'solo')}>
@@ -239,12 +294,14 @@ function EpisodeTab({ q, botName }: { q: string; botName: (id: string) => string
 function CaseTab({ q, bot, bots, onBot }: { q: string; bot?: string; bots: { id: string; name: string }[]; onBot: (id: string) => void }) {
   const t = useT();
   const [items, setItems] = useState<CaseItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState<string | null>(null);
-  useEffect(() => { void memory.cases(bot).then((r) => { setItems(r.items); setSel((s) => s ?? r.items[0]?.id ?? null); }); }, [bot]);
+  useEffect(() => { setLoading(true); void memory.cases(bot).then((r) => { setItems(r.items); setSel((s) => s ?? r.items[0]?.id ?? null); setLoading(false); }); }, [bot]);
   const shown = q ? items.filter((k) => (k.intent + k.insight + k.approach).toLowerCase().includes(q.toLowerCase())) : items;
   const cur = shown.find((k) => k.id === sel) ?? shown[0];
   const parsed = cur ? parseSteps(cur.approach) : undefined;
   let lastDay = '';
+  if (loading) return <Loading />;
   if (!shown.length) return <Empty kind="Agent case" note={t('common.none')} />;
   return (
     <div className={cx('mem-split', !cur && 'solo')}>
@@ -294,10 +351,11 @@ function CaseTab({ q, bot, bots, onBot }: { q: string; bot?: string; bots: { id:
 function SkillTab({ q, bot, bots, onBot }: { q: string; bot?: string; bots: { id: string; name: string }[]; onBot: (id: string) => void }) {
   const t = useT();
   const [items, setItems] = useState<SkillItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [crew, setCrew] = useState<SkillItem[]>([]);
   const [sel, setSel] = useState<string | null>(null);
   const [done, setDone] = useState<Record<string, 'adopt' | 'promote'>>({});
-  useEffect(() => { void memory.skills(bot).then((r) => { setItems(r.items); setCrew(r.crew); setSel((s) => s ?? r.items[0]?.id ?? null); }); }, [bot]);
+  useEffect(() => { setLoading(true); void memory.skills(bot).then((r) => { setItems(r.items); setCrew(r.crew); setSel((s) => s ?? r.items[0]?.id ?? null); setLoading(false); }); }, [bot]);
   const all = [...items, ...(bot ? [] : crew)];
   const shown = q ? all.filter((k) => (k.name + k.description + k.content).toLowerCase().includes(q.toLowerCase())) : all;
   const cur = shown.find((k) => k.id === sel) ?? shown[0];
@@ -308,6 +366,7 @@ function SkillTab({ q, bot, bots, onBot }: { q: string; bot?: string; bots: { id
   const blurb = (k: SkillItem) => k.description.replace(/\s*Keywords?\s*[:：].*$/is, '').trim();
   const isCrew = (k: SkillItem) => crew.includes(k);
   const parsed = cur ? parseSteps(cur.content) : undefined;
+  if (loading) return <Loading />;
   if (!shown.length) return <Empty kind="Agent skill" note={t('common.none')} />;
   return (
     <div className={cx('mem-split', !cur && 'solo')}>
