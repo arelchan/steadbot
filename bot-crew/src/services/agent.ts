@@ -52,6 +52,7 @@ export interface AgentService {
   computerFocus(): void;
   /** 例行任务试跑：不等到点，现在就让它跑一次 */
   runRoutine(botId: string, routineId: string): void;
+  dropEvent(id: string): void;
   start(): void;
   stop(): void;
 }
@@ -424,6 +425,9 @@ export class MockAgentService implements AgentService {
   }
   computerFocus() {
     /* mock: no computer */
+  }
+  dropEvent() {
+    /* mock: the store already dropped it */
   }
   runRoutine() {
     /* mock: no scheduler */

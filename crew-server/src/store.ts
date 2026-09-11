@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
-import type { Computer, CrewSettings, Action, Bot, Integration, Matter, Message, Pending, Snapshot, ThreadId, Toast, Todo, GrowthEvent, GrowthKind } from './types.ts';
+import type { Computer, CrewEvent, CrewSettings, Action, Bot, Integration, Matter, Message, Pending, Snapshot, ThreadId, Toast, Todo, GrowthEvent, GrowthKind } from './types.ts';
 import { uid } from './util.ts';
 
 export type StoreEvent =
@@ -12,6 +12,8 @@ export type StoreEvent =
   | { type: 'thread_cleared'; threadId: ThreadId }
   | { type: 'matter'; matter: Matter }
   | { type: 'todo'; todo: Todo }
+  | { type: 'event'; event: CrewEvent }
+  | { type: 'event_deleted'; id: string }
   | { type: 'pending'; pending: Pending }
   | { type: 'action'; action: Action }
   | { type: 'message'; message: Message }
@@ -36,6 +38,7 @@ export class CrewStore extends EventEmitter {
     this.file = file;
     this.data = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Snapshot) : seed();
     this.data.integrations ??= [];
+    this.data.events ??= [];
     for (const b of this.data.bots) {
       b.integrationIds ??= [];
       b.routines ??= [];
@@ -243,6 +246,35 @@ export class CrewStore extends EventEmitter {
     this.emitChange({ type: 'todo', todo });
     return todo;
   }
+  event(id: string) {
+    return this.data.events.find((e) => e.id === id);
+  }
+  eventsOf(botId: string) {
+    return this.data.events.filter((e) => e.botId === botId);
+  }
+  addEvent(e: Omit<CrewEvent, 'id' | 'createdAt'>): CrewEvent {
+    const ev: CrewEvent = { ...e, id: uid(), createdAt: Date.now() };
+    this.data.events.push(ev);
+    this.save();
+    this.emitChange({ type: 'event', event: ev });
+    return ev;
+  }
+  patchEvent(id: string, patch: Partial<CrewEvent>) {
+    const ev = this.event(id);
+    if (!ev) return undefined;
+    Object.assign(ev, patch);
+    this.save();
+    this.emitChange({ type: 'event', event: ev });
+    return ev;
+  }
+  dropEvent(id: string) {
+    const before = this.data.events.length;
+    this.data.events = this.data.events.filter((e) => e.id !== id);
+    if (this.data.events.length === before) return false;
+    this.save();
+    this.emitChange({ type: 'event_deleted', id });
+    return true;
+  }
   patchTodo(id: string, patch: Partial<Todo>) {
     const todo = this.todo(id);
     if (!todo) return undefined;
@@ -359,5 +391,5 @@ export class CrewStore extends EventEmitter {
 
 /** First run: nothing. Bots are created by the user's first sentence in the "new bot" window. */
 export function seedSnapshot(): Snapshot {
-  return { bots: [], matters: [], todos: [], pendings: [], actions: [], messages: [], sharedProfile: [], integrations: [] };
+  return { bots: [], matters: [], todos: [], events: [], pendings: [], actions: [], messages: [], sharedProfile: [], integrations: [] };
 }

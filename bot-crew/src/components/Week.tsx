@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore, openPendings } from '../store';
-import type { Bot, Routine } from '../types';
+import type { Bot, CrewEvent, Routine } from '../types';
 import { Avatar } from './Avatar';
 import { PendingActions } from './Cards';
 import { EventCard, type Ev } from './EventCard';
@@ -41,10 +41,14 @@ const hm = (ts: number) => {
  */
 type Tick = { at: number; bot: Bot; r: Routine; state: 'done' | 'missed' | 'todo' };
 
+/** 格子上的一格东西：例行任务到点的那一次，或者 bot 排在日程上的一件事。 */
+type Item = ({ kind: 'routine' } & Tick) | { kind: 'plan'; at: number; bot: Bot; e: CrewEvent };
+
 /**
- * 一周的时间轴。这一版上面只有我们自己排的东西——每个 bot 的例行任务——因为它们已经在跑了（后端
- * `scheduler.ts`），只是过去散在各个 bot 的设置里，没有一个地方能看见全体的下一次触发。外部日历和会议
- * 是后面的事，接进来以后落在同一个网格上。
+ * 一周的时间轴。上面是我们自己排的两种东西：每个 bot 的**例行任务**（反复，长在 bot 身上）和 bot 用
+ * `schedule` 工具排的**日程**（一次，存在 store 里）。外部日历和会议是后面的事，接进来以后落在同一个网格上。
+ *
+ * 长相只由「谁做」决定：给用户的（到点提醒他）是赤陶色，bot 自己做的安静地留白。
  */
 export function Week() {
   const t = useT();
@@ -58,7 +62,7 @@ export function Week() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
   const today = new Date(now);
 
-  const ticks: Tick[][] = days.map(() => []);
+  const items: Item[][] = days.map(() => []);
   // 进不了格子的两种：常驻型（每 30 分钟这种），和后台压根不认的写法——后者根本不会被触发，得看得见。
   const standing: { bot: Bot; r: Routine; unknown?: boolean }[] = [];
   for (const bot of s.bots) {
@@ -76,22 +80,28 @@ export function Week() {
       days.forEach((day, i) => {
         const at = firesOn(c, day);
         if (at === undefined) return;
-        ticks[i].push({ at, bot, r, state: at > now ? 'todo' : (r.lastRun ?? 0) >= at ? 'done' : 'missed' });
+        items[i].push({ kind: 'routine', at, bot, r, state: at > now ? 'todo' : (r.lastRun ?? 0) >= at ? 'done' : 'missed' });
       });
     }
   }
-  for (const list of ticks) list.sort((a, b) => a.at - b.at);
+  for (const e of s.events) {
+    const i = days.findIndex((d) => sameDay(d, new Date(e.at)));
+    const bot = s.bots.find((b) => b.id === e.botId);
+    if (i >= 0 && bot) items[i].push({ kind: 'plan', at: e.at, bot, e });
+  }
+  for (const list of items) list.sort((a, b) => a.at - b.at);
 
-  const { from, to } = hourWindow([...ticks.flat().map((k) => hourOf(k.at)), hourOf(now)]);
+  const { from, to } = hourWindow([...items.flat().map((k) => hourOf(k.at)), hourOf(now)]);
   const height = (to - from) * HOUR;
   const top = (ts: number) => (hourOf(ts) - from) * HOUR;
+  const tall = (k: Item) => (k.kind === 'plan' && k.e.minutes ? Math.max(TICK, (k.e.minutes / 60) * HOUR) : TICK);
   // 同一天里挨得太近的两条会叠在一起，往下顺一格；位置差几分钟，但至少两条都看得见。
-  const laid = ticks.map((list) => {
+  const laid = items.map((list) => {
     let floor = -Infinity;
     return list.map((k) => {
       const y = Math.max(top(k.at), floor);
-      floor = y + TICK + 1;
-      return { ...k, y };
+      floor = y + tall(k) + 1;
+      return { ...k, y, h: tall(k) };
     });
   });
 
@@ -156,12 +166,25 @@ export function Week() {
                 const isToday = sameDay(d, today);
                 return (
                   <div className={cx('wk-col', isToday && 'today')} style={{ backgroundSize: `100% ${HOUR}px` }} key={d.getTime()}>
-                    {laid[i].map((k) => (
-                      <button className={cx('wk-tick', k.state)} style={{ top: k.y }} key={`${k.bot.id}:${k.r.id}`} onClick={() => setOpen({ kind: 'routine', bot: k.bot, r: k.r, at: k.at, state: k.state })} title={`${hm(k.at)} ${k.r.title} · ${k.bot.name}`}>
-                        <Avatar bot={k.bot} size="xs" />
-                        <span className="wk-tick-t">{k.r.title}</span>
-                      </button>
-                    ))}
+                    {laid[i].map((k) =>
+                      k.kind === 'routine' ? (
+                        <button className={cx('wk-tick', k.state)} style={{ top: k.y }} key={`r:${k.bot.id}:${k.r.id}`} onClick={() => setOpen({ kind: 'routine', bot: k.bot, r: k.r, at: k.at, state: k.state })} title={`${hm(k.at)} ${k.r.title} · ${k.bot.name}`}>
+                          <Avatar bot={k.bot} size="xs" />
+                          <span className="wk-tick-t">{k.r.title}</span>
+                        </button>
+                      ) : (
+                        <button
+                          className={cx('wk-tick', 'wk-plan', k.e.who === 'user' && 'mine', !!k.e.firedAt && 'done')}
+                          style={{ top: k.y, height: k.h }}
+                          key={`e:${k.e.id}`}
+                          onClick={() => setOpen({ kind: 'plan', bot: k.bot, e: k.e })}
+                          title={`${hm(k.at)} ${k.e.title} · ${k.bot.name}`}
+                        >
+                          <Avatar bot={k.bot} size="xs" />
+                          <span className="wk-tick-t">{k.e.title}</span>
+                        </button>
+                      ),
+                    )}
                     {isToday && <div className="wk-now" style={{ top: (hourOf(now) - from) * HOUR }}><b /></div>}
                   </div>
                 );

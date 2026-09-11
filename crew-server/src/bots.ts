@@ -45,6 +45,7 @@ import type { ConnectorManager } from './connectors.ts';
 import type { BotCtx, CurrentTurn } from './extensions/ctx.ts';
 import { identityExtension } from './extensions/identity.ts';
 import { todoExtension } from './extensions/todo.ts';
+import { scheduleExtension } from './extensions/schedule.ts';
 import { askExtension } from './extensions/ask.ts';
 import { actExtension } from './extensions/act.ts';
 import { rememberExtension } from './extensions/remember.ts';
@@ -264,6 +265,7 @@ export class BotManager extends EventEmitter {
         bridge,
         identityExtension(ctx, () => this.skills, () => this.ops),
         todoExtension(ctx),
+        scheduleExtension(ctx),
         askExtension(ctx),
         actExtension(ctx, perform),
         rememberExtension(ctx),

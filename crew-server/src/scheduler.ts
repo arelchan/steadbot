@@ -1,6 +1,6 @@
 import type { CrewStore } from './store.ts';
 import type { BotManager } from './bots.ts';
-import { botThread, type Bot, type Routine } from './types.ts';
+import { botThread, type Bot, type CrewEvent, type Routine } from './types.ts';
 
 /**
  * Where this routine's result goes. A routine can name its channels, but only somewhere the bot still is: an IM it
@@ -16,6 +16,21 @@ function routeFor(bot: Bot, r: Routine) {
 function fire(r: Routine, why: string) {
   const what = r.prompt?.trim() ? `${r.prompt.trim()}\n` : '';
   return `【例行任务】「${r.title}」${why}。${what}按职责执行；只有需要用户拍板或有值得说的结果时才说话。`;
+}
+
+/**
+ * 到点了交回给排它的 bot。
+ *
+ * 机器可能关过，所以「到点」常常是迟到的：迟了多久如实说给 bot，由它决定还值不值得说——
+ * 迟到五分钟的提醒照常提，迟到一天的它自己会换个说法。
+ */
+function fireEvent(e: CrewEvent, now: number) {
+  const when = new Date(e.at).toLocaleString('sv-SE', { hour12: false }).slice(0, 16);
+  const late = now - e.at > 5 * 60_000 ? `（本该 ${when} 交回给你，现在晚了 ${Math.round((now - e.at) / 60_000)} 分钟，自己判断还值不值得说）` : '';
+  const what = e.note?.trim() ? `${e.note.trim()}\n` : '';
+  return e.who === 'user'
+    ? `【日程】「${e.title}」到点了（${when}）。${what}这条是排给用户的提醒：按你的判断说一句，别复述这段话；他已经知道的事就不用再提。${late}`
+    : `【日程】「${e.title}」到点了（${when}）。${what}这是你自己排的活：直接做；只有需要用户拍板或有值得说的结果时才说话。${late}`;
 }
 
 /** Keep the last ten runs; the routine's own page shows them. */
@@ -115,6 +130,17 @@ export class Scheduler {
         return withRun(r, now.getTime());
       });
       if (changed) this.store.patchBot(bot.id, { routines });
+    }
+    for (const e of [...this.store.data.events]) {
+      if (e.firedAt || e.at > now.getTime()) continue;
+      const bot = this.store.bot(e.botId);
+      // 排它的 bot 没了，这条也就没有归属了。
+      if (!bot) {
+        this.store.dropEvent(e.id);
+        continue;
+      }
+      this.store.patchEvent(e.id, { firedAt: now.getTime() });
+      void this.bots.send(bot.id, { threadId: e.threadId ?? botThread(bot.id), kind: 'routine', text: fireEvent(e, now.getTime()) });
     }
   }
 

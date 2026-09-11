@@ -206,6 +206,33 @@ export interface Todo {
   origin?: TodoOrigin;
 }
 
+/**
+ * 日程上我们自己排的一件事。
+ *
+ * 例行任务是「每天 / 每周反复」，这是「某一刻的一次」——bot 觉得用户需要一个日程时排的：到点提醒用户，
+ * 或者它自己到点要做的事。到点了系统把它交回给排它的那个 bot（和例行任务同一条路），由 bot 决定说什么、
+ * 做什么；提醒就是它的一条消息，不另起一套通知通道。
+ */
+export interface CrewEvent {
+  id: string;
+  /** 谁排的；到点了也交回给它 */
+  botId: string;
+  title: string;
+  /** 开始时刻 */
+  at: number;
+  /** 有时长的才有；没有就是时间轴上的一个点 */
+  minutes?: number;
+  /** user = 到点提醒用户；bot = 到点它自己做 */
+  who: 'user' | 'bot';
+  /** 到点要说的话 / 要做的事，越具体越好 */
+  note?: string;
+  /** 从哪条会话排的，用来跳回原文 */
+  threadId?: ThreadId;
+  createdAt: number;
+  /** 已经到点、交回给 bot 了 */
+  firedAt?: number;
+}
+
 export type PendingKind = 'confirm' | 'clarify' | 'blocked';
 
 export interface PendingOption {
@@ -451,6 +478,8 @@ export interface Snapshot {
   bots: Bot[];
   matters: Matter[];
   todos: Todo[];
+  /** 日程上我们自己排的事（例行任务不在这里，它长在 bot 身上） */
+  events: CrewEvent[];
   pendings: Pending[];
   actions: Action[];
   messages: Message[];
@@ -482,6 +511,8 @@ export type ClientMessage =
   | { type: 'patch_bot'; id: string; patch: Partial<Bot> }
   /** 例行任务的「试跑」：不等到点，现在就让它跑一次 */
   | { type: 'run_routine'; botId: string; routineId: string }
+  /** 用户在日程上把 bot 排的这条撤掉 */
+  | { type: 'drop_event'; id: string }
   | { type: 'patch_matter'; id: string; patch: Partial<Matter> }
   | { type: 'create_matter'; id?: string; title: string; summary?: string; memberIds: string[]; leadId: string }
   | { type: 'set_shared_profile'; lines: string[] }

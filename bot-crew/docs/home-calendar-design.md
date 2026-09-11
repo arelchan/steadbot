@@ -54,6 +54,7 @@ interface CrewEvent {
 | 来源 | 今天有没有 | 事件长什么样 | bot 的价值 |
 | --- | --- | --- | --- |
 | **例行任务** `Routine` | **已经在跑** | 时刻型，`actor.act='run'` | 就是它自己 |
+| **bot 排的日程** `CrewEvent` | **已经能排** | 时刻型或区间型，`who` 说明谁做 | 它自己判断你需要一个日程 |
 | **有截止的事项** | 事项有，截止没有 | 时刻型，`actor` = 负责的 bot | 到点前提醒/自己动手 |
 | **用户日程**（Outlook / Google / 飞书日历） | 连接器已有，没接进来 | 区间型，`source='cal'` | 会前准备、撞车、会后跟进 |
 | **会议**（Zoom / 飞书会议 / 腾讯会议） | 没有 | 区间型 + `join` | **bot 到场** |
@@ -137,7 +138,8 @@ interface CrewEvent {
 ## 9. 分期
 
 - **P0 · 日程（已做）**：只有 `crew` 源，只读。把每个 bot 已经在跑的例行任务按本机时区展开到一周的格子上，右栏挂「等你」并给出等待时长，落地页改成它；点一条先出事件卡（例行那一种已经做了，另外两种等来源接进来）。零新连接器——纯粹把已经在跑、却只藏在各个 bot 设置里的东西显出来。
-- **P1 · 能写**：拖拽给事项定截止、空白处新建我们自己的事件、在网格上拖一条例行任务等于改它的 `schedule`。这一步要先有一个我们自己的事件存储。
+- **P1a · 模型能排（已做）**：bot 有一个 `schedule` 工具——用户说了具体时间的事（「下周三提醒我交报告」），或者它自己判断出用户会需要一个日程，就排上一条。到点了 scheduler 把这条连同它当时写的 note 交回给排它的 bot，由 bot 决定说什么、做什么：**提醒就是它的一条消息，不另起一套通知通道**（第 8 条）。只发生一次的归 `schedule`，反复的仍然是例行任务。
+- **P1b · 用户能拖**：拖拽给事项定截止、空白处自己新建一条、在网格上拖一条例行任务等于改它的 `schedule`。
 - **P2 · 接一个外部日历**：先 Outlook（用户自己在用），只读入 + 日历挑选 + join 抽取 + 标题美化。
 - **P3 · bot 到场**：前置检查 → 用共用电脑进会 → 纪要 → 待办回流成事件。
 
@@ -148,6 +150,7 @@ interface CrewEvent {
 - `bot-crew/src/calendar.ts`：把 `每天 20:30 / 工作日 18:00 / 每周一 09:00 / 每 N 分钟 / 每小时` 解析成 cadence，算出某一天的触发时刻，和显示窗口。写法和后端 `crew-server/src/scheduler.ts` 的 `lastDue` 是同一套，**改一处要改两处**；差别是这段跑在浏览器里，本来就是用户的时区，所以不做时区换算。
 - `bot-crew/src/components/Week.tsx`：网格、常驻行、现在线、右边的「等你」。
 - `bot-crew/src/components/EventCard.tsx`：点开一件事看到的那张卡；上面三条规矩写在它的文件注释里。
+- 服务端的日程：`crew-server/src/types.ts` 的 `CrewEvent`（存在 `store.data.events`，不长在 bot 身上——它不是 bot 的属性，是时间轴上的一条）、`extensions/schedule.ts`（模型的工具：add / list / move / drop）、`scheduler.ts` 的 `fireEvent`（到点交回给排它的 bot，迟到了如实说迟了多久，由它判断还值不值得说）。
 - `bot-crew/src/utils.ts` 的 `waited()`：等待时长只给一个量级。
 - `styles.css` 的 `.week / .wk-*` 段；`types.ts` 的 `Selection` 多一个 `'week'`；`App.tsx` 路由；`Sidebar.tsx` 多一个 pill；`ws-agent.ts` 里新装的落地页。
 

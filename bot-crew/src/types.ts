@@ -487,6 +487,25 @@ export interface Layout { sidebar: number; side: number; right: number }
 export const DEFAULT_LAYOUT: Layout = { sidebar: 252, side: 316, right: 312 };
 export const LAYOUT_LIMITS: Record<keyof Layout, [number, number]> = { sidebar: [200, 400], side: [260, 480], right: [260, 480] };
 
+/**
+ * 日程上我们自己排的一件事：bot 觉得用户需要一个日程时排的。例行任务是反复，这是一次。
+ * 到点了服务端把它交回给排它的 bot，由 bot 决定说什么、做什么。
+ */
+export interface CrewEvent {
+  id: string;
+  botId: string;
+  title: string;
+  at: number;
+  /** 有时长的才有；没有就是时间轴上的一个点 */
+  minutes?: number;
+  /** user = 到点提醒用户；bot = 到点它自己做 */
+  who: 'user' | 'bot';
+  note?: string;
+  threadId?: ThreadId;
+  createdAt: number;
+  firedAt?: number;
+}
+
 export interface State {
   /** the server this page is connected to (undefined until the first snapshot) */
   runtime?: RuntimeInfo;
@@ -496,6 +515,7 @@ export interface State {
   bots: Bot[];
   matters: Matter[];
   todos: Todo[];
+  events: CrewEvent[];
   pendings: Pending[];
   actions: Action[];
   messages: Message[];
