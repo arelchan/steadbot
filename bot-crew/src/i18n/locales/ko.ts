@@ -107,7 +107,10 @@ export const ko: Record<string, string> = {
 
   'draft.new': '새 bot',
   'draft.title': '무엇을 맡기고 싶은지 한마디',
-  'draft.sub': '예: "경쟁사 동향을 살펴서 금요일마다 한 장으로"',
+  'draft.eg1': '경쟁사 동향을 살펴서 금요일마다 한 장으로',
+  'draft.eg2': '매일 아침 읽을 만한 업계 뉴스를 정리해 줘',
+  'draft.eg3': 'Feishu 그룹에 들어가서 팀의 흔한 질문에 답해 줘',
+  'draft.eg4': '들어오는 청구서를 정리하고 월말에 경비표를 만들어 줘',
   'draft.placeholder': '첫 문장 — 무엇을 맡길지…',
 
   'profile.title': 'bot이 보는 나',

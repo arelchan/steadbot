@@ -196,7 +196,7 @@ function MessageRow({ m, bots, showName }: { m: Message; bots: Bot[]; showName: 
   );
 }
 
-export function Composer({ threadId, bot, onSend, placeholder }: { threadId: string; bot?: Bot; onSend?: (text: string) => void; placeholder?: string }) {
+export function Composer({ threadId, bot, onSend, placeholder, seed }: { threadId: string; bot?: Bot; onSend?: (text: string) => void; placeholder?: string; seed?: { text: string; n: number } }) {
   const t = useT();
   const [text, setText] = useState('');
   const [files, setFiles] = useState<Attachment[]>([]);
@@ -214,6 +214,22 @@ export function Composer({ threadId, bot, onSend, placeholder }: { threadId: str
     ref.current?.focus();
   }, [threadId]);
   useEffect(() => () => files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview)), [files]);
+  // Grow with the text, one line at first; the stylesheet caps the height and scrolls past it.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text]);
+  useEffect(() => {
+    if (!seed?.n) return;
+    setText(seed.text);
+    const el = ref.current;
+    if (el) {
+      el.focus();
+      requestAnimationFrame(() => el.setSelectionRange(el.value.length, el.value.length));
+    }
+  }, [seed?.n]);
 
   const addFiles = (list: Iterable<File>) => {
     if (!canAttach) return;

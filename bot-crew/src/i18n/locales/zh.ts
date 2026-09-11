@@ -112,7 +112,10 @@ export const zh: Record<string, string> = {
   /* ---- 新 bot ---- */
   'draft.new': '新 bot',
   'draft.title': '说一句你想让它管什么',
-  'draft.sub': '比如「帮我盯竞品动态，每周五给我一页纸」',
+  'draft.eg1': '盯竞品动态，每周五给我一页纸',
+  'draft.eg2': '每天早上把值得看的行业新闻整理给我',
+  'draft.eg3': '进飞书群，替我回答同事的常见问题',
+  'draft.eg4': '收到发票就归档，月底出一张报销表',
   'draft.placeholder': '第一句话，说清它管什么…',
 
   /* ---- 档案 ---- */

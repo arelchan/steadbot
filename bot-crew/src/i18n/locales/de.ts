@@ -107,7 +107,10 @@ export const de: Record<string, string> = {
 
   'draft.new': 'Neuer Bot',
   'draft.title': 'Sag, worum er sich kümmern soll',
-  'draft.sub': 'Zum Beispiel: „Beobachte, was die Konkurrenz herausbringt, jeden Freitag eine Seite“',
+  'draft.eg1': 'Beobachte die Konkurrenz, jeden Freitag eine Seite',
+  'draft.eg2': 'Stell mir jeden Morgen die lesenswerten Branchennews zusammen',
+  'draft.eg3': 'Geh in die Feishu-Gruppe und beantworte die üblichen Fragen des Teams',
+  'draft.eg4': 'Lege jede eingehende Rechnung ab, Spesenliste zum Monatsende',
   'draft.placeholder': 'Erster Satz – worum er sich kümmert…',
 
   'profile.title': 'Wie sie dich sehen',

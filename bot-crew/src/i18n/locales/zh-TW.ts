@@ -107,7 +107,10 @@ export const zhTW: Record<string, string> = {
 
   'draft.new': '新 bot',
   'draft.title': '說一句你想讓它管什麼',
-  'draft.sub': '像是「幫我盯競品動態，每週五給我一頁」',
+  'draft.eg1': '盯競品動態，每週五給我一頁',
+  'draft.eg2': '每天早上把值得看的產業新聞整理給我',
+  'draft.eg3': '進 Feishu 群組，替我回答同事的常見問題',
+  'draft.eg4': '收到發票就歸檔，月底出一張報銷表',
   'draft.placeholder': '第一句話，說清楚它管什麼…',
 
   'profile.title': '記憶',

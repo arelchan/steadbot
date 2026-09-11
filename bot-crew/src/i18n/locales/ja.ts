@@ -107,7 +107,10 @@ export const ja: Record<string, string> = {
 
   'draft.new': '新しい bot',
   'draft.title': '何を任せたいか、ひとこと',
-  'draft.sub': '例：「競合の動きを見て、毎週金曜に 1 枚にまとめて」',
+  'draft.eg1': '競合の動きを見て、毎週金曜に 1 枚にまとめて',
+  'draft.eg2': '毎朝、読む価値のある業界ニュースをまとめて',
+  'draft.eg3': 'Feishu グループに入って、チームのよくある質問に答えて',
+  'draft.eg4': '届いた請求書を整理して、月末に経費表を出して',
   'draft.placeholder': '最初のひとこと。何を任せる？',
 
   'profile.title': 'bot から見たあなた',
