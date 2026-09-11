@@ -2,7 +2,7 @@ import { recordImages } from './meter.ts';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { builtinImagesModels } from '@earendil-works/pi-ai/providers/all';
-import { config } from './config.ts';
+import { config, orKey } from './config.ts';
 import type { Bot } from './types.ts';
 import { proceduralAvatar } from './util.ts';
 import { model as drawModel, type DrawTier } from './draw.ts';
@@ -19,7 +19,7 @@ export class AvatarService {
   private images = builtinImagesModels();
 
   available(): boolean {
-    return !!drawModel('插画', AVATAR_TIER) && !!process.env.OPENROUTER_API_KEY;
+    return !!drawModel('插画', AVATAR_TIER) && !!orKey();
   }
 
   prompt(bot: Bot) {
@@ -50,7 +50,7 @@ export class AvatarService {
     if (!model) return proceduralAvatar(seed);
     try {
       const result = await this.images.generateImages(model, { input: [{ type: 'text', text: this.prompt(bot) }] });
-      recordImages('draw', bot.id, config.imageModel, 1, result.usage);
+      recordImages('draw', bot.id, `${model.provider}/${model.id}`, 1, result.usage);
       const img = result.output.find((b) => b.type === 'image');
       if (result.stopReason === 'error' || !img || img.type !== 'image') return proceduralAvatar(seed);
       const ext = img.mimeType.includes('jpeg') ? 'jpg' : 'png';

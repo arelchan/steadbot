@@ -2,7 +2,7 @@ import type { BotCtx } from './ctx.ts';
 import { recordRaw } from '../meter.ts';
 import type { InlineExtension } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
-import { config } from '../config.ts';
+import { config, orKey } from '../config.ts';
 
 /**
  * Web access for every bot, no grant needed:
@@ -17,7 +17,7 @@ function searchModelId() {
 }
 
 export async function webSearch(query: string, signal?: AbortSignal, who?: string): Promise<{ answer: string; sources: Citation[] }> {
-  const key = process.env.OPENROUTER_API_KEY;
+  const key = orKey();
   if (!key) throw new Error('产品还没配置搜索能力（缺 OpenRouter 密钥）');
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',

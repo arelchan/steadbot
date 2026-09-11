@@ -6,13 +6,15 @@ import { httpBase, authHeaders } from '../services/runtime';
 import { fetchUpgradeStatus, runUpgrade } from '../services/upgrade';
 import { ACCENTS, SCALES, THEMES, getAccent, getDesktopNotify, getScale, getTheme, notifySupported, setAccent, setDesktopNotify, setScale, setTheme, type Accent, type Scale, type Theme } from '../services/theme';
 import { RuntimeBody } from './RuntimeView';
+import { ModelsTab } from './ModelsTab';
 import { Row, Pick } from './Field';
 import { cx } from '../utils';
 import { LOCALES, useT, useLocale, setLocale, intlLocale, tn, t as tr, type Locale } from '../i18n';
 
-type Tab = 'general' | 'cloud' | 'usage' | 'about';
+type Tab = 'general' | 'models' | 'cloud' | 'usage' | 'about';
 const TABS: { id: Tab; key: string }[] = [
   { id: 'general', key: 'set.general' },
+  { id: 'models', key: 'set.models' },
   { id: 'cloud', key: 'set.cloud' },
   { id: 'usage', key: 'set.usage' },
   { id: 'about', key: 'set.about' },
@@ -49,6 +51,12 @@ export function SettingsModal({ tab: initial = 'general', onClose }: { tab?: Tab
           <button className="cfg-close" onClick={onClose} title={t('common.closeEsc')}>×</button>
           <div className="cfg-content">
             {tab === 'general' && <General />}
+            {tab === 'models' && (
+              <>
+                <Head title={t('set.models')} sub={t('models.sub')} />
+                <ModelsTab />
+              </>
+            )}
             {tab === 'cloud' && <Cloud />}
             {tab === 'usage' && <Usage />}
             {tab === 'about' && <About up={up} />}

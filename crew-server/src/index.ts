@@ -28,6 +28,7 @@ import { LoginDesk } from './login.ts';
 import { WeixinPairing } from './weixin-pair.ts';
 import { initDeps, kick as kickDeps, reconcile as reconcileDeps, ready as depsReady } from './deps.ts';
 import * as everos from './everos.ts';
+import { applyProviderKeys, modelsPage, refreshCatalog, saveModels, type ModelsPatch } from './models.ts';
 import { fetchAssets } from './assets.ts';
 import { versionLine } from './version.ts';
 import { usageReport } from './usage.ts';
@@ -1040,6 +1041,39 @@ async function main() {
           return json(200, { ok: true });
         }
         return json(404, { error: 'not found' });
+      }
+      if (url.pathname === '/models') {
+        // 设置 › 模型. GET draws the page; POST writes what changed and makes it true without a restart.
+        const json = (code: number, body: unknown) => {
+          res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+          res.end(JSON.stringify(body));
+          return true;
+        };
+        if (req.method === 'POST') {
+          const chunks: Buffer[] = [];
+          await new Promise<void>((resolve, reject) => {
+            req.on('data', (c: Buffer) => chunks.push(c));
+            req.on('end', resolve);
+            req.on('error', reject);
+          });
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as ModelsPatch & { refresh?: boolean };
+          if (body.refresh) await refreshCatalog(bots.modelRuntime).catch(() => undefined);
+          const touched = body.refresh ? { models: false, keys: false, memory: false } : saveModels(body);
+          if (touched.keys) await applyProviderKeys(bots.modelRuntime);
+          if (touched.keys || touched.models) {
+            bots.pickModels(() => new FakeBrain(store));
+            // Every bot builds its session from the models above; the ones idle right now rebuild on their next
+            // message, and the ones mid-turn finish on the old model first (recycle waits for them).
+            for (const b of store.data.bots) void bots.recycle(b.id);
+          }
+          // The memory engine reads its four models and its key from the environment it was spawned with.
+          if (touched.memory && everos.alive()) {
+            everos.stopMemory();
+            void everos.startMemory();
+          }
+          return json(200, modelsPage(bots.modelRuntime));
+        }
+        return json(200, modelsPage(bots.modelRuntime));
       }
       if (url.pathname === '/usage') {
         res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });

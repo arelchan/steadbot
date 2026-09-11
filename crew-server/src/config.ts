@@ -3,10 +3,23 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 /**
- * Product configuration. Model keys are bundled with the product, not entered by end users:
- * put them in `$CREW_HOME/config.json` under `keys` (or in the environment) and they are
- * exported to process.env before pi's ModelRuntime resolves provider auth.
+ * Product configuration, in `$CREW_HOME/config.json` (mode 600).
+ *
+ * Model keys are the user's: they are typed in 设置 › 模型 and land in `providerKeys`, one per pi provider
+ * (models.ts). A deployment can still put them in the environment or in the older `keys` map; what the user typed
+ * wins, because it is the more recent thing they said. Everything model-shaped is read through a getter so a
+ * change on the page takes effect on the next turn instead of the next restart.
  */
+/** What pi needs to know about a model it has never heard of. */
+export interface ModelInfo {
+  contextWindow?: number;
+  maxTokens?: number;
+  reasoning?: boolean;
+  vision?: boolean;
+  costIn?: number;
+  costOut?: number;
+}
+
 interface FileConfig {
   model?: string; // "provider/model-id", e.g. "anthropic/claude-sonnet-4-6"
   lightModel?: string; // cheap model for bot inference and summaries
@@ -15,9 +28,17 @@ interface FileConfig {
   imageModel?: string;
   visionModel?: string; // "provider/model-id" that can read pictures, for the `see` tool when the main model has no eyes
   guiModel?: string; // "provider/model-id" that can work a screen from screenshots (the `operate` tool), e.g. a GPT-6-class computer-use model; falls back to visionModel
-  /** Metadata for a model pi's catalog does not know yet (registered on top of the provider). */
-  modelInfo?: { contextWindow?: number; maxTokens?: number; reasoning?: boolean; vision?: boolean; costIn?: number; costOut?: number };
+  /** @deprecated one blob for every hand-written model; `modelMeta` keys the same thing by model. */
+  modelInfo?: ModelInfo;
   keys?: Record<string, string>; // e.g. { ANTHROPIC_API_KEY: "...", OPENROUTER_API_KEY: "..." }
+  /** 模型 › 钥匙: one API key per pi provider id ("anthropic", "openrouter", …), written from the App. */
+  providerKeys?: Record<string, string>;
+  /** What turns text into vectors (the skill library and the memory engine both search with it). OpenRouter only. */
+  embeddingModel?: string;
+  /** Reranker for the memory engine; "off" turns it off. OpenRouter only. */
+  rerankModel?: string;
+  /** Metadata per "provider/model-id", for models pi's catalog does not list yet. Falls back to `modelInfo`. */
+  modelMeta?: Record<string, ModelInfo>;
   port?: number;
   /** Access token required by clients. Set → listens on all interfaces; unset → loopback only, no token. */
   authToken?: string;
@@ -56,16 +77,35 @@ interface FileConfig {
 const home = process.env.CREW_HOME ?? join(homedir(), '.crew');
 mkdirSync(home, { recursive: true });
 
-let file: FileConfig = {};
 const cfgPath = join(home, 'config.json');
-if (existsSync(cfgPath)) {
+function loadFile(): FileConfig {
+  if (!existsSync(cfgPath)) return {};
   try {
-    file = JSON.parse(readFileSync(cfgPath, 'utf8')) as FileConfig;
+    return JSON.parse(readFileSync(cfgPath, 'utf8')) as FileConfig;
   } catch (e) {
     console.warn(`[crew] cannot parse ${cfgPath}:`, e);
+    return {};
   }
 }
-for (const [k, v] of Object.entries(file.keys ?? {})) if (!process.env[k]) process.env[k] = v;
+let file: FileConfig = loadFile();
+
+/**
+ * Keys reach two places: pi's ModelRuntime (models.ts hands it `providerKeys` directly) and the four calls that go
+ * to OpenRouter without pi — drawing, web search, embeddings, the memory engine — which read the environment.
+ * A key typed in the App wins over one in the environment: it is the more recent thing the user said.
+ */
+function applyEnv() {
+  for (const [k, v] of Object.entries(file.keys ?? {})) if (v && !process.env[k]) process.env[k] = v;
+  const or = file.providerKeys?.openrouter?.trim();
+  if (or) process.env.OPENROUTER_API_KEY = or;
+}
+applyEnv();
+
+/** Re-read the file after it was written (the App changed a key or a model) so every getter below is current. */
+export function reloadConfig() {
+  file = loadFile();
+  applyEnv();
+}
 
 /**
  * Run on the user's clock. A cloud machine is on UTC, so without this a bot would think it is the middle of the
@@ -81,6 +121,10 @@ if (!process.env.TZ) {
   }
 }
 
+/** What each slot falls back to when nobody chose: what the product shipped with. */
+export const DEFAULT_EMBEDDING_MODEL = 'baai/bge-m3';
+export const DEFAULT_RERANK_MODEL = 'cohere/rerank-v3.5';
+
 export const config = {
   home,
   piAgentDir: join(home, 'pi-agent'), // isolated pi agentDir: our skills/extensions only
@@ -94,13 +138,41 @@ export const config = {
   authToken: process.env.CREW_AUTH_TOKEN ?? file.authToken,
   bind: process.env.CREW_BIND ?? file.bind ?? ((process.env.CREW_AUTH_TOKEN ?? file.authToken) ? '0.0.0.0' : '127.0.0.1'),
   publicUrl: (process.env.CREW_PUBLIC_URL ?? file.publicUrl ?? `http://localhost:${Number(process.env.CREW_PORT ?? file.port ?? 5200)}`).replace(/\/$/, ''),
-  model: process.env.CREW_MODEL ?? file.model,
-  visionModel: process.env.CREW_VISION_MODEL ?? file.visionModel,
-  guiModel: process.env.CREW_GUI_MODEL ?? file.guiModel,
-  lightModel: process.env.CREW_LIGHT_MODEL ?? file.lightModel,
-  searchModel: process.env.CREW_SEARCH_MODEL ?? file.searchModel,
-  imageModel: process.env.CREW_IMAGE_MODEL ?? file.imageModel ?? 'openrouter/google/gemini-2.5-flash-image',
-  modelInfo: file.modelInfo,
+  // Live: the App writes config.json and calls reloadConfig(), and the next turn uses the new model.
+  get model() {
+    return process.env.CREW_MODEL ?? file.model;
+  },
+  get visionModel() {
+    return process.env.CREW_VISION_MODEL ?? file.visionModel;
+  },
+  get guiModel() {
+    return process.env.CREW_GUI_MODEL ?? file.guiModel;
+  },
+  get lightModel() {
+    return process.env.CREW_LIGHT_MODEL ?? file.lightModel;
+  },
+  get searchModel() {
+    return process.env.CREW_SEARCH_MODEL ?? file.searchModel;
+  },
+  /** Empty on purpose: drawing picks its model from the style × tier table, this only pins it (draw.ts). */
+  get imageModel() {
+    return process.env.CREW_IMAGE_MODEL ?? file.imageModel;
+  },
+  get embeddingModel() {
+    return process.env.CREW_EMBEDDING_MODEL ?? file.embeddingModel ?? DEFAULT_EMBEDDING_MODEL;
+  },
+  get rerankModel() {
+    return process.env.CREW_RERANK_MODEL ?? file.rerankModel ?? DEFAULT_RERANK_MODEL;
+  },
+  get modelInfo() {
+    return file.modelInfo;
+  },
+  get providerKeys(): Record<string, string> {
+    return file.providerKeys ?? {};
+  },
+  get modelMeta(): Record<string, ModelInfo> {
+    return file.modelMeta ?? {};
+  },
   fake: process.env.CREW_FAKE === '1' || file.fake === true,
   /** whether external agents installed on this machine are used here at all (0 = only borrow the user's computer's; see host.ts) */
   localAgents: process.env.CREW_LOCAL_AGENTS !== '0',
@@ -144,6 +216,14 @@ export const isMemoryFile = (p: string) => {
   return q === r || q.startsWith(r + '/');
 };
 
+/** What pi should be told about one hand-written model id ("provider/model-id"). */
+export function metaOf(spec: string | undefined): ModelInfo | undefined {
+  return (spec ? file.modelMeta?.[spec] : undefined) ?? file.modelInfo;
+}
+
+/** The key the four direct-to-OpenRouter calls use (drawing, web search, embeddings, the memory engine). */
+export const orKey = () => file.providerKeys?.openrouter?.trim() || process.env.OPENROUTER_API_KEY || undefined;
+
 /** The config file as it is right now (not the startup snapshot): used for values that may change while running, e.g. IM credentials. */
 export function readFileConfig(): FileConfig {
   if (!existsSync(cfgPath)) return {};
@@ -176,4 +256,5 @@ export function updateConfigFile(mutate: (cur: Record<string, unknown>) => void)
   } catch {
     /* ignore */
   }
+  reloadConfig();
 }

@@ -10,7 +10,7 @@ import { recordImages } from './meter.ts';
  */
 import type { ImageContent, ImagesInputContent, Usage } from '@earendil-works/pi-ai';
 import { builtinImagesModels } from '@earendil-works/pi-ai/providers/all';
-import { config } from './config.ts';
+import { config, orKey } from './config.ts';
 
 const images = builtinImagesModels();
 
@@ -72,8 +72,12 @@ export const TIER_HINT: Record<DrawTier, string> = {
   精: '约 13 秒，和标准同价但模型更强——封面、主视觉、细节多或用户会盯着看的图用它',
 };
 
+/**
+ * Which model draws. The table above is the answer unless the user pinned one in 设置 › 模型 — pinning is the
+ * escape hatch for "I want everything drawn by this", and leaving it empty is what every install should do.
+ */
 export const modelIdFor = (style?: string, tier?: DrawTier) =>
-  DRAW_STYLES[style ?? '插画']?.models[tier ?? DEFAULT_TIER] ?? DRAW_STYLES.插画.models[tier ?? DEFAULT_TIER] ?? config.imageModel;
+  config.imageModel ?? DRAW_STYLES[style ?? '插画']?.models[tier ?? DEFAULT_TIER] ?? DRAW_STYLES.插画.models[tier ?? DEFAULT_TIER];
 
 /**
  * The model record for an id, even one this pi build has never heard of. OpenRouter ships image models faster
@@ -191,7 +195,7 @@ async function once(m: NonNullable<ReturnType<typeof model>>, input: ImagesInput
 
 /** OpenRouter's dedicated image endpoint, for the models pi's chat-shaped path cannot reach. */
 async function viaImagesApi(m: NonNullable<ReturnType<typeof model>>, input: ImagesInputContent[]): Promise<Drawn[]> {
-  const key = process.env.OPENROUTER_API_KEY;
+  const key = orKey();
   if (!key) throw new Error('没有 OPENROUTER_API_KEY，画不了。');
   const prompt = input
     .filter((b): b is Extract<ImagesInputContent, { type: 'text' }> => b.type === 'text')

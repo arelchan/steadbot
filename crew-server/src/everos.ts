@@ -17,7 +17,7 @@ import { promisify } from 'node:util';
 import YAML from 'yaml';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { config } from './config.ts';
+import { config, orKey } from './config.ts';
 import { PLACEHOLDER, startMeterProxy } from './meter-proxy.ts';
 import type { CrewStore } from './store.ts';
 import { redactSecrets } from './secrets.ts';
@@ -39,8 +39,8 @@ const SPACE = 'shared';
  * are `cohere/rerank-v3.5` and `qwen/qwen3-reranker-8b`. It matters more than it sounds: the engine
  * refuses every `/knowledge/search` method without one, and the agent track's hybrid lane too.
  */
-const RERANK_MODEL = process.env.CREW_RERANK_MODEL ?? 'cohere/rerank-v3.5';
-const hasRerank = () => !!process.env.OPENROUTER_API_KEY && RERANK_MODEL !== 'off';
+const rerankModel = () => config.rerankModel;
+const hasRerank = () => !!orKey() && rerankModel() !== 'off';
 
 const PORT = Number(process.env.CREW_MEMORY_PORT ?? 5211);
 const BASE = process.env.EVEROS_URL ?? `http://127.0.0.1:${PORT}`;
@@ -219,7 +219,7 @@ async function health(ms = 1500): Promise<boolean> {
 function childEnv(root: string): Record<string, string> {
   const metered = !!proxyBase;
   const base = proxyBase ?? 'https://openrouter.ai/api/v1';
-  const key = metered ? PLACEHOLDER : (process.env.OPENROUTER_API_KEY ?? '');
+  const key = metered ? PLACEHOLDER : (orKey() ?? '');
   const model = (config.lightModel ?? config.model ?? '').replace(/^openrouter\//, '');
   return {
     ...process.env,
@@ -229,7 +229,7 @@ function childEnv(root: string): Record<string, string> {
     EVEROS_LLM__BASE_URL: base,
     // Cheap, multilingual, and on the same account as everything else. Changing this invalidates every
     // vector in the index, so it is not a knob: a change means a rebuild.
-    EVEROS_EMBEDDING__MODEL: process.env.CREW_EMBEDDING_MODEL ?? 'baai/bge-m3',
+    EVEROS_EMBEDDING__MODEL: config.embeddingModel,
     EVEROS_EMBEDDING__API_KEY: key,
     EVEROS_EMBEDDING__BASE_URL: base,
     // Parsing an uploaded document (knowledge) goes through a model that can read pages, not the text model.
@@ -240,7 +240,7 @@ function childEnv(root: string): Record<string, string> {
     ...(hasRerank()
       ? {
           EVEROS_RERANK__PROVIDER: 'vllm',
-          EVEROS_RERANK__MODEL: RERANK_MODEL,
+          EVEROS_RERANK__MODEL: rerankModel(),
           EVEROS_RERANK__API_KEY: key,
           EVEROS_RERANK__BASE_URL: base,
         }
@@ -275,7 +275,7 @@ export function startMemory(): Promise<boolean> {
       console.log('[crew] 记忆：已关闭（CREW_MEMORY=0）');
       return false;
     }
-    if (!process.env.OPENROUTER_API_KEY) {
+    if (!orKey()) {
       console.log('[crew] 记忆：没有 OpenRouter key，先不开');
       return false;
     }

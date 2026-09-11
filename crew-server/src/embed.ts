@@ -1,3 +1,4 @@
+import { config, orKey } from './config.ts';
 import { recordRaw } from './meter.ts';
 /**
  * Embeddings, on the key everything else already uses.
@@ -7,12 +8,12 @@ import { recordRaw } from './meter.ts';
  * bge-m3 is what the memory engine indexes with (everos.ts), so meaning-level search costs no new credential and
  * no new model — one HTTP call, and the caller falls back to lexical whenever it fails.
  */
-const MODEL = process.env.CREW_EMBEDDING_MODEL ?? 'baai/bge-m3';
 const URL = 'https://openrouter.ai/api/v1/embeddings';
 const BATCH = 64;
 
-export const embedModel = () => MODEL;
-export const canEmbed = () => !!process.env.OPENROUTER_API_KEY;
+/** Read per call, not once at import: 设置 › 模型 can change either of these while the server is up. */
+export const embedModel = () => config.embeddingModel;
+export const canEmbed = () => !!orKey();
 
 function normalize(v: number[]): Float32Array {
   const out = new Float32Array(v.length);
@@ -32,13 +33,13 @@ export async function embed(texts: string[], timeoutMs = 30_000): Promise<Float3
       const input = texts.slice(i, i + BATCH).map((t) => t.replace(/\s+/g, ' ').trim().slice(0, 2000) || '-');
       const r = await fetch(URL, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` },
-        body: JSON.stringify({ model: MODEL, input }),
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${orKey()}` },
+        body: JSON.stringify({ model: embedModel(), input }),
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 160)}`);
       const d = (await r.json()) as { data?: { index?: number; embedding?: number[] }[]; usage?: { prompt_tokens?: number; total_tokens?: number } };
-      recordRaw('library', undefined, MODEL, { input: d.usage?.prompt_tokens ?? d.usage?.total_tokens, units: input.length });
+      recordRaw('library', undefined, embedModel(), { input: d.usage?.prompt_tokens ?? d.usage?.total_tokens, units: input.length });
       const rows = d.data ?? [];
       if (rows.length !== input.length) throw new Error(`asked for ${input.length} vectors, got ${rows.length}`);
       for (let j = 0; j < rows.length; j += 1) {

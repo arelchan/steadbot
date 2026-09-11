@@ -236,6 +236,81 @@ export interface UsageReport {
   kinds?: (UsageRow & { kind: UsageKind })[];
 }
 
+/* ---------------- 设置 › 模型 ---------------- */
+
+export type SlotId = 'model' | 'lightModel' | 'visionModel' | 'guiModel' | 'imageModel' | 'searchModel' | 'embeddingModel' | 'rerankModel';
+
+/** 这个模型得会什么；也是候选列表按什么筛 */
+export type SlotNeeds = 'chat' | 'vision' | 'image' | 'embed' | 'rerank';
+
+export interface ModelSlot {
+  id: SlotId;
+  needs: SlotNeeds;
+  /** 只有这家能干（画图、搜索、向量、重排都只有 OpenRouter） */
+  only?: string;
+  /** 留空就跟着另一行走 */
+  inherits?: SlotId;
+  /** 留空就用产品自带的 */
+  fallback?: string;
+  /** 留空就每次自己挑（画图按风格挑） */
+  auto?: boolean;
+  /** 这一行可以关掉 */
+  offable?: boolean;
+  /** 用户选的；空表示还在默认上 */
+  value?: string;
+  /** 这一轮真正会跑的 */
+  effective?: string;
+  /** 要用的模型背后没有钥匙 */
+  blocked?: boolean;
+  /** 部署时用环境变量钉死的：能看不能改 */
+  pinned?: boolean;
+  meta?: ModelMeta;
+}
+
+/** pi 的目录里还没有这个模型时，得手工告诉它的那几件事 */
+export interface ModelMeta {
+  contextWindow?: number;
+  maxTokens?: number;
+  reasoning?: boolean;
+  vision?: boolean;
+  costIn?: number;
+  costOut?: number;
+}
+
+export interface ModelProvider {
+  id: string;
+  name: string;
+  chat: boolean;
+  /** 这家的 key 叫什么（「OpenRouter API key」） */
+  apiKey?: string;
+  oauth?: { label: string; subscription: boolean };
+  /** 钥匙从哪来的 */
+  keyed?: 'app' | 'env' | 'login';
+}
+
+export interface ModelChoice {
+  id: string;
+  name: string;
+  vision: boolean;
+  context?: number;
+  /** 每百万 token 多少钱 */
+  costIn?: number;
+  costOut?: number;
+}
+
+export interface ModelsPage {
+  slots: ModelSlot[];
+  providers: ModelProvider[];
+  /** 按 provider id；画图/向量/重排三行按槽位名（imageModel / embeddingModel / rerankModel） */
+  models: Record<string, ModelChoice[]>;
+}
+
+export interface ModelsPatch {
+  slots?: Partial<Record<SlotId, string | null>>;
+  keys?: Record<string, string | null>;
+  meta?: Record<string, ModelMeta | null>;
+}
+
 /** 升级：这台电脑上的代码、正在跑的代码，对不对得上 */
 export interface UpgradeStatus {
   /** bot 在哪：这台电脑，还是搬去的那台机器 */

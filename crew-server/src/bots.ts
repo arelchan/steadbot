@@ -12,7 +12,11 @@ import {
   type InlineExtension,
 } from '@earendil-works/pi-coding-agent';
 import type { Model, Api } from '@earendil-works/pi-ai';
-import { config } from './config.ts';
+import { config, metaOf } from './config.ts';
+import { applyProviderKeys } from './models.ts';
+
+/** One entry of pi's extension `models` array — what registerProvider takes, not the resolved Model it returns. */
+type RegisteredModel = { id: string; name: string; api?: Api; baseUrl?: string; reasoning: boolean; input: ('text' | 'image')[]; cost: Model<Api>['cost']; contextWindow: number; maxTokens: number };
 import type { CrewStore } from './store.ts';
 import type { PendingBroker } from './broker.ts';
 import { createBotUiContext } from './broker.ts';
@@ -164,6 +168,8 @@ export class BotManager extends EventEmitter {
   ops: CrewOps | undefined;
   /** the bots' computers (desktop.ts); unset on a runtime that cannot host them */
   desktops: DesktopManager | undefined;
+  /** per provider: its own models plus every model id we registered by hand (see catalogOf) */
+  private catalogs = new Map<string, Map<string, RegisteredModel>>();
 
   constructor(
     private store: CrewStore,
@@ -179,6 +185,15 @@ export class BotManager extends EventEmitter {
 
   async init(fakeFactory: () => FakeBrain) {
     this.modelRuntime = await ModelRuntime.create({ allowModelNetwork: false });
+    await applyProviderKeys(this.modelRuntime);
+    this.pickModels(fakeFactory);
+  }
+
+  /**
+   * Read the five model slots and resolve each to something callable. Runs at startup and again whenever 设置 › 模型
+   * is saved — a key or a model changed on the page has to be true on the next turn, not the next restart.
+   */
+  pickModels(fakeFactory: () => FakeBrain) {
     const pick = (spec?: string) => {
       if (!spec) return undefined;
       const i = spec.indexOf('/');
@@ -188,12 +203,13 @@ export class BotManager extends EventEmitter {
     this.lightModel = pick(config.lightModel) ?? this.registerConfiguredModel(config.lightModel) ?? this.model;
     const anyAuth = this.modelRuntime.getProviders().some((p) => this.modelRuntime.hasConfiguredAuth(p.id));
     if (config.fake || (!this.model && !anyAuth)) {
-      this.fake = fakeFactory();
+      this.fake ??= fakeFactory();
       this.modelRuntime.registerNativeProvider(this.fake.handle.provider);
       this.model = this.fake.model;
       this.lightModel = this.model;
       console.log('[crew] no model keys configured: running with the scripted fake brain (set keys in config.json to go live)');
     } else {
+      this.fake = undefined;
       console.log(`[crew] model: ${this.model ? `${this.model.provider}/${this.model.id}` : 'pi default'}`);
     }
     // Eyes for the `see` tool: the model set for it (registered on the fly when pi's catalog does not know it),
@@ -223,23 +239,49 @@ export class BotManager extends EventEmitter {
     const provider = spec.slice(0, i);
     const id = spec.slice(i + 1);
     if (!this.modelRuntime.getProvider(provider)) return undefined;
-    const info = as ? { ...config.modelInfo, ...as } : config.modelInfo;
-    this.modelRuntime.registerProvider(provider, {
-      models: [
-        {
-          id,
-          name: id,
-          reasoning: info?.reasoning ?? false,
-          input: info?.vision ? ['text', 'image'] : ['text'],
-          cost: { input: info?.costIn ?? 0, output: info?.costOut ?? 0, cacheRead: 0, cacheWrite: 0 },
-          contextWindow: info?.contextWindow ?? 128_000,
-          maxTokens: info?.maxTokens ?? 16_000,
-        },
-      ],
+    const info = as ? { ...metaOf(spec), ...as } : metaOf(spec);
+    const models = this.catalogOf(provider);
+    models.set(id, {
+      id,
+      name: id,
+      reasoning: info?.reasoning ?? false,
+      input: info?.vision ? ['text', 'image'] : ['text'],
+      cost: { input: info?.costIn ?? 0, output: info?.costOut ?? 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: info?.contextWindow ?? 128_000,
+      maxTokens: info?.maxTokens ?? 16_000,
     });
+    this.modelRuntime.registerProvider(provider, { models: [...models.values()] });
     const m = this.modelRuntime.getModel(provider, id);
     if (m) console.log(`[crew] registered ${spec} on top of the built-in ${provider} provider`);
     return m;
+  }
+
+  /**
+   * An extension's `models` array replaces the provider's list rather than adding to it, so registering one
+   * hand-written id would otherwise leave the provider holding that one model — and the next model picked from
+   * the same provider (or 设置 › 模型 drawing its list) would find an empty shelf. Kept per provider: its own
+   * catalog as it was before we touched it, plus everything we have added since.
+   */
+  private catalogOf(provider: string) {
+    let per = this.catalogs.get(provider);
+    if (!per) {
+      per = new Map();
+      for (const m of this.modelRuntime.getModels(provider)) {
+        per.set(m.id, {
+          id: m.id,
+          name: m.name,
+          api: m.api,
+          baseUrl: m.baseUrl,
+          reasoning: m.reasoning ?? false,
+          input: m.input ?? ['text'],
+          cost: m.cost,
+          contextWindow: m.contextWindow,
+          maxTokens: m.maxTokens,
+        });
+      }
+      this.catalogs.set(provider, per);
+    }
+    return per;
   }
 
   get mode(): 'live' | 'fake' {

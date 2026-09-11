@@ -16,17 +16,26 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
 
 没有模型密钥时自动进入 **fake 模式**：一个脚本化的假模型把「消息 → 事项 → 拍板 → 执行 → 关闭」整条链路跑通，方便开发和演示。
 
-## 配置（产品内置，用户不配）
+## 配置
 
-`$CREW_HOME/config.json`（默认 `~/.crew/config.json`）：
+模型和它们的钥匙在 App 里配：**设置 › 模型**，一行一件事（对话 / 轻模型 / 看图 / 操作屏幕 / 画图 / 联网搜索 / 向量 / 重排），每行自己选 provider 和 model id。provider 目录、每家要什么凭据、每个模型的价格和上下文，都来自 pi 的 `ModelRuntime`，不是我们维护的清单。改完不用重启：写回 config.json → 重新挑模型 → 各 bot 下一轮生效（`models.ts`、`config.ts` 的 getter）。
+
+画图、联网搜索、向量、重排这四行钉死在 OpenRouter：pi 的图像 api 只有 `openrouter-images`，搜索是 OpenRouter 自己的 `web` 插件，embedding 和 rerank 是我们直接发的 HTTP。
+
+`$CREW_HOME/config.json`（默认 `~/.crew/config.json`，600 权限）：
 
 ```json
 {
   "model": "anthropic/claude-sonnet-4-6",
   "lightModel": "anthropic/claude-haiku-4-5",
   "imageModel": "openrouter/google/gemini-2.5-flash-image",
-  "keys": { "ANTHROPIC_API_KEY": "...", "OPENROUTER_API_KEY": "..." },
-  "modelInfo": { "contextWindow": 1048576, "maxTokens": 32000, "reasoning": false, "vision": false, "costIn": 0.084, "costOut": 0.168 },
+  "visionModel": "openrouter/google/gemini-2.5-flash",
+  "guiModel": "openrouter/openai/gpt-6-astra",
+  "embeddingModel": "baai/bge-m3",
+  "rerankModel": "cohere/rerank-v3.5",
+  "providerKeys": { "openrouter": "...", "anthropic": "..." },
+  "composioApiKey": "...",
+  "modelMeta": { "openrouter/deepseek/deepseek-v4-flash": { "contextWindow": 1048576, "maxTokens": 32000, "vision": false, "costIn": 0.084, "costOut": 0.168 } },
   "port": 5200,
   "publicUrl": "http://localhost:5200",
   "askTimeoutMs": 1800000,
@@ -38,7 +47,7 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
 }
 ```
 
-`keys` 在启动时导出到环境变量，pi 的 ModelRuntime 按 provider 读取。`modelInfo` 用于 pi 目录里还没有的新模型（会注册到对应 provider 上）。当前产品配置：LLM 走 OpenRouter 的 `deepseek/deepseek-v4-flash`，头像走 `google/gemini-3.1-flash-image`。环境变量 `CREW_HOME / CREW_PORT / CREW_MODEL / CREW_FAKE=1` 可覆盖。
+`providerKeys` 按 provider id 存，启动时交给 pi 的 `setRuntimeApiKey`；OpenRouter 那把同时导出到环境变量，供画图、搜索、向量和记忆引擎那四条不走 pi 的调用使用。老的 `keys`（按环境变量名）仍然读，只在 `providerKeys` 没有时补位。`modelMeta` 按 `provider/model-id` 记 pi 目录里还没有的新模型的上下文和价格——页面上填了模型 id 之后会就地问；老的全局 `modelInfo` 仍然作为兜底。`composioApiKey` 和 `googleClientId/Secret` 是产品级的（连接器走 Composio 托管 OAuth），不在页面上。当前产品配置：LLM 走 OpenRouter 的 `deepseek/deepseek-v4-flash`，头像走 `google/gemini-3.1-flash-image`。环境变量 `CREW_HOME / CREW_PORT / CREW_MODEL / CREW_FAKE=1` 可覆盖。
 
 需要的模型：
 
@@ -48,7 +57,10 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
 | 生成 bot 身份、摘要 | 轻量 LLM | `lightModel`，可与主模型相同 |
 | 联网搜索 | OpenRouter web 插件 | `searchModel`（缺省同 `lightModel`），每个 bot 都有 `web_search` / `fetch_url` |
 | 头像 | 图像生成 | `imageModel`，走 pi-ai 的 `ImagesModels`（目前内置 OpenRouter） |
-| 向量检索 | embedding | 当前方案不需要；记忆以文本注入上下文 |
+| 看图 | 能读图的 LLM | `visionModel`，`see` 工具；主模型自己能看图时可留空 |
+| 操作屏幕 | computer-use 模型 | `guiModel`，`operate` 工具；缺省退到 `visionModel` |
+| 向量检索 | embedding | `embeddingModel`，技能库和记忆引擎共用（OpenRouter） |
+| 重排 | rerank | `rerankModel`，记忆引擎用；`"off"` 关掉 |
 
 ## 目录
 

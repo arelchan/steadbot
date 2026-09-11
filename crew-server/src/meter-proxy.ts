@@ -8,6 +8,7 @@
  * holds a placeholder instead of a credential, which is the second reason to do it this way.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { orKey } from './config.ts';
 import { recordRaw } from './meter.ts';
 
 const UPSTREAM = 'https://openrouter.ai/api/v1';
@@ -97,7 +98,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, key: string): P
  */
 export async function startMeterProxy(): Promise<string | undefined> {
   if (base) return base;
-  const key = process.env.OPENROUTER_API_KEY;
+  const key = orKey();
   if (!key) return undefined;
   return new Promise((resolve) => {
     const s = createServer((req, res) => {
