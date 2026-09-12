@@ -213,3 +213,17 @@ export function filesMentioned(text: string, botDir: string, publicUrl: string, 
   }
   return [...out.values()].slice(0, 8);
 }
+
+let ipCache: { at: number; ip: string } | undefined;
+/** 这台机器在公网上的地址，给回调 URL 用。问一次记十分钟，问不到就说问不到，不要猜。 */
+export async function publicIp(): Promise<string> {
+  if (ipCache && Date.now() - ipCache.at < 10 * 60_000) return ipCache.ip;
+  try {
+    const r = await fetch('https://api.ipify.org', { signal: AbortSignal.timeout(6000) });
+    const ip = (await r.text()).trim();
+    if (/^[\d.:a-f]+$/i.test(ip)) ipCache = { at: Date.now(), ip };
+    return ip || '（拿不到）';
+  } catch {
+    return '（拿不到，网络不通）';
+  }
+}
