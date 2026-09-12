@@ -14,6 +14,8 @@ export const ja: Record<string, string> = {
   'common.none': 'なし',
   'common.you': 'あなた',
   'common.loading': '読み込み中…',
+  'common.filter': '絞り込み',
+  'common.noMatch': '該当なし',
   'common.open': '開く',
   'common.download': 'ダウンロード',
   'common.preview': 'プレビュー',

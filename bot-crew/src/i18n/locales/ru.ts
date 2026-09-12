@@ -14,6 +14,8 @@ export const ru: Record<string, string> = {
   'common.none': 'Ничего',
   'common.you': 'Вы',
   'common.loading': 'Загрузка…',
+  'common.filter': 'Фильтр',
+  'common.noMatch': 'Ничего не найдено',
   'common.open': 'Открыть',
   'common.download': 'Скачать',
   'common.preview': 'Просмотр',

@@ -14,6 +14,8 @@ export const de: Record<string, string> = {
   'common.none': 'Nichts',
   'common.you': 'Du',
   'common.loading': 'Wird geladen…',
+  'common.filter': 'Filtern',
+  'common.noMatch': 'Nichts gefunden',
   'common.open': 'Öffnen',
   'common.download': 'Herunterladen',
   'common.preview': 'Vorschau',

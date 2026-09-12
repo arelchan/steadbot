@@ -14,6 +14,8 @@ export const zhTW: Record<string, string> = {
   'common.none': '沒有',
   'common.you': '你',
   'common.loading': '讀取中…',
+  'common.filter': '篩選',
+  'common.noMatch': '沒有符合的',
   'common.open': '開啟',
   'common.download': '下載',
   'common.preview': '預覽',

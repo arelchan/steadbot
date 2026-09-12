@@ -15,6 +15,8 @@ export const zh: Record<string, string> = {
   'common.none': '没有',
   'common.you': '你',
   'common.loading': '读取中…',
+  'common.filter': '筛选',
+  'common.noMatch': '没有匹配的',
   'common.open': '打开',
   'common.download': '下载',
   'common.preview': '预览',

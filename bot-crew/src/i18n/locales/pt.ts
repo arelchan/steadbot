@@ -14,6 +14,8 @@ export const pt: Record<string, string> = {
   'common.none': 'Nada',
   'common.you': 'Você',
   'common.loading': 'Carregando…',
+  'common.filter': 'Filtrar',
+  'common.noMatch': 'Nada encontrado',
   'common.open': 'Abrir',
   'common.download': 'Baixar',
   'common.preview': 'Prévia',

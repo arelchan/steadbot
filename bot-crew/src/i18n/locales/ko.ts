@@ -14,6 +14,8 @@ export const ko: Record<string, string> = {
   'common.none': '없음',
   'common.you': '나',
   'common.loading': '불러오는 중…',
+  'common.filter': '검색',
+  'common.noMatch': '결과 없음',
   'common.open': '열기',
   'common.download': '다운로드',
   'common.preview': '미리보기',
