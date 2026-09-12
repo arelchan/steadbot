@@ -41,11 +41,33 @@ export const SLOTS: SlotDef[] = [
   { id: 'lightModel', needs: 'chat', inherits: 'model' },
   { id: 'visionModel', needs: 'vision', fallback: DEFAULT_VISION_MODEL },
   { id: 'guiModel', needs: 'vision', inherits: 'visionModel' },
-  { id: 'imageModel', needs: 'image', only: ['openrouter'], auto: true },
-  { id: 'searchModel', needs: 'chat', only: ['openrouter'], inherits: 'lightModel' },
-  { id: 'embeddingModel', needs: 'embed', fallback: DEFAULT_EMBEDDING_MODEL },
-  { id: 'rerankModel', needs: 'rerank', fallback: DEFAULT_RERANK_MODEL, offable: true },
+  { id: 'imageModel', needs: 'image', only: ['openrouter', 'openai', 'xai', 'together', 'siliconflow', 'zhipu'], auto: true },
+  { id: 'searchModel', needs: 'chat', only: ['openrouter', 'perplexity'], inherits: 'lightModel' },
+  { id: 'embeddingModel', needs: 'embed', only: ['openrouter', 'openai', 'siliconflow', 'jina', 'voyage', 'dashscope', 'zhipu', 'mistral'], fallback: DEFAULT_EMBEDDING_MODEL },
+  { id: 'rerankModel', needs: 'rerank', only: ['openrouter', 'jina', 'voyage', 'siliconflow', 'cohere'], fallback: DEFAULT_RERANK_MODEL, offable: true },
 ];
+
+/**
+ * The vendors pi does not carry, for the four rows this server calls itself.
+ *
+ * pi's forty providers are chat providers: it has no concept of an embedding, a reranker or a search plugin, and
+ * its image api is OpenRouter's alone. But those four calls are ours — plain HTTP to an OpenAI-shaped endpoint —
+ * so any vendor that speaks the same shape can serve them, whether or not pi has heard of it. What each one is
+ * good for is what `SLOTS[].only` says above; all any of them needs from us is a base URL and a key.
+ */
+export const EXTRA_PROVIDERS: Record<string, { name: string; baseUrl: string; apiKey: string }> = {
+  siliconflow: { name: '硅基流动 SiliconFlow', baseUrl: 'https://api.siliconflow.cn/v1', apiKey: 'SiliconFlow API key' },
+  jina: { name: 'Jina AI', baseUrl: 'https://api.jina.ai/v1', apiKey: 'Jina API key' },
+  voyage: { name: 'Voyage AI', baseUrl: 'https://api.voyageai.com/v1', apiKey: 'Voyage API key' },
+  cohere: { name: 'Cohere', baseUrl: 'https://api.cohere.com/v1', apiKey: 'Cohere API key' },
+  dashscope: { name: '阿里云百炼 DashScope', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKey: 'DashScope API key' },
+  zhipu: { name: '智谱 GLM', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKey: '智谱 API key' },
+  perplexity: { name: 'Perplexity', baseUrl: 'https://api.perplexity.ai', apiKey: 'Perplexity API key' },
+};
+
+/** Where one of our own calls goes, whether pi knows the vendor or we do. */
+export const baseUrlOf = (provider: string): string | undefined =>
+  (runtime?.getProvider(provider)?.baseUrl ?? EXTRA_PROVIDERS[provider]?.baseUrl)?.replace(/\/$/, '');
 
 export interface ProviderRow {
   id: string;
@@ -104,21 +126,36 @@ const imagesCatalog = builtinImagesModels();
  * the way they publish chat models. These are the ones this product has actually run on, per provider; any other
  * provider's row is a text field, which is the honest answer rather than a short list pretending to be complete.
  */
+const row = (id: string, name?: string): ModelRow => ({ id, name: name ?? id, vision: false });
+
 const EMBED_MODELS: Record<string, ModelRow[]> = {
-  openrouter: [
-    { id: 'baai/bge-m3', name: 'BGE-M3', vision: false },
-    { id: 'qwen/qwen3-embedding-8b', name: 'Qwen3 Embedding 8B', vision: false },
-  ],
-  openai: [
-    { id: 'text-embedding-3-large', name: 'text-embedding-3-large', vision: false },
-    { id: 'text-embedding-3-small', name: 'text-embedding-3-small', vision: false },
-  ],
+  openrouter: [row('baai/bge-m3', 'BGE-M3'), row('qwen/qwen3-embedding-8b', 'Qwen3 Embedding 8B')],
+  openai: [row('text-embedding-3-large'), row('text-embedding-3-small')],
+  siliconflow: [row('BAAI/bge-m3', 'BGE-M3'), row('Qwen/Qwen3-Embedding-8B', 'Qwen3 Embedding 8B'), row('Qwen/Qwen3-Embedding-4B', 'Qwen3 Embedding 4B')],
+  jina: [row('jina-embeddings-v4'), row('jina-embeddings-v3')],
+  voyage: [row('voyage-3.5'), row('voyage-3.5-lite'), row('voyage-3-large')],
+  dashscope: [row('text-embedding-v4'), row('text-embedding-v3')],
+  zhipu: [row('embedding-3')],
+  mistral: [row('mistral-embed')],
 };
 const RERANK_MODELS: Record<string, ModelRow[]> = {
-  openrouter: [
-    { id: 'cohere/rerank-v3.5', name: 'Cohere Rerank 3.5', vision: false },
-    { id: 'baai/bge-reranker-v2-m3', name: 'BGE Reranker v2-m3', vision: false },
-  ],
+  openrouter: [row('cohere/rerank-v3.5', 'Cohere Rerank 3.5'), row('qwen/qwen3-reranker-8b', 'Qwen3 Reranker 8B')],
+  jina: [row('jina-reranker-m0'), row('jina-reranker-v2-base-multilingual')],
+  voyage: [row('rerank-2.5'), row('rerank-2.5-lite')],
+  siliconflow: [row('BAAI/bge-reranker-v2-m3', 'BGE Reranker v2-m3'), row('Qwen/Qwen3-Reranker-8B', 'Qwen3 Reranker 8B')],
+  cohere: [row('rerank-v3.5'), row('rerank-multilingual-v3.0')],
+};
+/** Drawing at vendors other than OpenRouter: whoever answers OpenAI's `/images/generations`. */
+const IMAGE_MODELS: Record<string, ModelRow[]> = {
+  openai: [row('gpt-image-1'), row('gpt-image-1-mini')],
+  xai: [row('grok-2-image-1212', 'Grok 2 Image')],
+  together: [row('black-forest-labs/FLUX.1.1-pro', 'FLUX 1.1 Pro'), row('black-forest-labs/FLUX.1-schnell', 'FLUX.1 schnell')],
+  siliconflow: [row('Qwen/Qwen-Image', 'Qwen Image'), row('Kwai-Kolors/Kolors', 'Kolors')],
+  zhipu: [row('cogview-4', 'CogView-4')],
+};
+/** The search row at a vendor whose models search by themselves, with no plugin to switch on. */
+const SEARCH_MODELS: Record<string, ModelRow[]> = {
+  perplexity: [row('sonar'), row('sonar-pro'), row('sonar-reasoning')],
 };
 
 function imageModels(): ModelRow[] {
@@ -157,10 +194,13 @@ export const useRuntime = (rt: ModelRuntime) => {
  */
 export type KeySource = { kind: 'own' } | { kind: 'ambient' };
 
-/** Which provider a row goes to, even before it has a model: a row pinned to one provider is on it either way. */
+/**
+ * Which provider a row goes to, even before it has a model of its own — 画图 left on automatic still spends at
+ * the first vendor its row can use, which is the one the shipped drawing table is written for.
+ */
 export function providerOfSlot(slot: SlotId): string | undefined {
   const def = SLOTS.find((s) => s.id === slot);
-  return splitSpec(effectiveOf(slot))?.provider ?? (def?.only?.length === 1 ? def.only[0] : undefined);
+  return splitSpec(effectiveOf(slot))?.provider ?? def?.only?.[0];
 }
 
 export function keyOf(slot: SlotId): { key: string; source: KeySource } | undefined {
@@ -173,15 +213,16 @@ export function keyOf(slot: SlotId): { key: string; source: KeySource } | undefi
 
 /**
  * Where to send one of our own HTTP calls — web search, embeddings, reranking, drawing's direct door — which pi
- * either has no concept of or cannot reach. The provider's base URL comes from pi, the key from the row.
+ * either has no concept of or cannot reach. The base URL comes from pi when it knows the vendor and from
+ * `EXTRA_PROVIDERS` when it does not; the key comes from the row.
  */
 export function endpointOf(slot: SlotId): { provider: string; model: string; baseUrl: string; key: string } | undefined {
   const spec = effectiveOf(slot);
   const s = splitSpec(spec);
   if (!s || spec === 'off') return undefined;
-  const baseUrl = runtime?.getProvider(s.provider)?.baseUrl;
+  const baseUrl = baseUrlOf(s.provider);
   const got = keyOf(slot);
-  return baseUrl && got ? { provider: s.provider, model: s.id, baseUrl: baseUrl.replace(/\/$/, ''), key: got.key } : undefined;
+  return baseUrl && got ? { provider: s.provider, model: s.id, baseUrl, key: got.key } : undefined;
 }
 
 const sees = (m: Model<Api>) => (m.input ?? []).includes('image');
@@ -218,15 +259,21 @@ const slotValue = (id: SlotId): string | undefined => process.env[SLOT_ENV[id]] 
 /** Pinned from the environment: the page shows the value but will not let it be edited here. */
 export const slotPinned = (id: SlotId): boolean => !!process.env[SLOT_ENV[id]];
 
-/** Follow inheritance and defaults to the model that will actually run. */
+/**
+ * Follow inheritance and defaults to the model that will actually run.
+ *
+ * A row that can only be served by certain vendors does not accept an answer from another one: 联网搜索 borrows
+ * 轻模型's model, but if 轻模型 has been moved to a vendor that cannot search, borrowing it would mean answering
+ * from the model's memory and calling it a search. Better to have no model and say so.
+ */
 export function effectiveOf(id: SlotId, seen = new Set<SlotId>()): string | undefined {
   if (seen.has(id)) return undefined;
   seen.add(id);
   const def = SLOTS.find((s) => s.id === id)!;
-  const own = slotValue(id)?.trim();
-  if (own) return own;
-  if (def.inherits) return effectiveOf(def.inherits, seen);
-  return def.fallback;
+  const spec = slotValue(id)?.trim() || (def.inherits ? effectiveOf(def.inherits, seen) : def.fallback);
+  if (!spec || spec === 'off') return spec || undefined;
+  const p = splitSpec(spec)?.provider;
+  return def.only && (!p || !def.only.includes(p)) ? undefined : spec;
 }
 
 /**
@@ -234,8 +281,8 @@ export function effectiveOf(id: SlotId, seen = new Set<SlotId>()): string | unde
  * has stored. Deliberately not counting another row's key: that key is that row's, so a row that would need one
  * of its own is asked for one the moment the provider is picked.
  */
-function anyKeyFor(rt: ModelRuntime, id: string): boolean {
-  return !!ambientKey(id) || rt.getProviderAuthStatus(id).configured;
+function anyKeyFor(rt: ModelRuntime | undefined, id: string): boolean {
+  return !!ambientKey(id) || (!!rt?.getProvider(id) && rt.getProviderAuthStatus(id).configured);
 }
 
 /**
@@ -257,7 +304,9 @@ export function modelsPage(rt: ModelRuntime | undefined, want?: string[]): Model
   }
   if (rt) {
     for (const p of rt.getProviders()) {
-      if (p.id === 'faux') continue;
+      // `faux` is the scripted stand-in, and `openrouter#visionModel` is a row's private clone of a real
+      // provider (bots.ts) — neither is something to offer as a choice.
+      if (p.id === 'faux' || p.id.includes('#')) continue;
       const list = rt.getModels(p.id);
       if (!list.length) continue;
       const auth = (p as unknown as { auth?: { apiKey?: { name?: string }; oauth?: { name?: string; loginLabel?: string; isSubscription?: boolean } } }).auth;
@@ -273,12 +322,17 @@ export function modelsPage(rt: ModelRuntime | undefined, want?: string[]): Model
     }
     providers.sort((a, b) => (a.keyed && !b.keyed ? -1 : b.keyed && !a.keyed ? 1 : a.name.localeCompare(b.name)));
   }
-  // Drawing, embedding and reranking do not read a provider's chat catalog, so their lists travel under
+  // The vendors pi does not carry sit at the end of the same list, marked `chat: false` so they are offered only
+  // on the rows this server calls itself.
+  for (const [id, p] of Object.entries(EXTRA_PROVIDERS)) providers.push({ id, name: p.name, chat: false, apiKey: p.apiKey, keyed: anyKeyFor(rt, id) });
+  // Drawing, embedding, reranking and search do not read a provider's chat catalog, so their lists travel under
   // `<what the row needs>:<provider>` and the App asks for them by that key.
   for (const id of need) {
-    models[`image:${id}`] = id === 'openrouter' ? imageModels() : [];
+    models[`image:${id}`] = id === 'openrouter' ? imageModels() : (IMAGE_MODELS[id] ?? []);
     models[`embed:${id}`] = EMBED_MODELS[id] ?? [];
     models[`rerank:${id}`] = RERANK_MODELS[id] ?? [];
+    // A search row at one of the extra vendors has no pi catalog to read, so its chat list is curated too.
+    if (!models[id] && SEARCH_MODELS[id]) models[id] = SEARCH_MODELS[id];
   }
   const slots: SlotRow[] = SLOTS.map((def) => {
     const value = slotValue(def.id)?.trim() || undefined;

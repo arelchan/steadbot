@@ -130,7 +130,7 @@ function SlotView({
   // The provider a row is on is the one its model belongs to — until the user picks a different one and has not
   // yet picked a model from it. That in-between lives here and outlasts the save that clears the old model, which
   // is the moment the row has no provider of its own at all.
-  const settled = providerOf(slot.value) ?? providerOf(slot.effective) ?? (slot.only?.length === 1 ? slot.only[0] : '');
+  const settled = providerOf(slot.value) ?? providerOf(slot.effective) ?? slot.only?.[0] ?? '';
   const [picked, setPicked] = useState<string>();
   const prov = picked ?? settled;
   const [manual, setManual] = useState(false);
@@ -150,8 +150,9 @@ function SlotView({
   const spec = (id: string) => `${prov}/${id}`;
   const provider = page.providers.find((p) => p.id === prov);
   const typeIt = manual || (!!prov && loaded && list.length === 0);
-  // Drawing and web search are OpenRouter's alone — pi's image api is its, and web search is its own plugin.
-  const choices = slot.only ? page.providers.filter((p) => slot.only!.includes(p.id)) : page.providers;
+  // Chat and vision rows can go to any provider pi carries; the four rows this server calls itself name the
+  // vendors whose protocol it actually speaks, and those include a few pi has never heard of (`chat: false`).
+  const choices = slot.only ? page.providers.filter((p) => slot.only!.includes(p.id)) : page.providers.filter((p) => p.chat);
   // A hand-written id: the catalog cannot price it, so the row asks for the numbers itself.
   const unknown = loaded && !!slot.effective && slot.effective !== 'off' && !!slot.value && !list.some((x) => x.id === idOf(slot.value));
 
@@ -170,9 +171,9 @@ function SlotView({
           ? t('models.default', { model: short(slot.fallback) })
           : t('models.none');
 
-  // One word about the key, and clicking it opens the field. Anything more belongs in the field itself, not in
-  // eight repeated lines of note text.
-  const keyWord = slot.blocked ? t('models.needKey') : slot.keyFrom?.kind === 'own' ? t('models.ownKey') : t('models.envKey');
+  // The note line carries the job and one way in — 配置钥匙, or 更新钥匙 once this row has one of its own. What
+  // the row is running on today is said inside the panel, where there is room to say it properly.
+  const keyWord = slot.key ? t('models.updateKey') : t('models.setKey');
 
   return (
     <>
@@ -182,10 +183,17 @@ function SlotView({
           <>
             {t(`models.what.${slot.id}`)}
             <span className="sep">·</span>
+            {/* A row nothing can pay for says so where it is read, not only inside the panel. */}
+            {slot.blocked && !slot.pinned && (
+              <>
+                <span className="warn">{t('models.noKeyTag')}</span>
+                <span className="sep">·</span>
+              </>
+            )}
             {slot.pinned ? (
               t('models.pinned')
             ) : (
-              <button className={cx('link', slot.blocked && 'warn')} onClick={() => onAsk(slot.id)}>{keyWord}</button>
+              <button className="link" onClick={() => onAsk(slot.id)}>{keyWord}</button>
             )}
           </>
         }
@@ -239,9 +247,12 @@ function SlotView({
         )}
       </Row>
       {open && (
-        <KeyAsk
+        <KeyPanel
           label={provider?.apiKey ?? t('models.keyOf', { who: provider?.name ?? '' })}
           has={!!slot.key}
+          // What this row would run on at the provider now shown, which is not always the one the server answered
+          // about: the user may have just moved the row somewhere its key does not exist.
+          ambient={!!provider?.keyed}
           onDone={onKey}
         />
       )}
@@ -250,25 +261,35 @@ function SlotView({
   );
 }
 
-/** The one place a key is typed. It never comes back: the server only ever says which row has one. */
-function KeyAsk({ label, has, onDone }: { label: string; has: boolean; onDone: (v?: string) => void }) {
+/**
+ * The one place a key is typed, opened from the row it belongs to. It says what that row is running on today —
+ * its own key, the machine's, or nothing — and the key itself never comes back from the server: what is stored is
+ * only ever reported as "this row has one", so typing here replaces rather than edits.
+ */
+function KeyPanel({ label, has, ambient, onDone }: { label: string; has: boolean; ambient: boolean; onDone: (v?: string) => void }) {
   const t = useT();
   const [v, setV] = useState('');
+  const none = !has && !ambient;
   return (
     <div className="key-ask">
-      <span className="ka-l">{label}</span>
-      <input
-        className="in mono"
-        type="password"
-        autoFocus
-        value={v}
-        placeholder={has ? t('models.keyReplace') : t('models.keyPlaceholder')}
-        onChange={(e) => setV(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && v.trim() && onDone(v.trim())}
-      />
-      <button className="btn sm" disabled={!v.trim()} onClick={() => onDone(v.trim())}>{t('models.save')}</button>
-      {has && <button className="link" onClick={() => onDone('')}>{t('models.dropKey')}</button>}
-      <button className="link" onClick={() => onDone(undefined)}>{t('common.cancel')}</button>
+      <div className="ka-top">
+        <span className="ka-t">{label}</span>
+        <span className={cx('ka-s', none && 'warn')}>{has ? t('models.keyHas') : none ? t('models.keyNone') : t('models.keyAmbient')}</span>
+      </div>
+      <div className="ka-row">
+        <input
+          className="in mono"
+          type="password"
+          autoFocus
+          value={v}
+          placeholder={has ? t('models.keyReplace') : t('models.keyPlaceholder')}
+          onChange={(e) => setV(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && v.trim() && onDone(v.trim())}
+        />
+        <button className="btn sm" disabled={!v.trim()} onClick={() => onDone(v.trim())}>{has ? t('models.update') : t('models.save')}</button>
+        {has && <button className="link" onClick={() => onDone('')}>{t('models.dropKey')}</button>}
+        <button className="link" onClick={() => onDone(undefined)}>{t('common.cancel')}</button>
+      </div>
     </div>
   );
 }

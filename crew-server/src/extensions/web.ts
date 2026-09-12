@@ -2,38 +2,35 @@ import type { BotCtx } from './ctx.ts';
 import { recordRaw } from '../meter.ts';
 import type { InlineExtension } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
-import { config } from '../config.ts';
 import { endpointOf } from '../models.ts';
 
 /**
  * Web access for every bot, no grant needed:
- *   web_search  OpenRouter's web plugin on the light model → a grounded answer + cited sources
+ *   web_search  a grounded answer + cited sources, from whichever vendor the 联网搜索 row is on
  *   fetch_url   read one page as plain text
+ *
+ * Two vendors can do this, and they do it differently. OpenRouter bolts search onto any chat model with its own
+ * `web` plugin and hands back the citations as message annotations; Perplexity's sonar models search by
+ * themselves and list what they read in `search_results`. Everything else about the call is the same request.
  */
 interface Citation { url: string; title?: string; content?: string }
 
-function searchModelId() {
-  const spec = config.searchModel ?? config.lightModel ?? config.model ?? '';
-  return spec.startsWith('openrouter/') ? spec.slice('openrouter/'.length) : spec;
-}
-
 export async function webSearch(query: string, signal?: AbortSignal, who?: string): Promise<{ answer: string; sources: Citation[] }> {
   const at = endpointOf('searchModel');
-  const key = at?.key;
-  if (!key) throw new Error('产品还没配置搜索能力（缺 OpenRouter 密钥）');
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  if (!at) throw new Error('联网搜索还没配好：去「设置 › 模型 · 联网搜索」选一家能搜的（OpenRouter 或 Perplexity）并给它钥匙。');
+  const viaPlugin = at.provider === 'openrouter';
+  const res = await fetch(`${at.baseUrl}/chat/completions`, {
     method: 'POST',
     signal,
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${at.key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: searchModelId(),
-      plugins: [{ id: 'web', max_results: 6 }],
+      model: at.model,
+      ...(viaPlugin ? { plugins: [{ id: 'web', max_results: 6 }], usage: { include: true } } : {}),
       messages: [
         { role: 'system', content: `现在是 ${new Date().toLocaleString('zh-CN', { hour12: false })}。根据搜索结果用中文简要回答，只写事实，带具体数字和日期；不确定就说不确定。不要 markdown。` },
         { role: 'user', content: query },
       ],
       max_tokens: 900,
-      usage: { include: true },
     }),
   });
   if (!res.ok) throw new Error(`搜索服务返回 ${res.status}`);
@@ -41,20 +38,24 @@ export async function webSearch(query: string, signal?: AbortSignal, who?: strin
     model?: string;
     usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
     choices?: { message?: { content?: string; annotations?: { type: string; url_citation?: Citation }[] } }[];
+    search_results?: { title?: string; url?: string; snippet?: string }[];
+    citations?: string[];
     error?: { message?: string };
   };
   // The web plugin is billed per result on top of the tokens, so the only number with both in it is usage.cost.
-  recordRaw('search', who, j.model ?? searchModelId(), { input: j.usage?.prompt_tokens, output: j.usage?.completion_tokens, cost: j.usage?.cost, units: 1 });
+  recordRaw('search', who, j.model ?? at.model, { input: j.usage?.prompt_tokens, output: j.usage?.completion_tokens, cost: j.usage?.cost, units: 1 });
   if (j.error) throw new Error(j.error.message ?? '搜索失败');
   const msg = j.choices?.[0]?.message;
   const seen = new Set<string>();
   const sources: Citation[] = [];
-  for (const a of msg?.annotations ?? []) {
-    const c = a.url_citation;
-    if (!c?.url || seen.has(c.url)) continue;
+  const add = (c?: Citation) => {
+    if (!c?.url || seen.has(c.url)) return;
     seen.add(c.url);
     sources.push({ url: c.url, title: c.title, content: c.content?.replace(/\s+/g, ' ').slice(0, 240) });
-  }
+  };
+  for (const a of msg?.annotations ?? []) add(a.url_citation);
+  for (const r of j.search_results ?? []) add({ url: r.url ?? '', title: r.title, content: r.snippet });
+  for (const u of j.citations ?? []) add({ url: u });
   return { answer: (msg?.content ?? '').trim(), sources };
 }
 

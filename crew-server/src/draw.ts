@@ -11,7 +11,7 @@ import { recordImages } from './meter.ts';
 import type { ImageContent, ImagesInputContent, Usage } from '@earendil-works/pi-ai';
 import { builtinImagesModels } from '@earendil-works/pi-ai/providers/all';
 import { config } from './config.ts';
-import { endpointOf } from './models.ts';
+import { baseUrlOf, keyOf } from './models.ts';
 
 const images = builtinImagesModels();
 
@@ -77,8 +77,11 @@ export const TIER_HINT: Record<DrawTier, string> = {
  * Which model draws. The table above is the answer unless the user pinned one in 设置 › 模型 — pinning is the
  * escape hatch for "I want everything drawn by this", and leaving it empty is what every install should do.
  */
-/** Whose key pays for a picture: the 画图 row's own, else what the machine was deployed with (models.ts). */
-export const drawKey = () => endpointOf('imageModel')?.key;
+/**
+ * Whose key pays for a picture: the 画图 row's own, else what the machine was deployed with (models.ts). Asked of
+ * the row rather than of its model, because the row is usually on automatic and has no model of its own.
+ */
+export const drawKey = () => keyOf('imageModel')?.key;
 
 export const modelIdFor = (style?: string, tier?: DrawTier) =>
   config.imageModel ?? DRAW_STYLES[style ?? '插画']?.models[tier ?? DEFAULT_TIER] ?? DRAW_STYLES.插画.models[tier ?? DEFAULT_TIER];
@@ -95,6 +98,7 @@ export function model(style?: string, tier?: DrawTier) {
   const id = modelIdFor(style, tier);
   const [provider] = id.split('/');
   const name = id.slice(provider.length + 1);
+  if (provider !== 'openrouter') return foreign(provider, name, id);
   try {
     const known = images.getModel(provider, name);
     if (known) return known;
@@ -108,6 +112,25 @@ export function model(style?: string, tier?: DrawTier) {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Drawing somewhere other than OpenRouter. Those vendors — OpenAI, xAI, Together, 硅基流动, 智谱 — all answer
+ * OpenAI's `/images/generations`, which is the door `viaImagesApi` already knocks on, so the only thing missing is
+ * a model record to carry the id and the base URL. It borrows the shape of an OpenRouter one and is marked
+ * direct-only, since pi's chat-shaped image path is OpenRouter's alone. Reference images are not claimed: that
+ * part is not the same call everywhere.
+ */
+function foreign(provider: string, name: string, id: string) {
+  const cached = synthesized.get(id);
+  if (cached) return cached;
+  const shape = images.getModels('openrouter')?.[0];
+  const baseUrl = baseUrlOf(provider);
+  if (!shape || !baseUrl) return undefined;
+  const made = { ...shape, provider, baseUrl, id: name, name: id, input: ['text' as const] };
+  synthesized.set(id, made);
+  directOnly.add(`${provider}/${name}`);
+  return made;
 }
 
 /** Whether this installation can draw at all (no image model resolvable = the tool is not offered). */

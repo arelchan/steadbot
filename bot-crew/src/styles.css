@@ -1516,11 +1516,17 @@ li.md-task.done { color: var(--text-2); }
 .models .in.mono { font-family: var(--mono); font-size: 11.5px; }
 .models-foot { display: flex; align-items: baseline; gap: 12px; margin-top: 14px; }
 .models .set-rn .sep { color: var(--hair); margin: 0 6px; }
-/* 钥匙就问在缺它的那一行下面，答完就收起来 */
-.key-ask { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: -1px 0 0; border-radius: var(--r-sm); background: var(--tint); font-size: 12px; }
+/* 钥匙配在它归属的那一行下面：先说这一行现在靠什么跑，再给一个框 */
+.key-ask { display: flex; flex-direction: column; gap: 9px; padding: 12px 14px; margin: 2px 0 4px; border-radius: var(--r-sm); background: var(--tint); font-size: 12px; }
+.key-ask .ka-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.key-ask .ka-t { color: var(--text); }
+.key-ask .ka-s { color: var(--muted); }
+.key-ask .ka-s.warn { color: var(--warn); }
+.key-ask .ka-row { display: flex; align-items: center; gap: 10px; }
+.key-ask .ka-row .in { flex: 1; min-width: 0; width: auto; background: var(--panel); }
 .key-ask .ka-l { color: var(--muted); flex: 1; min-width: 0; }
-.key-ask .in { width: 216px; background: var(--panel); }
-.set-rn .link.warn { color: var(--warn); }
+.set-rn .link.warn, .set-rn .warn { color: var(--warn); }
+.meta-ask { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 10px; }
 .meta-ask .ma-f { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .meta-ask .ma-f .in { width: 72px; padding: 5px 8px; font-variant-numeric: tabular-nums; }
 
