@@ -347,7 +347,6 @@ async function main() {
             existing: store.data.bots.filter((b) => b.id !== bot.id).map((b) => ({ name: b.name, tagline: b.tagline || b.role.split(/[。，]/)[0] })),
             profile: everos.profileLines(),
             integrations: store.data.integrations.filter((i) => i.status === 'ok' && i.kind !== 'channel').map((i) => i.name),
-            language: store.data.settings?.language,
           },
           bots.modelRuntime,
           bots.lightModel,

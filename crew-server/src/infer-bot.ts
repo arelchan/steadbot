@@ -42,7 +42,6 @@ export function blankBot(brief: string, existing: string[]): NewBot {
 }
 
 /** 用哪种语言写它的名字和人设：跟界面语言走，auto 就跟用户这句话走。 */
-const LANGUAGES: Record<string, string> = { zh: '简体中文', 'zh-TW': '繁体中文', en: '英文', ja: '日文', ko: '韩文', es: '西班牙文', fr: '法文', de: '德文', pt: '葡萄牙文', ru: '俄文' };
 
 /**
  * 这句话是用什么写的。「跟着用户的语言」这条指令在一段中文提示词里是压不住的——模型跟着提示词走，
@@ -63,7 +62,6 @@ export interface Birthplace {
   existing: { name: string; tagline: string }[];
   profile?: string[];
   integrations?: string[];
-  language?: string;
 }
 
 /**
@@ -79,7 +77,7 @@ export async function inferBot(text: string, place: Birthplace, runtime?: ModelR
   const names = place.existing.map((b) => b.name);
   const fallback = { ...blankBot(text, names), hints: [] as string[] };
   if (!runtime || !model || model.provider === 'faux') return fallback;
-  const lang = `name、tagline、role、soul 全部用${place.language && place.language !== 'auto' ? (LANGUAGES[place.language] ?? place.language) : scriptOf(text)}写`;
+  const lang = `name、tagline、role、soul 全部用${scriptOf(text)}写`;
   const team = place.existing.length ? place.existing.map((b) => `- ${b.name}：${b.tagline}`).join('\n') : '（还没有别人，它是第一个）';
   const about = place.profile?.length ? place.profile.slice(0, 6).map((l) => `- ${l}`).join('\n') : '（还不了解）';
   const reach = place.integrations?.length ? place.integrations.join('、') : '（暂时什么外部系统都没接）';

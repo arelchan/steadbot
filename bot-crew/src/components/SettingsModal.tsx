@@ -89,13 +89,8 @@ function General() {
   const [accent, setA] = useState<Accent>(getAccent());
   const [scale, setS] = useState<Scale>(getScale());
   const [notify, setN] = useState(getDesktopNotify());
-  // The bots' own language: either 'auto' (whatever the user writes in) or a locale, kept level with the interface.
-  const botLang = useStore((s) => s.settings?.language);
-  const followMe = botLang === 'auto';
-  const pickLocale = (l: Locale) => {
-    setLocale(l);
-    if (!followMe) setSettings({ language: l });
-  };
+  // The interface's language, and only that: bots answer in whatever language they are spoken to.
+  const pickLocale = (l: Locale) => setLocale(l);
   return (
     <>
       <Head title={t('set.general')} />
@@ -106,13 +101,6 @@ function General() {
               <option key={l.id} value={l.id}>{l.label}</option>
             ))}
           </Pick>
-        </Row>
-
-        <Row label={t('set.botReply')}>
-          <div className="seg tight">
-            <button className={cx(!followMe && 'on')} onClick={() => setSettings({ language: locale })}>{t('set.followUi')}</button>
-            <button className={cx(followMe && 'on')} onClick={() => setSettings({ language: 'auto' })}>{t('set.followMe')}</button>
-          </div>
         </Row>
 
         <TimezoneRow />

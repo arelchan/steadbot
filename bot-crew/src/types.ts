@@ -344,7 +344,6 @@ export interface UpgradeStatus {
 /** 全局偏好：跟着这套 bot 走，不是某个浏览器的设置 */
 export interface CrewSettings {
   /** bot 用什么语言说话和写东西：界面语言的代码（zh、en、ja…），或 auto = 跟着用户当时说的语言 */
-  language?: string;
   /** 你所在的时区（IANA 名）。例行任务按它算时间：云机器本身跑在 UTC 上。 */
   timezone?: string;
 }
