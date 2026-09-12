@@ -44,6 +44,7 @@ export function RuntimeView() {
 export function RuntimeBody() {
   const rt = useStore((s) => s.runtime);
   const online = useStore((s) => s.online);
+  const bots = useStore((s) => s.bots.length);
   const target = getRuntime();
   const remote = target.kind === 'remote';
   const [machines, setMachines] = useState<KnownMachine[]>(() => knownMachines());
@@ -51,70 +52,191 @@ export function RuntimeBody() {
   const refresh = () => setMachines(knownMachines());
   return (
     <>
-      <CurrentCard rt={rt} online={online} remote={remote} name={remote ? target.name : undefined} />
-      {rt?.mode === 'moved' && <MovedNotice rt={rt} />}
-      <MachinesCard
+      <PlacesCard
+        rt={rt}
+        online={online}
+        bots={bots}
         machines={machines}
-        here={remote ? target.url : undefined}
-        hereName={remote ? rt?.hostname : undefined}
+        away={remote ? target : undefined}
         onChange={refresh}
         onAdd={() => setAdding(true)}
       />
-      {(adding || (!remote && rt?.mode !== 'moved' && machines.length === 0)) && (
-        <MoveOutCard onDone={refresh} onClose={adding ? () => setAdding(false) : undefined} />
-      )}
-      {!remote && rt?.mode !== 'moved' && cloudAvailable && <HostedCard />}
+      {rt?.mode === 'moved' && <MovedNotice rt={rt} />}
+      {adding && <MoveOutCard onDone={refresh} onClose={() => setAdding(false)} />}
+      {adding && cloudAvailable && <HostedCard />}
       {!remote && cloudAvailable && <CloudLeftover />}
     </>
   );
 }
 
 /**
- * The machines this user has, and where the bots are among them.
+ * Everywhere the bots could live, as one list — this computer first, then every cloud machine the user has set up.
  *
- * A machine the bots are not on is not gone — it is sitting there, and one button puts the bots back on it. The
- * only thing that cannot be done while the bots are on a machine is deleting it, because deleting it here would
- * leave them somewhere the App can no longer reach.
+ * The page used to be two cards: one saying where the bots are, one listing cloud machines. So the machine they
+ * were on was printed twice, and the computer they came from was not a row at all — which left "bring them home"
+ * looking like a different kind of thing from "move them there" when it is the same move in the other direction.
+ * Here exactly one row holds them, every other row offers the same button, and the row holding them cannot be
+ * deleted, because deleting it would leave them somewhere the App can no longer reach.
  */
-function MachinesCard({ machines, here, hereName, onChange, onAdd }: { machines: KnownMachine[]; here?: string; hereName?: string; onChange: () => void; onAdd: () => void }) {
+function PlacesCard({
+  rt,
+  online,
+  bots,
+  machines,
+  away,
+  onChange,
+  onAdd,
+}: {
+  rt?: RuntimeInfo;
+  online?: boolean;
+  bots: number;
+  machines: KnownMachine[];
+  /** The machine the bots are on, when they are not on this computer. */
+  away?: { url: string; token: string; name?: string };
+  onChange: () => void;
+  onAdd: () => void;
+}) {
   const t = useT();
+  const here = away?.url.replace(/\/$/, '');
   return (
-    <div className="rt-card machines">
-      <div className="rt-ic">☁</div>
+    <div className="rt-card">
+      <div className="rt-ic">{away ? '\u2601' : '\u2302'}</div>
       <div className="rt-main">
         <div className="rt-title rt-title-row">
-          <span>{t('rt.machines')}</span>
-          <button className="link" onClick={onAdd}>{machines.length ? t('rt.addMachine') : t('rt.addFirst')}</button>
+          <span>{t('rt.where')}</span>
+          {machines.length > 0 && <button className="link" onClick={onAdd}>＋ {t('rt.addCloud')}</button>}
         </div>
+        <ul className="rt-machines">
+          <HomeRow rt={rt} online={online} bots={bots} away={away} />
+          {machines.map((m) => (
+            <MachineRow
+              key={m.url}
+              m={m}
+              current={m.url === here}
+              fallbackName={m.url === here ? rt?.hostname : undefined}
+              online={online}
+              bots={bots}
+              mode={rt?.mode}
+              onChange={onChange}
+            />
+          ))}
+        </ul>
         {machines.length === 0 ? (
-          <div className="rt-desc">{t('rt.noMachines')}</div>
+          <div className="rt-note rt-row">
+            <button className="btn sm primary" onClick={onAdd}>＋ {t('rt.addCloud')}</button>
+            <span>{t('rt.noMachines')}</span>
+          </div>
         ) : (
-          <ul className="rt-machines">
-            {machines.map((m) => (
-              <MachineRow key={m.url} m={m} current={m.url === here?.replace(/\/$/, '')} fallbackName={hereName} onChange={onChange} />
-            ))}
-          </ul>
+          <div className="rt-note">{away && rt ? <HostLine rt={rt} /> : t('rt.homeStops')}</div>
         )}
       </div>
     </div>
   );
 }
 
-function MachineRow({ m, current, fallbackName, onChange }: { m: KnownMachine; current: boolean; fallbackName?: string; onChange: () => void }) {
+/** How a row says whether it is the one holding the bots. */
+function Held({ current, online, bots, mode }: { current: boolean; online?: boolean; bots: number; mode?: RuntimeInfo['mode'] }) {
+  const t = useT();
+  if (!current) return <span className="rt-m-s">{t('rt.idleMachine')}</span>;
+  if (online === false) return <span className="rt-m-s">{t('rt.offline')}</span>;
+  if (mode === 'standby') return <span className="rt-m-s">{t('rt.standby')}</span>;
+  return <span className="rt-m-s live">{t('rt.livesHere', { n: bots })}</span>;
+}
+
+/**
+ * This computer. It is always in the list and can never be removed — it is where the bots are born and where
+ * they come back to. When they are away, its button is the way back, and it has to be running to receive them.
+ */
+function HomeRow({ rt, online, bots, away }: { rt?: RuntimeInfo; online?: boolean; bots: number; away?: { url: string; token: string; name?: string } }) {
+  const mode = away ? undefined : rt?.mode;
+  const t = useT();
+  const current = !away;
+  // Asking the computer's own server who it is: it answers only when it is running, which is also the condition
+  // for taking the bots back, so one question covers the name, the platform and whether the button works.
+  const [home, setHome] = useState<RuntimeInfo | null | undefined>(undefined);
+  const [step, setStep] = useState<Step>('idle');
+  const [ask, setAsk] = useState(false);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    if (current) return;
+    if (!localHttpBase) return setHome(null);
+    fetch(`${localHttpBase}/runtime/info`)
+      .then((r) => (r.ok ? (r.json() as Promise<RuntimeInfo>) : null))
+      .then(setHome)
+      .catch(() => setHome(null));
+  }, [current]);
+
+  const back = async () => {
+    if (!away) return;
+    setAsk(false);
+    setStep('moving');
+    setErr('');
+    try {
+      await oneShot(localWsUrl, { type: 'migrate_from', url: away.url, token: away.token }, 'migrated');
+      setRuntime({ kind: 'local' });
+      setStep('done');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (e) {
+      setErr((e as Error).message);
+      setStep('idle');
+    }
+  };
+
+  const info = current ? rt : (home ?? undefined);
+  const platform = info ? (info.platform === 'darwin' ? 'macOS' : info.platform === 'linux' ? 'Linux' : info.platform) : '';
+  return (
+    <li className={cx('rt-m', current && 'on')}>
+      <div className="rt-m-l">
+        <span className="rt-m-n">{t('rt.thisComputer')}</span>
+        <span className="rt-m-u">{info ? `${info.hostname} · ${platform}` : ''}</span>
+      </div>
+      <div className="rt-m-r">
+        <Held current={current} online={online} bots={bots} mode={mode} />
+        {!current && (
+          <button className="btn sm" disabled={step === 'moving' || home === null} onClick={() => setAsk(true)}>
+            {step === 'moving' ? t('rt.backing') : t('rt.back')}
+          </button>
+        )}
+      </div>
+      {!current && home === null && <div className="rt-desc">{t('rt.backNoLocal')}</div>}
+      {err && <div className="rt-err">{err}</div>}
+      {ask && away && (
+        <ConfirmDialog
+          title={t('rt.backAskTitle')}
+          message={t('rt.backAskMsg', { name: away.name ?? away.url.replace(/^https?:\/\//, '') })}
+          confirmLabel={t('rt.back')}
+          onCancel={() => setAsk(false)}
+          onConfirm={() => void back()}
+        />
+      )}
+    </li>
+  );
+}
+
+/** One cloud machine. Not holding the bots: move them there, or forget it. Holding them: neither. */
+function MachineRow({
+  m,
+  current,
+  fallbackName,
+  online,
+  bots,
+  mode,
+  onChange,
+}: {
+  m: KnownMachine;
+  current: boolean;
+  fallbackName?: string;
+  online?: boolean;
+  bots: number;
+  mode?: RuntimeInfo['mode'];
+  onChange: () => void;
+}) {
   const t = useT();
   const name = m.name || (current ? fallbackName : undefined);
-  const bots = useStore((s) => s.bots.length);
   const [step, setStep] = useState<Step>('idle');
-  const [ask, setAsk] = useState<'move' | 'back' | 'forget' | undefined>();
+  const [ask, setAsk] = useState<'move' | 'forget' | undefined>();
   const [err, setErr] = useState('');
   const [peer, setPeer] = useState<RuntimeInfo | undefined>();
-  // Bringing them home means this computer's own EverBot pulls them back, so it has to be running.
-  const [homeUp, setHomeUp] = useState<boolean | null>(null);
-  useEffect(() => {
-    if (!current) return;
-    if (!localHttpBase) return setHomeUp(false);
-    fetch(`${localHttpBase}/runtime/info`).then((r) => setHomeUp(r.ok)).catch(() => setHomeUp(false));
-  }, [current]);
 
   /** Move the bots onto this machine: make sure it is really there and running first. */
   const moveHere = async () => {
@@ -143,20 +265,6 @@ function MachineRow({ m, current, fallbackName, onChange }: { m: KnownMachine; c
       setStep('idle');
     }
   };
-  /** Bring them home: this computer pulls the home back off that machine and restarts on it. */
-  const back = async () => {
-    setAsk(undefined);
-    setStep('moving');
-    try {
-      await oneShot(localWsUrl, { type: 'migrate_from', url: m.url, token: m.token }, 'migrated');
-      setRuntime({ kind: 'local' });
-      setStep('done');
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (e) {
-      setErr((e as Error).message);
-      setStep('idle');
-    }
-  };
   const busy = step === 'moving' || step === 'checking';
   return (
     <li className={cx('rt-m', current && 'on')}>
@@ -165,10 +273,8 @@ function MachineRow({ m, current, fallbackName, onChange }: { m: KnownMachine; c
         <span className="rt-m-u">{m.url.replace(/^https?:\/\//, '')}</span>
       </div>
       <div className="rt-m-r">
-        <span className={cx('rt-m-s', current && 'on')}>{current ? t('rt.hereNow') : t('rt.idleMachine')}</span>
-        {current ? (
-          <button className="btn sm" disabled={busy || homeUp === false} onClick={() => setAsk('back')}>{step === 'moving' ? t('rt.backing') : t('rt.back')}</button>
-        ) : (
+        <Held current={current} online={online} bots={bots} mode={mode} />
+        {!current && (
           <>
             <button className="btn sm" disabled={busy} onClick={() => void moveHere()}>
               {step === 'checking' ? t('rt.checking') : step === 'moving' ? t('rt.moving') : t('rt.moveHere')}
@@ -177,7 +283,6 @@ function MachineRow({ m, current, fallbackName, onChange }: { m: KnownMachine; c
           </>
         )}
       </div>
-      {current && homeUp === false && <div className="rt-desc">{t('rt.backNoLocal')}</div>}
       {err && <div className="rt-err">{err}</div>}
       {ask === 'move' && peer && (
         <ConfirmDialog
@@ -186,15 +291,6 @@ function MachineRow({ m, current, fallbackName, onChange }: { m: KnownMachine; c
           confirmLabel={t('rt.moveOk')}
           onCancel={() => setAsk(undefined)}
           onConfirm={() => void move()}
-        />
-      )}
-      {ask === 'back' && (
-        <ConfirmDialog
-          title={t('rt.backAskTitle')}
-          message={t('rt.backAskMsg', { name: name ?? m.url.replace(/^https?:\/\//, '') })}
-          confirmLabel={t('rt.back')}
-          onCancel={() => setAsk(undefined)}
-          onConfirm={() => void back()}
         />
       )}
       {ask === 'forget' && (
@@ -212,30 +308,6 @@ function MachineRow({ m, current, fallbackName, onChange }: { m: KnownMachine; c
         />
       )}
     </li>
-  );
-}
-
-function CurrentCard({ rt, online, remote, name }: { rt?: RuntimeInfo; online?: boolean; remote: boolean; name?: string }) {
-  const t = useT();
-  const label = remote ? name || rt?.hostname || t('rt.myServer') : t('rt.thisComputer');
-  const status = online === false ? t('rt.offline') : rt ? (rt.mode === 'active' ? t('rt.online') : rt.mode === 'moved' ? t('rt.moved') : t('rt.standby')) : t('rt.connecting');
-  return (
-    <div className={cx('rt-card current', remote && 'remote')}>
-      <div className="rt-ic">{remote ? '☁' : '⌂'}</div>
-      <div className="rt-main">
-        <div className="rt-title">
-          {tx('rt.nowOn', { name: <b>{label}</b> })}
-          <span className={cx('rt-status', online === false ? 'off' : rt?.mode === 'active' ? 'ok' : 'warn')}>{status}</span>
-        </div>
-        {rt && (
-          <div className="rt-meta">
-            {rt.hostname} · {rt.platform === 'darwin' ? 'macOS' : rt.platform === 'linux' ? 'Linux' : rt.platform}
-            {remote && rt.publicUrl ? ` · ${rt.publicUrl.replace(/^https?:\/\//, '')}` : ''}
-          </div>
-        )}
-        {remote && rt && <HostLine rt={rt} />}
-      </div>
-    </div>
   );
 }
 
