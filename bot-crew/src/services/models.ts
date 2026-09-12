@@ -31,6 +31,7 @@ async function call(want?: string, init?: RequestInit): Promise<ModelsPage> {
 }
 
 export const fetchModels = (want?: string) => call(want);
-export const saveModels = (patch: ModelsPatch) => call(undefined, { method: 'POST', body: JSON.stringify(patch) });
+/** `want` rides along with the save: moving a row to another vendor is one round trip, not a save and then a fetch. */
+export const saveModels = (patch: ModelsPatch, want?: string) => call(want, { method: 'POST', body: JSON.stringify(patch) });
 /** Ask the providers for their current model lists (pi ships a static catalog that new models are not in yet). */
 export const refreshModels = () => call(undefined, { method: 'POST', body: JSON.stringify({ refresh: true }) });

@@ -45,26 +45,40 @@ export function ModelsTab() {
     };
   }, []);
 
-  /** A row has moved to a provider whose catalog never travelled with the page; fetch that one list. */
+  /**
+   * A row has moved to a provider whose catalog never travelled with the page; fetch that one list. No busy
+   * state: nothing on the page is wrong while it is on the way, only that one model list is still empty, and
+   * greying out all eight rows for it is what made switching provider feel like a page load.
+   */
   const need = (provider: string) => {
     if (asked.current.has(provider)) return;
     asked.current.add(provider);
-    setBusy(true);
     fetchModels(provider)
       .then(setPage)
-      .catch(() => asked.current.delete(provider))
-      .finally(() => setBusy(false));
+      .catch(() => asked.current.delete(provider));
   };
 
-  const apply = async (patch: ModelsPatch) => {
-    setBusy(true);
+  /**
+   * `want` is the provider a row has just moved to: its catalog comes back with the save, in the same trip.
+   *
+   * Choosing a provider or a model draws the choice immediately and lets the save catch up — the server's answer
+   * for those is the same thing the row already shows, and waiting for it (greyed out, twice, over whatever
+   * network the box is behind) is what made every switch feel like a reload. A key is different: what the row is
+   * running on afterwards is the server's to say, so that one waits.
+   */
+  const apply = async (patch: ModelsPatch, want?: string, now = false) => {
+    if (want) asked.current.add(want);
+    if (now) setPage((p) => p && guess(p, patch));
+    else setBusy(true);
     try {
-      setPage(await saveModels(patch));
+      setPage(await saveModels(patch, want));
       setErr('');
     } catch {
       setErr(t('models.saveFail'));
+      if (want) asked.current.delete(want);
+      void fetchModels().then(setPage).catch(() => undefined);
     } finally {
-      setBusy(false);
+      if (!now) setBusy(false);
     }
   };
 
@@ -96,7 +110,7 @@ export function ModelsTab() {
               setAsking(undefined);
               if (v !== undefined) void apply({ keys: { [s.id]: v || null } });
             }}
-            onPatch={(p) => void apply(p)}
+            onPatch={(p, want) => void apply(p, want, true)}
             onNeed={need}
           />
         ))}
@@ -107,6 +121,20 @@ export function ModelsTab() {
       </div>
     </div>
   );
+}
+
+/**
+ * The page as it will be once the server has agreed: the rows this patch names, carrying what was just chosen.
+ * Inheritance and defaults are the server's to work out, so a row left empty here simply shows its empty label —
+ * which is what it will say anyway a moment later.
+ */
+function guess(page: ModelsPage, patch: ModelsPatch): ModelsPage {
+  const slots = patch.slots ?? {};
+  if (!Object.keys(slots).length) return page;
+  return {
+    ...page,
+    slots: page.slots.map((s) => (s.id in slots ? { ...s, value: slots[s.id] ?? undefined, effective: slots[s.id] ?? undefined, meta: undefined } : s)),
+  };
 }
 
 function SlotView({
@@ -123,7 +151,7 @@ function SlotView({
   open: boolean;
   onAsk: (id: SlotId | undefined) => void;
   onKey: (key?: string) => void;
-  onPatch: (p: ModelsPatch) => void;
+  onPatch: (p: ModelsPatch, want?: string) => void;
   onNeed: (provider: string) => void;
 }) {
   const t = useT();
@@ -203,8 +231,10 @@ function SlotView({
           onChange={(v) => {
             setManual(false);
             setPicked(v);
-            // A row cannot be half-changed: picking a new provider drops the old provider's model.
-            if (slot.value && providerOf(slot.value) !== v) onPatch({ slots: { [slot.id]: null } });
+            // A row cannot be half-changed: picking a new provider drops the old provider's model. That save and
+            // this provider's model list are the same round trip — `v` rides along with the patch.
+            if (slot.value && providerOf(slot.value) !== v) onPatch({ slots: { [slot.id]: null } }, v);
+            else if (v) onNeed(v);
             if (v && !page.providers.find((p) => p.id === v)?.keyed) onAsk(slot.id);
           }}
         >
