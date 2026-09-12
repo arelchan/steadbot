@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { dismissUpgrade } from '../services/upgrade';
-import { useT } from '../i18n';
+import { useT, type MsgKey } from '../i18n';
 import { cx } from '../utils';
 import type { UpgradePhase } from '../types';
 
@@ -19,6 +19,8 @@ import type { UpgradePhase } from '../types';
  */
 const STEPS = ['down', 'install', 'restart'] as const;
 const STEP_OF: Record<UpgradePhase, number> = { fetch: 0, wait: 1, apply: 1, back: 2, done: 2, error: 2 };
+/** 每个阶段配一句话。satisfies 保证以后加一个阶段必须同时给它文案，不会漏出一个键名给用户看。 */
+const PHASE_KEY = { fetch: 'up.st.fetch', wait: 'up.st.apply', apply: 'up.st.apply', back: 'up.st.back', done: 'up.st.done', error: 'up.failed' } as const satisfies Record<UpgradePhase, MsgKey>;
 
 /** "等 助理、小明 忙完这一轮再重启…" — the names are the only part of that worth putting on screen. */
 const whoOf = (line: string) => /等\s*(.+?)\s*忙完/.exec(line)?.[1] ?? '';
@@ -59,7 +61,7 @@ export function UpgradeCurtain() {
       ? t('up.st.wait', { who })
       : run.phase === 'apply'
         ? t(rebuilding ? 'up.st.rebuild' : 'up.st.restart')
-        : t(`up.st.${run.phase === 'wait' ? 'apply' : run.phase}`);
+        : t(PHASE_KEY[run.phase]);
 
   return createPortal(
     <div className="curtain" role="dialog" aria-modal aria-label={t('up.title')}>
