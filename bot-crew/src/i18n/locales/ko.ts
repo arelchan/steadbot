@@ -460,6 +460,7 @@ export const ko: Dict = {
   'rt.vendor.own.after3': 'Docker는 미리 설치할 필요 없음 — 스크립트가 설치합니다',
 
   'rt.moveOut': '꺼지지 않는 머신으로 옮기기',
+  'rt.addTitle': '머신 한 대 더 준비하기',
   'rt.summoning': '어시스턴트를 부르는 중…',
   'rt.summon': '어시스턴트에게 안내받기',
   'rt.selfServe': '직접 단계대로 하기',

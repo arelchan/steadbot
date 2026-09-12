@@ -460,6 +460,7 @@ export const de: Dict = {
   'rt.vendor.own.after3': 'Docker muss nicht vorher installiert werden – das Skript erledigt das',
 
   'rt.moveOut': 'Auf eine Maschine umziehen, die immer an ist',
+  'rt.addTitle': 'Noch eine Maschine einrichten',
   'rt.summoning': 'Der Assistent kommt…',
   'rt.summon': 'Der Assistent soll mich führen',
   'rt.selfServe': 'Selbst Schritt für Schritt',

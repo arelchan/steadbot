@@ -498,6 +498,7 @@ export const en: Dict = {
   'rt.vendor.own.after3': 'No need to install Docker first — the script does it',
 
   'rt.moveOut': 'Move to a machine that stays on',
+  'rt.addTitle': 'Set up another machine',
   'rt.summoning': 'Fetching the assistant…',
   'rt.summon': 'Let the assistant walk me through it',
   'rt.selfServe': 'Do it step by step myself',

@@ -460,6 +460,7 @@ export const fr: Dict = {
   'rt.vendor.own.after3': 'Inutile d’installer Docker : le script s’en charge',
 
   'rt.moveOut': 'Déménager sur une machine toujours allumée',
+  'rt.addTitle': 'Configurer une autre machine',
   'rt.summoning': 'On appelle l’assistant…',
   'rt.summon': 'Me faire guider par l’assistant',
   'rt.selfServe': 'Le faire moi-même, étape par étape',

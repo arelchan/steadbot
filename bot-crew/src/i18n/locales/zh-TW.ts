@@ -461,6 +461,7 @@ export const zhTW: Dict = {
   'rt.vendor.own.after3': 'Docker 不用先裝，指令碼會裝',
 
   'rt.moveOut': '搬到一台不關機的機器',
+  'rt.addTitle': '再設定一台機器',
   'rt.summoning': '叫助理…',
   'rt.summon': '讓助理帶我做',
   'rt.selfServe': '自己照步驟來',

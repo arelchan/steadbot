@@ -45,7 +45,7 @@ export function getRuntime(): RuntimeTarget {
 export type KnownMachine = { url: string; token: string; name?: string; provider?: 'byo' | 'hosted'; at: number };
 const MACHINES = 'bot-crew:machines';
 
-export function knownMachines(): KnownMachine[] {
+function storedMachines(): KnownMachine[] {
   try {
     const raw = localStorage.getItem(MACHINES);
     const list = raw ? (JSON.parse(raw) as KnownMachine[]) : [];
@@ -53,6 +53,21 @@ export function knownMachines(): KnownMachine[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * Every machine the user has — and the one the bots are on right now is always one of them, whether or not this
+ * browser ever wrote it down. It can be missing: anyone who moved out before this list existed has the address
+ * and the code in the current target and nothing in the list, and would see a page that says where the bots are
+ * with nothing on it to act on.
+ */
+export function knownMachines(): KnownMachine[] {
+  const list = storedMachines();
+  const cur = getRuntime();
+  if (cur.kind !== 'remote') return list;
+  const url = cur.url.replace(/\/$/, '');
+  if (list.some((m) => m.url === url)) return list;
+  return [...list, { url, token: cur.token, name: cur.name, provider: cur.provider ?? 'byo', at: Date.now() }];
 }
 
 const writeMachines = (list: KnownMachine[]) => {
@@ -66,14 +81,14 @@ const writeMachines = (list: KnownMachine[]) => {
 /** Remember a machine, or refresh what we know about one we already have (a re-install changes the code). */
 export function rememberMachine(m: { url: string; token: string; name?: string; provider?: 'byo' | 'hosted' }) {
   const url = m.url.replace(/\/$/, '');
-  const rest = knownMachines().filter((x) => x.url !== url);
-  const was = knownMachines().find((x) => x.url === url);
+  const rest = storedMachines().filter((x) => x.url !== url);
+  const was = storedMachines().find((x) => x.url === url);
   writeMachines([...rest, { url, token: m.token, name: m.name ?? was?.name, provider: m.provider ?? was?.provider, at: was?.at ?? Date.now() }]);
 }
 
 /** Forget one here. Nothing is touched on the machine itself — it keeps running whatever it was running. */
 export function forgetMachine(url: string) {
-  writeMachines(knownMachines().filter((m) => m.url !== url.replace(/\/$/, '')));
+  writeMachines(storedMachines().filter((m) => m.url !== url.replace(/\/$/, '')));
 }
 
 export function setRuntime(t: RuntimeTarget) {

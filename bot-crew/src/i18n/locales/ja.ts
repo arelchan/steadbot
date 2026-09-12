@@ -460,6 +460,7 @@ export const ja: Dict = {
   'rt.vendor.own.after3': 'Docker は事前に入れなくて大丈夫。スクリプトが入れます',
 
   'rt.moveOut': '止まらないマシンへ引っ越す',
+  'rt.addTitle': 'もう一台用意する',
   'rt.summoning': 'アシスタントを呼んでいます…',
   'rt.summon': 'アシスタントに案内してもらう',
   'rt.selfServe': '自分で手順どおりに',

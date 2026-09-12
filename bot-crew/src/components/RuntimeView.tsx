@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import type { RuntimeInfo } from '../types';
 import { agent } from '../services/agent';
-import { getRuntime, setRuntime, parsePairingCode, probeRuntime, oneShot, localWsUrl, localHttpBase, knownMachines, forgetMachine, type KnownMachine } from '../services/runtime';
+import { getRuntime, setRuntime, parsePairingCode, probeRuntime, oneShot, localWsUrl, localHttpBase, knownMachines, rememberMachine, forgetMachine, type KnownMachine } from '../services/runtime';
 import { ConfirmDialog } from './ConfirmDialog';
 import { cloudAvailable, provisionCloudHome, cloudHomeStatus, destroyCloudHome } from '../services/cloud';
 import { cx } from '../utils';
@@ -53,8 +53,16 @@ export function RuntimeBody() {
     <>
       <CurrentCard rt={rt} online={online} remote={remote} name={remote ? target.name : undefined} />
       {rt?.mode === 'moved' && <MovedNotice rt={rt} />}
-      <MachinesCard machines={machines} here={remote ? target.url : undefined} onChange={refresh} onAdd={() => setAdding(true)} />
-      {!remote && rt?.mode !== 'moved' && (adding || machines.length === 0) && <MoveOutCard onDone={refresh} />}
+      <MachinesCard
+        machines={machines}
+        here={remote ? target.url : undefined}
+        hereName={remote ? rt?.hostname : undefined}
+        onChange={refresh}
+        onAdd={() => setAdding(true)}
+      />
+      {(adding || (!remote && rt?.mode !== 'moved' && machines.length === 0)) && (
+        <MoveOutCard onDone={refresh} onClose={adding ? () => setAdding(false) : undefined} />
+      )}
       {!remote && rt?.mode !== 'moved' && cloudAvailable && <HostedCard />}
       {!remote && cloudAvailable && <CloudLeftover />}
     </>
@@ -68,24 +76,22 @@ export function RuntimeBody() {
  * only thing that cannot be done while the bots are on a machine is deleting it, because deleting it here would
  * leave them somewhere the App can no longer reach.
  */
-function MachinesCard({ machines, here, onChange, onAdd }: { machines: KnownMachine[]; here?: string; onChange: () => void; onAdd: () => void }) {
+function MachinesCard({ machines, here, hereName, onChange, onAdd }: { machines: KnownMachine[]; here?: string; hereName?: string; onChange: () => void; onAdd: () => void }) {
   const t = useT();
-  const canAdd = !here;
-  if (!machines.length && !canAdd) return null;
   return (
     <div className="rt-card machines">
       <div className="rt-ic">☁</div>
       <div className="rt-main">
         <div className="rt-title rt-title-row">
           <span>{t('rt.machines')}</span>
-          {canAdd && <button className="link" onClick={onAdd}>{machines.length ? t('rt.addMachine') : t('rt.addFirst')}</button>}
+          <button className="link" onClick={onAdd}>{machines.length ? t('rt.addMachine') : t('rt.addFirst')}</button>
         </div>
         {machines.length === 0 ? (
           <div className="rt-desc">{t('rt.noMachines')}</div>
         ) : (
           <ul className="rt-machines">
             {machines.map((m) => (
-              <MachineRow key={m.url} m={m} current={m.url === here?.replace(/\/$/, '')} onChange={onChange} />
+              <MachineRow key={m.url} m={m} current={m.url === here?.replace(/\/$/, '')} fallbackName={hereName} onChange={onChange} />
             ))}
           </ul>
         )}
@@ -94,8 +100,9 @@ function MachinesCard({ machines, here, onChange, onAdd }: { machines: KnownMach
   );
 }
 
-function MachineRow({ m, current, onChange }: { m: KnownMachine; current: boolean; onChange: () => void }) {
+function MachineRow({ m, current, fallbackName, onChange }: { m: KnownMachine; current: boolean; fallbackName?: string; onChange: () => void }) {
   const t = useT();
+  const name = m.name || (current ? fallbackName : undefined);
   const bots = useStore((s) => s.bots.length);
   const [step, setStep] = useState<Step>('idle');
   const [ask, setAsk] = useState<'move' | 'back' | 'forget' | undefined>();
@@ -154,7 +161,7 @@ function MachineRow({ m, current, onChange }: { m: KnownMachine; current: boolea
   return (
     <li className={cx('rt-m', current && 'on')}>
       <div className="rt-m-l">
-        <span className="rt-m-n">{m.name || m.url.replace(/^https?:\/\//, '')}</span>
+        <span className="rt-m-n">{name || m.url.replace(/^https?:\/\//, '')}</span>
         <span className="rt-m-u">{m.url.replace(/^https?:\/\//, '')}</span>
       </div>
       <div className="rt-m-r">
@@ -174,7 +181,7 @@ function MachineRow({ m, current, onChange }: { m: KnownMachine; current: boolea
       {err && <div className="rt-err">{err}</div>}
       {ask === 'move' && peer && (
         <ConfirmDialog
-          title={t('rt.moveAskTitle', { n: bots, name: m.name ?? peer.hostname })}
+          title={t('rt.moveAskTitle', { n: bots, name: name ?? peer.hostname })}
           message={t('rt.moveAskMsg', { host: peer.hostname, platform: peer.platform === 'linux' ? 'Linux' : peer.platform, version: peer.version })}
           confirmLabel={t('rt.moveOk')}
           onCancel={() => setAsk(undefined)}
@@ -184,7 +191,7 @@ function MachineRow({ m, current, onChange }: { m: KnownMachine; current: boolea
       {ask === 'back' && (
         <ConfirmDialog
           title={t('rt.backAskTitle')}
-          message={t('rt.backAskMsg', { name: m.name ?? m.url.replace(/^https?:\/\//, '') })}
+          message={t('rt.backAskMsg', { name: name ?? m.url.replace(/^https?:\/\//, '') })}
           confirmLabel={t('rt.back')}
           onCancel={() => setAsk(undefined)}
           onConfirm={() => void back()}
@@ -192,7 +199,7 @@ function MachineRow({ m, current, onChange }: { m: KnownMachine; current: boolea
       )}
       {ask === 'forget' && (
         <ConfirmDialog
-          title={t('rt.forgetAskTitle', { name: m.name ?? m.url.replace(/^https?:\/\//, '') })}
+          title={t('rt.forgetAskTitle', { name: name ?? m.url.replace(/^https?:\/\//, '') })}
           message={t('rt.forgetAskMsg')}
           confirmLabel={t('rt.forget')}
           danger
@@ -316,7 +323,7 @@ const vendorText = (id: string) => ({
 });
 
 /** Four screens, one at a time: pick where to get a machine → set it up → run one command here → paste the code and move. */
-function MoveOutCard({ onDone }: { onDone: () => void }) {
+function MoveOutCard({ onDone, onClose }: { onDone: () => void; onClose?: () => void }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [screen, setScreen] = useState(0);
@@ -353,6 +360,10 @@ function MoveOutCard({ onDone }: { onDone: () => void }) {
     try {
       const p = parsePairingCode(c);
       const info = await probeRuntime(p.url, p.token);
+      // Configured is not the same as moved onto: the machine goes into the list as soon as it answers, so
+      // backing out of the move here leaves a machine the user owns rather than an address they have to find again.
+      rememberMachine({ ...p, name: p.name ?? info.hostname, provider: 'byo' });
+      onDone();
       setPeer({ ...p, info });
       setStep('confirm');
     } catch (e) {
@@ -414,7 +425,10 @@ function MoveOutCard({ onDone }: { onDone: () => void }) {
     <div className="rt-card">
       <div className="rt-ic">☁</div>
       <div className="rt-main">
-        <div className="rt-title">{t('rt.moveOut')}</div>
+        <div className="rt-title rt-title-row">
+          <span>{onClose ? t('rt.addTitle') : t('rt.moveOut')}</span>
+          {onClose && <button className="link quiet-link" onClick={onClose}>{t('common.collapse')}</button>}
+        </div>
         {!open ? (
           <div className="rt-row">
             <button className="btn sm primary" disabled={summoning} onClick={() => void summon()}>{summoning ? t('rt.summoning') : t('rt.summon')}</button>

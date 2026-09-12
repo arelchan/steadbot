@@ -514,6 +514,7 @@ export const zh = {
   'rt.vendor.own.after3': 'Docker 不用提前装，脚本会装',
 
   'rt.moveOut': '搬到一台不关机的机器',
+  'rt.addTitle': '再配一台机器',
   'rt.summoning': '叫助理…',
   'rt.summon': '让助理带我做',
   'rt.selfServe': '自己按步骤来',
