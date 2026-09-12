@@ -9,6 +9,7 @@ import { ready as depsReady } from './deps.ts';
 import type { BuildSpec } from './extensions/crew-tools.ts';
 import type { BuildJob } from './types.ts';
 import { botThread } from './types.ts';
+import { jsonFromModel } from './util.ts';
 
 interface Deps {
   store: CrewStore;
@@ -48,11 +49,10 @@ export async function runBuild(d: Deps, botId: string, job: BuildJob, spec: Buil
     const askOnce = async (system: string, user: string, maxTokens: number) => {
       const res = await d.runtime!.completeSimple(d.model!, { systemPrompt: system, messages: [{ role: 'user', content: user, timestamp: Date.now() }] }, { maxTokens });
       noteUsage('build', botId, res);
-      const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').replace(/```(?:json)?/g, '');
-      const s = raw.indexOf('{');
-      const e = raw.lastIndexOf('}');
-      if (s < 0 || e < 0) throw new Error(`模型没有返回 JSON（stop=${res.stopReason}，${raw.length} 字：${raw.slice(0, 160).replace(/\n/g, ' ')}）`);
-      return JSON.parse(raw.slice(s, e + 1)) as Record<string, string>;
+      const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('');
+      const got = jsonFromModel<Record<string, string>>(raw);
+      if (!got) throw new Error(`模型没有返回 JSON（stop=${res.stopReason}，${raw.length} 字：${raw.slice(0, 160).replace(/\n/g, ' ')}）`);
+      return got;
     };
     // The light model occasionally answers in prose; one retry with a sharper reminder fixes most of it.
     const ask = async (system: string, user: string, maxTokens = 4000) => {

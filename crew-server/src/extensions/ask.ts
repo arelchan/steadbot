@@ -64,7 +64,7 @@ export function askExtension(c: BotCtx): InlineExtension {
             signal,
           );
           if (choice === undefined) {
-            if (todoId) c.store.patchTodo(todoId, { status: 'waiting', summary: `等你拍板：${p.title}` });
+            if (todoId) c.store.parkTodo(todoId, `等你拍板：${p.title}`);
             return {
               content: [{ type: 'text', text: '用户暂未回应。不要重复提问；把事项标为等待，用户之后的选择会作为新消息告诉你。' }],
               details: { title: p.title, options: p.options.map((o) => o.id), choice: null } as Details,

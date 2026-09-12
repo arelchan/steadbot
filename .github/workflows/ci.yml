@@ -30,6 +30,10 @@ jobs:
       # 在共享仓库里一次改 38 处只会制造 rebase 冲突，不值。死代码已经清掉。
       - run: npx --yes oxlint@1.79.0 --max-warnings=38 src
         working-directory: crew-server
+      # Node 22 自带 runner，不装依赖——也就不用改 package.json（改它会命中 upgrade.ts
+      # 的 heavy 规则，下次升级从 40 秒重启变成几分钟重建镜像）。
+      - run: npx --yes tsx@4.23.13 --test 'src/__tests__/*.test.ts'
+        working-directory: crew-server
 
   client:
     runs-on: ubuntu-latest
@@ -48,6 +52,8 @@ jobs:
       # 那是要一处处判断的 React 行为，不能机械清。卡住当前数量，只许降不许升；
       # 清掉几条就把这个数字改小几条。
       - run: npx oxlint --max-warnings=49
+        working-directory: bot-crew
+      - run: npx --yes tsx@4.23.13 --test 'src/__tests__/*.test.ts'
         working-directory: bot-crew
       - run: npm run build
         working-directory: bot-crew

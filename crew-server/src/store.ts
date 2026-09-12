@@ -309,6 +309,18 @@ export class CrewStore extends EventEmitter {
     return todo;
   }
 
+  /**
+   * 「这条事项动不了了，等人」——问话、等确认这类自动路径专用。已经了结的事项它不碰：
+   * 一个 bot 在同一轮里先 todo(close) 再 ask（「办好了，顺便要不要我也订个酒店？」），
+   * 从前会把那条 done 静默复活成 waiting，结果还挂在上面。
+   * 人和模型要重开一条已了结的事项，走 patchTodo / todo(update)，那是明确的意思表示。
+   */
+  parkTodo(id: string, summary: string) {
+    const t = this.todo(id);
+    if (!t || t.status === 'done' || t.status === 'closed') return undefined;
+    return this.patchTodo(id, { status: 'waiting', summary });
+  }
+
   /* ---- pendings ---- */
   pending(id: string) {
     return this.data.pendings.find((p) => p.id === id);

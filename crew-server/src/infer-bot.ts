@@ -2,7 +2,7 @@ import { noteUsage } from './meter.ts';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import type { Bot } from './types.ts';
-import { summarize } from './util.ts';
+import { jsonFromModel, summarize } from './util.ts';
 
 export type NewBot = Omit<Bot, 'id' | 'createdAt'>;
 
@@ -107,9 +107,9 @@ export async function inferBot(text: string, place: Birthplace, runtime?: ModelR
       ],
     }, { maxTokens: 1500 });
     noteUsage('birth', place.botId, res);
-    const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').replace(/```(?:json)?/g, '');
-    const json = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as Partial<NewBot> & { hints?: unknown };
-    if (!json.name || !json.role) return fallback;
+    const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('');
+    const json = jsonFromModel<Partial<NewBot> & { hints?: unknown }>(raw);
+    if (!json?.name || !json.role) return fallback;
     const name = uniqueName(String(json.name).trim().slice(0, 12), names);
     return {
       ...fallback,
@@ -119,7 +119,7 @@ export async function inferBot(text: string, place: Birthplace, runtime?: ModelR
       role: json.role.trim(),
       soul: typeof json.soul === 'string' && json.soul.trim() ? json.soul.trim() : fallback.soul,
       avatarSeed: `${name}:${Date.now()}`,
-      hints: (Array.isArray(json.hints) ? json.hints : []).filter((x): x is string => typeof x === 'string').slice(0, 6),
+      hints: (Array.isArray(json.hints) ? (json.hints as unknown[]) : []).filter((x): x is string => typeof x === 'string').slice(0, 6),
     };
   } catch (e) {
     console.warn('[crew] inferBot fell back to a blank identity:', (e as Error).message);
@@ -171,13 +171,11 @@ export async function inferSkillDocs(bot: { id?: string; name: string; role: str
       messages: [{ role: 'user', content: `bot 名字：${bot.name}\nbot 职责：${bot.role}\n技能列表：${names.join('、')}`, timestamp: Date.now() }],
     }, { maxTokens: 8000 });
     noteUsage('build', bot.id, res);
-    const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').replace(/```(?:json)?/g, '');
-    const start = raw.indexOf('[');
-    const end = raw.lastIndexOf(']');
-    if (start < 0 || end < 0) throw new Error(`no JSON array in response (stop=${res.stopReason}, len=${raw.length}): ${raw.slice(0, 120)}`);
-    const arr = JSON.parse(raw.slice(start, end + 1)) as Partial<SkillDocInput>[];
+    const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('');
+    const arr = jsonFromModel<Partial<SkillDocInput>[]>(raw, 'array');
+    if (!arr) throw new Error(`no JSON array in response (stop=${res.stopReason}, len=${raw.length}): ${raw.slice(0, 120)}`);
     return names.map((n, i) => {
-      const hit = arr.find((x) => x.name === n) ?? arr[i];
+      const hit = arr.find((x: Partial<SkillDocInput>) => x.name === n) ?? arr[i];
       return hit?.body ? { name: n, description: String(hit.description ?? ''), body: String(hit.body) } : fallback[i];
     });
   } catch (e) {

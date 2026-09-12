@@ -9,6 +9,7 @@ import type { LibraryEntry, LibraryKind } from './types.ts';
 import type { SkillStore } from './skills.ts';
 import { POPULAR_TOOLKITS, TOOLKITS, isChinesePlatform } from './connectors.ts';
 import { canEmbed, dot, embed, embedModel, embedOne, packVec, unpackVec } from './embed.ts';
+import { jsonFromModel } from './util.ts';
 
 /** How each kind reads in a list the bot sees. */
 export const KIND_LABEL: Record<LibraryKind, string> = { skill: '手册', mcp: '外部工具', assets: '素材包' };
@@ -315,11 +316,9 @@ export class Library {
         messages: [{ role: 'user', content: `bot 名字：${bot.name}\n简介：${bot.tagline ?? ''}\n职责：${bot.role}\n用户的第一句话：${brief}`, timestamp: Date.now() }],
       });
       noteUsage('library', bot.botId, res);
-      const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('').replace(/```(?:json)?/g, '');
-      const start = raw.indexOf('{');
-      const end = raw.lastIndexOf('}');
-      if (start < 0 || end < 0) return fallback();
-      const json = JSON.parse(raw.slice(start, end + 1)) as { mount?: unknown; connections?: unknown };
+      const raw = res.content.map((c) => (c.type === 'text' ? c.text : '')).join('');
+      const json = jsonFromModel<{ mount?: unknown; connections?: unknown }>(raw);
+      if (!json) return fallback();
       const ok = new Set(cands.map((e) => e.slug));
       // Each pick has to name the part of the job it serves. A manual nobody can write that sentence for is the kind
       // that ends up in a bot's context for life for no reason.

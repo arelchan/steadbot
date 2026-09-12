@@ -23,5 +23,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // 测试跑在 node 上，不是浏览器：它归 tsconfig.node.json 管（那份才有 node 的类型）
+  "exclude": ["src/__tests__"]
 }

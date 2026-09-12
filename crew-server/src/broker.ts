@@ -81,7 +81,7 @@ export class PendingBroker extends EventEmitter {
       todoId: spec.todoId,
       status: spec.kind === 'blocked' ? '卡住' : '等你拍板',
     });
-    if (spec.todoId) this.store.patchTodo(spec.todoId, { status: 'waiting', summary: spec.title });
+    if (spec.todoId) this.store.parkTodo(spec.todoId, spec.title);
 
     return new Promise<string | undefined>((resolve) => {
       const done = (choice: string | undefined) => {

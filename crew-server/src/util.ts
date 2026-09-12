@@ -227,3 +227,22 @@ export async function publicIp(): Promise<string> {
     return '（拿不到，网络不通）';
   }
 }
+
+/**
+ * 从模型的散文里把那段 JSON 抠出来。它爱加围栏、爱在前后写两句解释，所以谁调它都得
+ * 先剥围栏再找括号——这段代码曾经被抄了四份，其中 infer-bot 那份漏了"根本没有括号"
+ * 这一种，于是 JSON.parse('') 抛出来，被上层吞成一句误导的降级。而那条路径是 bot 出生。
+ * 找不到就返回 undefined，让调用方自己决定是抛还是降级。
+ */
+export function jsonFromModel<T>(raw: string, shape: 'object' | 'array' = 'object'): T | undefined {
+  const [open, close] = shape === 'array' ? ['[', ']'] : ['{', '}'];
+  const s = raw.replace(/```(?:json)?/g, '');
+  const a = s.indexOf(open);
+  const b = s.lastIndexOf(close);
+  if (a < 0 || b <= a) return undefined;
+  try {
+    return JSON.parse(s.slice(a, b + 1)) as T;
+  } catch {
+    return undefined;
+  }
+}
