@@ -8,7 +8,7 @@ import { basename, extname, join, normalize } from 'node:path';
 import { execFile } from 'node:child_process';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { CrewStore, StoreEvent } from './store.ts';
-import type { ClientMessage, ServerMessage, Snapshot } from './types.ts';
+import type { Bot, ClientMessage, ServerMessage, Snapshot } from './types.ts';
 
 export interface WsHandlers {
   snapshotMode: () => 'live' | 'fake';
@@ -107,7 +107,15 @@ export function startServer(store: CrewStore, port: number, avatarsDir: string, 
 
   // Credentials live in integration env; clients only ever see the key names.
   const redact = <T extends { env?: Record<string, string> }>(i: T): T => (i.env ? { ...i, env: Object.fromEntries(Object.keys(i.env).map((k) => [k, '••••'])) } : i);
-  const redactMsg = (m: ServerMessage): ServerMessage => (m.type === 'integration' ? { ...m, integration: redact(m.integration) } : m);
+  /**
+   * bindings 是每个 bot 在各个 IM 里的私聊 chat id——types.ts 上写着 server-only，但快照一直是
+   * `{ ...store.data }` 原样发出去的，全文件唯一的 redact 只管 Integration.env。于是它一路到了
+   * 浏览器，还跟着 localStorage 落了盘，而前端类型里没声明，所以是隐形到的。
+   * 用运行时剥字段，不靠类型声明：拿类型去修一个运行时泄露，只会让边界看起来被守住了。
+   */
+  const toWire = (b: Bot): Bot => (b.bindings ? { ...b, bindings: undefined } : b);
+  const redactMsg = (m: ServerMessage): ServerMessage =>
+    m.type === 'integration' ? { ...m, integration: redact(m.integration) } : m.type === 'bot' ? { ...m, bot: toWire(m.bot) } : m.type === 'bot_created' ? { ...m, bot: toWire(m.bot) } : m;
   // IM traffic stays in the IM: messages and cards that came from a channel never reach App clients (the bot still has them in its one context).
   const fromIm = (via?: string) => !!via && via !== 'app';
   const broadcast = (m: ServerMessage) => {
@@ -153,7 +161,7 @@ export function startServer(store: CrewStore, port: number, avatarsDir: string, 
     const reply = (m: ServerMessage) => socket.readyState === WebSocket.OPEN && socket.send(JSON.stringify(m));
     reply({
       type: 'snapshot',
-      state: { ...store.data, messages: store.data.messages.filter((m) => !fromIm(m.via)), pendings: store.data.pendings.filter((p) => !fromIm(p.via)), integrations: store.data.integrations.map(redact), ...(handlers.snapshotExtra?.() ?? {}) },
+      state: { ...store.data, bots: store.data.bots.map(toWire), messages: store.data.messages.filter((m) => !fromIm(m.via)), pendings: store.data.pendings.filter((p) => !fromIm(p.via)), integrations: store.data.integrations.map(redact), ...(handlers.snapshotExtra?.() ?? {}) },
       mode: handlers.snapshotMode(),
     });
     // After, never inside: the snapshot is what the first paint waits for.

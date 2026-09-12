@@ -1,4 +1,4 @@
-import type { UpgradeStatus, UpgradeRun, UpgradePhase } from '../types';
+import type { ServerMessage, UpgradeStatus, UpgradeRun, UpgradePhase } from '../types';
 import { localHttpBase, localWsUrl } from './runtime';
 import { getState, setState } from '../store';
 import { t } from '../i18n';
@@ -45,9 +45,10 @@ export function runUpgrade(onLine: (line: string) => void): Promise<{ restarting
     const timer = setTimeout(() => finish(() => reject(new Error(t('err.upgradeTimeout')))), 50 * 60_000);
     ws.onopen = () => ws.send(JSON.stringify({ type: 'upgrade' }));
     ws.onmessage = (e) => {
-      let m: { type?: string; line?: string; error?: string; restarting?: boolean };
+      // 协议就是 shared 里那一份；这里曾经自己手写过一个 { type?, line? }，是四份抄写里的第四份。
+      let m: ServerMessage;
       try {
-        m = JSON.parse(String(e.data)) as typeof m;
+        m = JSON.parse(String(e.data)) as ServerMessage;
       } catch {
         return;
       }

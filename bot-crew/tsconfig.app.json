@@ -5,6 +5,7 @@
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
     "types": ["vite/client"],
+    "paths": { "@shared/*": ["../crew-server/src/shared/*"] },
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 

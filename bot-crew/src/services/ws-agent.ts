@@ -1,45 +1,11 @@
 import { setRuntime, healRuntimeTarget } from './runtime';
 import type { AgentService } from './agent';
 import { showIdentity, getState, setState, select, setTyping, pushToast, resolvePending, removeBot, removeMatter, upsertSkill, upsertIntegration, clearThread, uid, setRemoteSink, remoteApply } from '../store';
-import { botThread, type Action, type Bot, type Channel, type Computer, type CrewEvent, type CrewSettings, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo, type ModelsPage, type UsageReport } from '../types';
+import { botThread, type Channel, type FileRef, type ThreadId } from '../types';
+import type { ClientMessage, ServerMessage } from '../types';
 import { t } from '../i18n';
 import { absorbModels } from './models';
 
-type Snapshot = Pick<ReturnType<typeof getState>, 'bots' | 'matters' | 'todos' | 'pendings' | 'actions' | 'messages' | 'sharedProfile'> & { events?: CrewEvent[]; skills?: SkillDoc[]; library?: LibraryEntry[]; integrations?: Integration[]; typing?: Record<string, string[]>; runtime?: RuntimeInfo; settings?: CrewSettings; computer?: Computer };
-
-type ServerMessage =
-  | { type: 'migrate_progress'; sent: number; total: number }
-  | { type: 'steward'; botId: string }
-  | { type: 'switch_runtime'; url: string; token: string; name?: string }
-  | { type: 'snapshot'; state: Snapshot; mode: 'live' | 'fake' }
-  | { type: 'message'; message: Message }
-  | { type: 'message_patch'; id: string; patch: Partial<Message> }
-  | { type: 'typing'; threadId: ThreadId; botId: string; on: boolean }
-  | { type: 'todo'; todo: Todo }
-  | { type: 'event'; event: CrewEvent }
-  | { type: 'event_deleted'; id: string }
-  | { type: 'pending'; pending: Pending }
-  | { type: 'action'; action: Action }
-  | { type: 'bot'; bot: Bot }
-  | { type: 'matter'; matter: Matter }
-  | { type: 'shared_profile'; lines: string[] }
-  | { type: 'settings'; settings: CrewSettings }
-  | { type: 'computer'; computer: Computer }
-  | { type: 'toast'; toast: { botId: string; text: string; threadId: ThreadId } }
-  | { type: 'bot_created'; bot: Bot; draftId?: string }
-  | { type: 'bot_deleted'; id: string }
-  | { type: 'matter_deleted'; id: string }
-  | { type: 'skill'; skill: SkillDoc }
-  | { type: 'integration'; integration: Integration }
-  | { type: 'integration_deleted'; id: string }
-  | { type: 'thread_cleared'; threadId: ThreadId }
-  | { type: 'remote_install_log'; line: string }
-  | { type: 'remote_install_done'; code?: string; url?: string; error?: string }
-  | { type: 'runtime'; runtime: RuntimeInfo }
-  | { type: 'models'; page: ModelsPage }
-  | { type: 'usage'; report: UsageReport }
-  | { type: 'migrated'; direction: 'to' | 'from'; url: string; bots: number }
-  | { type: 'error'; error: string };
 
 function upsert<T extends { id: string }>(list: T[], item: T): T[] {
   const i = list.findIndex((x) => x.id === item.id);
@@ -147,7 +113,8 @@ export class WsAgentService implements AgentService {
     ws.onerror = () => ws.close();
   }
 
-  private send(o: object) {
+  /** 出向这条线以前是 send(o: object)——35 种消息全靠字面量拼，打错 type、漏个必填全都编译通过。 */
+  private send(o: ClientMessage) {
     const data = JSON.stringify(o);
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(data);
     else {
@@ -378,6 +345,13 @@ export class WsAgentService implements AgentService {
           console.warn('[crew]', m.error);
           break;
         }
+        // 升级那三种不走这条线：它们来自 services/upgrade.ts 单独连的那条 socket——
+        // 升级永远由**本机**的 EverBot 执行，哪怕 App 正指着云上的 runtime（见那个文件的注释）。
+        // 这里列出来不是摆设：少列一个，下面的 never 就会报错。
+        case 'upgrade_status':
+        case 'upgrade_log':
+        case 'upgrade_done':
+          break;
         default: {
           // 协议对不上就是编译错误，不是运行时的沉默：服务端加了一种消息，这里没接，这一行会红。
           const unhandled: never = m;

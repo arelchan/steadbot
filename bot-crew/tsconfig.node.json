@@ -4,6 +4,7 @@
     "target": "es2023",
     "lib": ["ES2023"],
     "types": ["node"],
+    "paths": { "@shared/*": ["../crew-server/src/shared/*"] },
     "skipLibCheck": true,
 
     /* Bundler mode */

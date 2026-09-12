@@ -4,6 +4,8 @@ import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import { DEFAULT_EMBEDDING_MODEL, ambientKey, config, readFileConfig, updateConfigFile, type ModelInfo } from './config.ts';
 import { DRAW_STYLES } from './draw.ts';
 import { DEFAULT_VISION_MODEL } from './vision.ts';
+export type { SlotId, KeySource, ModelsPage, ModelsPatch, ModelSlot, ModelMeta, ModelProvider, ModelChoice, SlotNeeds } from './types.ts';
+import type { SlotId, KeySource, ModelsPage, ModelsPatch } from './types.ts';
 
 /**
  * 设置 › 模型.
@@ -18,7 +20,6 @@ import { DEFAULT_VISION_MODEL } from './vision.ts';
  * reranking are not something pi does at all — those two calls are ours, straight to the same endpoint.
  */
 
-export type SlotId = 'model' | 'lightModel' | 'visionModel' | 'guiModel' | 'imageModel' | 'searchModel' | 'embeddingModel' | 'rerankModel';
 
 export interface SlotDef {
   id: SlotId;
@@ -108,15 +109,6 @@ export interface SlotRow extends SlotDef {
   meta?: ModelInfo;
 }
 
-export interface ModelsPage {
-  slots: SlotRow[];
-  providers: ProviderRow[];
-  /**
-   * What each row may choose from. Chat and vision rows read a provider's own catalog and are keyed by provider id;
-   * drawing, embedding and reranking are keyed `<needs>:<provider>`, and a missing key means "type the id".
-   */
-  models: Record<string, ModelRow[]>;
-}
 
 /** The four rows pinned to OpenRouter draw from these lists instead of a chat catalog. */
 const imagesCatalog = builtinImagesModels();
@@ -194,7 +186,6 @@ export const useRuntime = (rt: ModelRuntime) => {
  * not been given one, which is how the hosted box runs and how an open-source checkout with `OPENROUTER_API_KEY`
  * set starts working without touching the page.
  */
-export type KeySource = { kind: 'own' } | { kind: 'ambient' };
 
 /**
  * Which provider a row goes to, even before it has a model of its own — 画图 left on automatic still spends at
@@ -408,13 +399,6 @@ export async function applyProviderKeys(rt: ModelRuntime | undefined): Promise<v
 /** The four rows the memory engine reads out of the environment it was started with (everos.ts). */
 export const MEMORY_SLOTS: SlotId[] = ['model', 'lightModel', 'visionModel', 'embeddingModel', 'rerankModel'];
 
-export interface ModelsPatch {
-  slots?: Partial<Record<SlotId, string | null>>;
-  /** row → the key that row uses; null takes it away, leaving the row on whatever the machine pays with */
-  keys?: Partial<Record<SlotId, string | null>>;
-  /** metadata for a model id the user typed by hand */
-  meta?: Record<string, ModelInfo | null>;
-}
 
 /** Write what the page changed. Returns what has to be restarted for it to be true. */
 export function saveModels(patch: ModelsPatch): { models: boolean; keys: boolean; memory: boolean } {

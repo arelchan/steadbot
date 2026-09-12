@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { getDesktopNotify } from './services/theme';
-import type { CrewSettings, Action, Bot, Integration, Layout, Matter, Message, Panel, Panels, Pending, Selection, SkillDoc, State, ThreadId, Todo, Toast } from './types';
+import type { CrewSettings, Action, Bot, Integration, Layout, Matter, Message, Panel, Panels, Pending, Selection, SkillDoc, State, ThreadId, Todo, ToastItem } from './types';
 import { DEFAULT_LAYOUT, LAYOUT_LIMITS } from './types';
 import { seedState } from './data/seed';
 
@@ -336,8 +336,8 @@ export const setTyping = (threadId: string, botId: string, on: boolean) =>
     return { typing: { ...s.typing, [threadId]: next } };
   });
 
-export const pushToast = (t: Omit<Toast, 'id' | 'ts'>) => {
-  const toast: Toast = { id: uid(), ts: Date.now(), ...t };
+export const pushToast = (t: Omit<ToastItem, 'id' | 'ts'>) => {
+  const toast: ToastItem = { id: uid(), ts: Date.now(), ...t };
   setState((s) => ({ toasts: [...s.toasts, toast] }));
   setTimeout(() => dismissToast(toast.id), 7000);
   // 桌面通知（设置 › 通用）：the same interruption, visible when the window is not.
