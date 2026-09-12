@@ -342,8 +342,8 @@ function SkillDetail({ botId, name, doc, onBack }: { botId: string; name: string
  * free-text field silently never fires for anyone writing in another language.
  */
 
-type Freq = 'daily' | 'weekdays' | 'weekly' | 'hourly' | 'minutes';
-const FREQS: Freq[] = ['daily', 'weekdays', 'weekly', 'hourly', 'minutes'];
+type Freq = 'daily' | 'weekdays' | 'weekly' | 'hourly' | 'hours' | 'minutes';
+const FREQS: Freq[] = ['daily', 'weekdays', 'weekly', 'hourly', 'hours', 'minutes'];
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 
 interface When {
@@ -358,13 +358,19 @@ interface When {
 
 const DEFAULT_WHEN: When = { freq: 'daily', at: '09:00', day: 1, every: 30 };
 
+/**
+ * 认得 scheduler.ts 认的每一种写法——少认一种不是"显示得糙一点"：认不出就回落成 DEFAULT_WHEN，
+ * 用户一碰下面任何一个控件，writeWhen 就把它按默认值写回去了。「每周天」和「每 N 小时」曾经就这么丢过。
+ */
 function readWhen(schedule: string): When {
   const s = schedule.replace(/\s+/g, ' ').trim();
   let m: RegExpExecArray | null;
   if ((m = /^每天 ?(\d{1,2}:\d{2})$/.exec(s))) return { ...DEFAULT_WHEN, freq: 'daily', at: m[1] };
   if ((m = /^工作日 ?(\d{1,2}:\d{2})$/.exec(s))) return { ...DEFAULT_WHEN, freq: 'weekdays', at: m[1] };
-  if ((m = /^每周([日一二三四五六]) ?(\d{1,2}:\d{2})$/.exec(s))) return { ...DEFAULT_WHEN, freq: 'weekly', day: WEEK.indexOf(m[1]), at: m[2] };
+  // 星期天两种写法，服务端都收（scheduler.ts 的 WEEK 里 日 和 天 都是 0）
+  if ((m = /^每周([日天一二三四五六]) ?(\d{1,2}:\d{2})$/.exec(s))) return { ...DEFAULT_WHEN, freq: 'weekly', day: m[1] === '天' ? 0 : WEEK.indexOf(m[1]), at: m[2] };
   if (/^每小时$/.test(s)) return { ...DEFAULT_WHEN, freq: 'hourly' };
+  if ((m = /^每 ?(\d+) ?小时$/.exec(s))) return { ...DEFAULT_WHEN, freq: 'hours', every: Number(m[1]) };
   if ((m = /^每 ?(\d+) ?分钟$/.exec(s))) return { ...DEFAULT_WHEN, freq: 'minutes', every: Number(m[1]) };
   return DEFAULT_WHEN;
 }
@@ -375,6 +381,7 @@ function writeWhen(w: When): string {
   if (w.freq === 'weekdays') return `工作日 ${w.at}`;
   if (w.freq === 'weekly') return `每周${WEEK[w.day] ?? '一'} ${w.at}`;
   if (w.freq === 'hourly') return '每小时';
+  if (w.freq === 'hours') return `每 ${Math.max(1, w.every)} 小时`;
   return `每 ${Math.max(1, w.every)} 分钟`;
 }
 
@@ -385,6 +392,7 @@ export function sayWhen(schedule: string): string {
   if (w.freq === 'weekdays') return tr('cfg.rtSay.weekdays', { at: w.at });
   if (w.freq === 'weekly') return tr('cfg.rtSay.weekly', { day: tr(`cfg.rtDay.${w.day}`), at: w.at });
   if (w.freq === 'hourly') return tr('cfg.rtSay.hourly');
+  if (w.freq === 'hours') return tr('cfg.rtSay.hours', { n: String(w.every) });
   return tr('cfg.rtSay.minutes', { n: String(w.every) });
 }
 
@@ -503,7 +511,7 @@ function RoutineDetail({ bot, r, isNew, onBack, onSaved }: { bot: Bot; r: Routin
           {(w.freq === 'daily' || w.freq === 'weekdays' || w.freq === 'weekly') && (
             <input className="fld-in time" type="time" value={w.at} onChange={(e) => setWhen({ at: e.target.value || '09:00' })} />
           )}
-          {w.freq === 'minutes' && <input className="fld-in num" type="number" min={1} max={720} value={w.every} onChange={(e) => setWhen({ every: Number(e.target.value) || 1 })} />}
+          {(w.freq === 'minutes' || w.freq === 'hours') && <input className="fld-in num" type="number" min={1} max={w.freq === 'hours' ? 24 : 720} value={w.every} onChange={(e) => setWhen({ every: Number(e.target.value) || 1 })} />}
         </div>
 
         <label className="top">{t('cfg.rtTo')}</label>

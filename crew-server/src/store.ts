@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
-import type { Computer, CrewEvent, CrewSettings, Action, Bot, Integration, Matter, Message, Pending, Snapshot, ThreadId, Toast, Todo, GrowthEvent, GrowthKind } from './types.ts';
+import { CHANNEL_LABEL } from './types.ts';
+import type { Channel, Computer, CrewEvent, CrewSettings, Action, Bot, Integration, Matter, Message, Pending, Snapshot, ThreadId, Toast, Todo, GrowthEvent, GrowthKind } from './types.ts';
 import { uid } from './util.ts';
 
 export type StoreEvent =
@@ -160,8 +161,7 @@ export class CrewStore extends EventEmitter {
       for (const x of d.removed) push('disconnected', `断开【${nameOf(x)}】`);
     }
     if (patch.channels) {
-      const label: Record<string, string> = { feishu: '飞书', wechat: '企业微信', telegram: 'Telegram', slack: 'Slack', app: 'App' };
-      for (const x of diff(bot.channels, patch.channels).added) push('channel', `住进了【${label[x] ?? x}】`);
+      for (const x of diff(bot.channels, patch.channels).added) push('channel', `住进了【${CHANNEL_LABEL[x as Channel] ?? x}】`);
     }
   }
 

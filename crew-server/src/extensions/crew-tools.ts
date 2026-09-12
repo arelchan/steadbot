@@ -101,7 +101,7 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
       `集成: ${integ.join('、') || '（无）'}`,
       `IM: ${
         Object.entries(b.im ?? {})
-          .map(([ch, l]) => `${{ feishu: '飞书', telegram: 'Telegram', slack: 'Slack', wechat: '企业微信', app: 'App' }[ch] ?? ch}（${l?.status === 'ok' ? `已接${l.account ? `，那边叫「${l.account}」` : ''}` : l?.status === 'connecting' ? '连接中' : `没接上：${l?.note ?? ''}`}）`)
+          .map(([ch, l]) => `${CHANNEL_LABEL[ch as Channel] ?? ch}（${l?.status === 'ok' ? `已接${l.account ? `，那边叫「${l.account}」` : ''}` : l?.status === 'connecting' ? '连接中' : `没接上：${l?.note ?? ''}`}）`)
           .join('；') || '（没接任何 IM；用 build(aspect=channel, action=add, value="飞书") 接）'
       }`,
       `关于用户（全员共用的画像）: ${(everos.profileDoc()?.explicit ?? []).map((e) => e.description).join('；') || '（还没聚出来）'}`,
