@@ -4,6 +4,8 @@ import { useStore, setSettings } from '../store';
 import type { UpgradeStatus, UsageReport } from '../types';
 import { httpBase, authHeaders } from '../services/runtime';
 import { fetchUpgradeStatus, runUpgrade } from '../services/upgrade';
+import { fetchUsage, lastUsage } from '../services/usage';
+import { fetchModels } from '../services/models';
 import { ACCENTS, SCALES, THEMES, getAccent, getDesktopNotify, getScale, getTheme, notifySupported, setAccent, setDesktopNotify, setScale, setTheme, type Accent, type Scale, type Theme } from '../services/theme';
 import { RuntimeBody } from './RuntimeView';
 import { ModelsTab } from './ModelsTab';
@@ -31,6 +33,12 @@ export function SettingsModal({ tab: initial = 'general', onClose }: { tab?: Tab
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+  // The two tabs that have to ask the server something are warmed the moment this window opens, so clicking
+  // 模型 or 用量 lands on an answer that is already here rather than on a request that starts then.
+  useEffect(() => {
+    void fetchModels().catch(() => undefined);
+    void fetchUsage().catch(() => undefined);
+  }, []);
   return createPortal(
     <div className="overlay" onClick={onClose}>
       <div className="modal cfg" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label={t('set.title')}>
@@ -286,24 +294,23 @@ const fmtMoney = (n: number) => (n >= 1 ? `$${n.toFixed(2)}` : n > 0 ? `$${n.toF
 
 function Usage() {
   const t = useT();
-  const [report, setReport] = useState<UsageReport | undefined>();
+  // Last visit's numbers, drawn at once; this visit's answer replaces them when it lands.
+  const [report, setReport] = useState<UsageReport | undefined>(lastUsage);
   const [err, setErr] = useState('');
   useEffect(() => {
     let alive = true;
-    fetch(`${httpBase || window.location.origin}/usage?days=30`, { headers: authHeaders() })
-      .then((r) =>
-        r.ok
-          ? (r.json() as Promise<UsageReport>)
-          : Promise.reject(new Error(r.status === 404 ? t('usage.oldVersion') : t('usage.readFail', { code: r.status }))),
-      )
+    fetchUsage()
       .then((x) => alive && setReport(x))
-      .catch((e: Error) => alive && setErr(/Failed to fetch|NetworkError/.test(e.message) ? t('usage.offline') : e.message));
+      .catch((e: Error) => {
+        if (!alive) return;
+        setErr(e.message === 'old' ? t('usage.oldVersion') : /Failed to fetch|NetworkError/.test(e.message) ? t('usage.offline') : t('usage.readFail', { code: e.message }));
+      });
     return () => {
       alive = false;
     };
   }, []);
   const max = useMemo(() => Math.max(1, ...(report?.daily ?? []).map((d) => d.cost)), [report]);
-  if (err) return (<><Head title={t('set.usage')} /><div className="quiet">{err}</div></>);
+  if (err && !report) return (<><Head title={t('set.usage')} /><div className="quiet">{err}</div></>);
   if (!report) return (<><Head title={t('set.usage')} /><div className="quiet">{t('common.loading')}</div></>);
   const total = report.total;
   return (
