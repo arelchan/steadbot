@@ -654,7 +654,6 @@ export const fr: Record<string, string> = {
   'lib.design': 'Design et création',
   'lib.meta': 'Méthode et méta-compétences',
   /* 设置 › 模型 */
-  'models.sub': 'Avec quels modèles vos bots travaillent. Les clés restent sur la machine qui les fait tourner.',
   'models.slot.model': 'Conversation',
   'models.slot.lightModel': 'Modèle léger',
   'models.slot.visionModel': 'Regarder',

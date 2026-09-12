@@ -53,7 +53,7 @@ export function SettingsModal({ tab: initial = 'general', onClose }: { tab?: Tab
             {tab === 'general' && <General />}
             {tab === 'models' && (
               <>
-                <Head title={t('set.models')} sub={t('models.sub')} />
+                <Head title={t('set.models')} />
                 <ModelsTab />
               </>
             )}

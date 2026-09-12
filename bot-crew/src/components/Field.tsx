@@ -81,7 +81,7 @@ export function Pick({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
-  const [at, setAt] = useState({ left: 0, top: 0, width: 0, maxH: POP_MAX });
+  const [at, setAt] = useState<{ left: number; width: number; maxH: number; top?: number; bottom?: number }>({ left: 0, width: 0, maxH: POP_MAX });
   const btn = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
 
@@ -98,7 +98,14 @@ export function Pick({
     const above = r.top - 12;
     const up = below < 200 && above > below;
     const maxH = Math.max(140, Math.min(POP_MAX, up ? above : below));
-    setAt({ left: r.left, top: up ? r.top - Math.min(maxH, POP_MAX) - 4 : r.bottom + 4, width: r.width, maxH });
+    // Opening upwards pins the panel's *bottom* to the field. Working out a top from the maximum height instead
+    // would leave a short list floating a whole panel's height above the field it belongs to.
+    setAt({
+      left: r.left,
+      width: r.width,
+      maxH,
+      ...(up ? { bottom: window.innerHeight - r.top + 4 } : { top: r.bottom + 4 }),
+    });
   };
 
   useLayoutEffect(() => {
@@ -186,7 +193,7 @@ export function Pick({
       )}
       {open &&
         createPortal(
-          <div className="pick-pop" ref={pop} style={{ left: at.left, top: at.top, width: at.width, maxHeight: at.maxH }} onKeyDown={keys}>
+          <div className="pick-pop" ref={pop} style={{ left: at.left, top: at.top, bottom: at.bottom, width: at.width, maxHeight: at.maxH }} onKeyDown={keys}>
             {filtering && (
               <input className="pp-q" autoFocus value={q} placeholder={t('common.filter')} onChange={(e) => (setQ(e.target.value), setActive(0))} />
             )}

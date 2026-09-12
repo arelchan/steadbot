@@ -20,7 +20,7 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
 
 模型和它们的钥匙在 App 里配：**设置 › 模型**，一行一件事（对话 / 轻模型 / 看图 / 操作屏幕 / 画图 / 联网搜索 / 向量 / 重排），每行是一个完整的答案：哪一家、谁的钥匙、哪个模型。provider 目录、每家要什么凭据、每个模型的价格和上下文，都来自 pi 的 `ModelRuntime`，不是我们维护的清单。改完不用重启：写回 config.json → 重新挑模型 → 各 bot 下一轮生效（`models.ts`、`config.ts` 的 getter）。
 
-画图、联网搜索、向量、重排这四行是我们自己发的 HTTP，所以能去的地方不取决于 pi 认不认得那一家，而取决于对方说不说同一种话——每一行的 `only` 就是这个清单（`models.ts`）：画图要 OpenAI 那套 `/images/generations`（OpenRouter、OpenAI、xAI、Together、硅基流动、智谱），向量要 `/embeddings`（再加 Jina、Voyage、百炼、Mistral），重排要 `/rerank`（OpenRouter、Jina、Voyage、硅基流动、Cohere），联网搜索只有两家能干（OpenRouter 的 `web` 插件、Perplexity 的 sonar 自己会搜）。pi 没有的那几家在 `EXTRA_PROVIDERS` 里给个 baseUrl 就行，`chat: false` 让它们只出现在这四行里。baseUrl 从 pi 或这张表读，key 从这一行自己的那把读（`endpointOf`）。一行如果只能去某几家，那它继承来的模型也要在那几家里，否则这一行就是空的——`轻模型` 搬去 Anthropic 时 `联网搜索` 不会跟着去假装在搜。
+画图、联网搜索、向量、重排这四行是我们自己发的 HTTP，所以能去的地方不取决于 pi 认不认得那一家，而取决于对方说不说同一种话——每一行的 `only` 就是这个清单（`models.ts`）：画图要 OpenAI 那套 `/images/generations`（OpenRouter、OpenAI、xAI、Together、硅基流动、智谱），向量要 `/embeddings`（再加 Jina、Voyage、百炼、Mistral），重排要 `/rerank`（OpenRouter、Jina、Voyage、硅基流动、Cohere），联网搜索能去的是那些「一个字段就能打开搜索」的家（`web.ts` 的 `SEARCHERS`）：OpenRouter 的 `web` 插件、Perplexity 的 sonar、xAI 的 Live Search、智谱的 web_search 工具、百炼的 `enable_search`。pi 没有的那几家在 `EXTRA_PROVIDERS` 里给个 baseUrl 就行，`chat: false` 让它们只出现在这四行里。baseUrl 从 pi 或这张表读，key 从这一行自己的那把读（`endpointOf`）。一行如果只能去某几家，那它继承来的模型也要在那几家里，否则这一行就是空的——`轻模型` 搬去 Anthropic 时 `联网搜索` 不会跟着去假装在搜。
 
 `$CREW_HOME/config.json`（默认 `~/.crew/config.json`，600 权限）：
 
@@ -55,7 +55,7 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
 |---|---|---|
 | bot 对话与工具调用 | LLM（支持 tool calling） | `model`，每个 bot 每轮用 |
 | 生成 bot 身份、摘要 | 轻量 LLM | `lightModel`，可与主模型相同 |
-| 联网搜索 | OpenRouter web 插件 / Perplexity sonar | `searchModel`（缺省同 `lightModel`，但那一家得能搜），每个 bot 都有 `web_search` / `fetch_url` |
+| 联网搜索 | OpenRouter / Perplexity / xAI / 智谱 / 百炼 | `searchModel`（缺省同 `lightModel`，但那一家得能搜），每个 bot 都有 `web_search` / `fetch_url` |
 | 头像 | 图像生成 | 和 `draw` 同一条路（`drawImage`），所以 `imageModel` 换到哪家头像就在哪家画 |
 | 看图 | 能读图的 LLM | `visionModel`，`see` 工具；主模型自己能看图时可留空 |
 | 操作屏幕 | computer-use 模型 | `guiModel`，`operate` 工具；缺省退到 `visionModel` |

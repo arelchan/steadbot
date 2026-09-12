@@ -9,23 +9,61 @@ import { endpointOf } from '../models.ts';
  *   web_search  a grounded answer + cited sources, from whichever vendor the 联网搜索 row is on
  *   fetch_url   read one page as plain text
  *
- * Two vendors can do this, and they do it differently. OpenRouter bolts search onto any chat model with its own
- * `web` plugin and hands back the citations as message annotations; Perplexity's sonar models search by
- * themselves and list what they read in `search_results`. Everything else about the call is the same request.
+ * Every vendor here speaks OpenAI's chat/completions, so the request is the same one; what differs is the one
+ * field that turns searching on and where the vendor puts what it read. That is the whole of `SEARCHERS` below —
+ * anything else is not a search provider, it is a model answering from memory, which is worse than no answer.
  */
 interface Citation { url: string; title?: string; content?: string }
 
+type Raw = Record<string, unknown>;
+const arr = (v: unknown): Raw[] => (Array.isArray(v) ? (v as Raw[]) : []);
+const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+
+/** How each vendor is asked to search, and where it lists what it read. */
+const SEARCHERS: Record<string, { ask: Raw; read: (j: Raw, msg: Raw) => Citation[] }> = {
+  // OpenRouter bolts its own `web` plugin onto any chat model and cites through message annotations.
+  openrouter: {
+    ask: { plugins: [{ id: 'web', max_results: 6 }], usage: { include: true } },
+    read: (_j, msg) => arr(msg.annotations).map((a) => (a.url_citation ?? {}) as Citation),
+  },
+  // Perplexity's sonar models search by themselves; nothing to switch on.
+  perplexity: {
+    ask: {},
+    read: (j) => [
+      ...arr(j.search_results).map((r) => ({ url: str(r.url) ?? '', title: str(r.title), content: str(r.snippet) })),
+      ...arr(j.citations).map((u) => ({ url: String(u) })),
+    ],
+  },
+  // xAI's Live Search: one parameter, citations as bare URLs.
+  xai: {
+    ask: { search_parameters: { mode: 'auto', max_search_results: 6, return_citations: true } },
+    read: (j) => arr(j.citations).map((u) => ({ url: String(u) })),
+  },
+  // 智谱: search is a built-in tool rather than a flag, and the results come back beside the message.
+  zhipu: {
+    ask: { tools: [{ type: 'web_search', web_search: { enable: true, search_result: true } }] },
+    read: (j) => arr(j.web_search).map((r) => ({ url: str(r.link) ?? str(r.url) ?? '', title: str(r.title), content: str(r.content) })),
+  },
+  // 百炼 (Qwen): a flag plus a request for the sources, which arrive under search_info.
+  dashscope: {
+    ask: { enable_search: true, search_options: { forced_search: true, enable_source: true } },
+    read: (j) => arr((j.search_info as Raw | undefined)?.search_results).map((r) => ({ url: str(r.url) ?? '', title: str(r.title), content: str(r.snippet) })),
+  },
+};
+
+export const canSearchAt = (provider: string) => provider in SEARCHERS;
+
 export async function webSearch(query: string, signal?: AbortSignal, who?: string): Promise<{ answer: string; sources: Citation[] }> {
   const at = endpointOf('searchModel');
-  if (!at) throw new Error('联网搜索还没配好：去「设置 › 模型 · 联网搜索」选一家能搜的（OpenRouter 或 Perplexity）并给它钥匙。');
-  const viaPlugin = at.provider === 'openrouter';
+  const how = at && SEARCHERS[at.provider];
+  if (!at || !how) throw new Error('联网搜索还没配好：去「设置 › 模型 · 联网搜索」选一家能搜的，并给它钥匙。');
   const res = await fetch(`${at.baseUrl}/chat/completions`, {
     method: 'POST',
     signal,
     headers: { Authorization: `Bearer ${at.key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: at.model,
-      ...(viaPlugin ? { plugins: [{ id: 'web', max_results: 6 }], usage: { include: true } } : {}),
+      ...how.ask,
       messages: [
         { role: 'system', content: `现在是 ${new Date().toLocaleString('zh-CN', { hour12: false })}。根据搜索结果用中文简要回答，只写事实，带具体数字和日期；不确定就说不确定。不要 markdown。` },
         { role: 'user', content: query },
@@ -34,28 +72,22 @@ export async function webSearch(query: string, signal?: AbortSignal, who?: strin
     }),
   });
   if (!res.ok) throw new Error(`搜索服务返回 ${res.status}`);
-  const j = (await res.json()) as {
-    model?: string;
+  const j = (await res.json()) as Raw & {
     usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
-    choices?: { message?: { content?: string; annotations?: { type: string; url_citation?: Citation }[] } }[];
-    search_results?: { title?: string; url?: string; snippet?: string }[];
-    citations?: string[];
+    choices?: { message?: { content?: string } }[];
     error?: { message?: string };
   };
-  // The web plugin is billed per result on top of the tokens, so the only number with both in it is usage.cost.
-  recordRaw('search', who, j.model ?? at.model, { input: j.usage?.prompt_tokens, output: j.usage?.completion_tokens, cost: j.usage?.cost, units: 1 });
+  // OpenRouter's plugin is billed per result on top of the tokens, so the only number with both in it is usage.cost.
+  recordRaw('search', who, str(j.model) ?? at.model, { input: j.usage?.prompt_tokens, output: j.usage?.completion_tokens, cost: j.usage?.cost, units: 1 });
   if (j.error) throw new Error(j.error.message ?? '搜索失败');
-  const msg = j.choices?.[0]?.message;
+  const msg = (j.choices?.[0]?.message ?? {}) as Raw & { content?: string };
   const seen = new Set<string>();
   const sources: Citation[] = [];
-  const add = (c?: Citation) => {
-    if (!c?.url || seen.has(c.url)) return;
+  for (const c of how.read(j, msg)) {
+    if (!c?.url || seen.has(c.url)) continue;
     seen.add(c.url);
     sources.push({ url: c.url, title: c.title, content: c.content?.replace(/\s+/g, ' ').slice(0, 240) });
-  };
-  for (const a of msg?.annotations ?? []) add(a.url_citation);
-  for (const r of j.search_results ?? []) add({ url: r.url ?? '', title: r.title, content: r.snippet });
-  for (const u of j.citations ?? []) add({ url: u });
+  }
   return { answer: (msg?.content ?? '').trim(), sources };
 }
 

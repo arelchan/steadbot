@@ -704,7 +704,6 @@ export const zh: Record<string, string> = {
   'lib.design': '设计创意',
   'lib.meta': '方法与元技能',
   /* 设置 › 模型 */
-  'models.sub': 'bot 干活用哪些模型。钥匙存在跑 bot 的这台机器上。',
   'models.slot.model': '对话',
   'models.slot.lightModel': '轻模型',
   'models.slot.visionModel': '看图',

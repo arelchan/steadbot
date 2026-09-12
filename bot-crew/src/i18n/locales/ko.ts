@@ -654,7 +654,6 @@ export const ko: Record<string, string> = {
   'lib.design': '디자인·크리에이티브',
   'lib.meta': '방법론·메타 기술',
   /* 设置 › 模型 */
-  'models.sub': 'bot이 어떤 모델로 일할지. 키는 bot이 도는 기기에 저장됩니다.',
   'models.slot.model': '대화',
   'models.slot.lightModel': '경량 모델',
   'models.slot.visionModel': '이미지 보기',

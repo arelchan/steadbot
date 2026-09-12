@@ -704,7 +704,6 @@ export const ru: Record<string, string> = {
   'lib.design': 'Дизайн и творчество',
   'lib.meta': 'Метод и мета-навыки',
   /* 设置 › 模型 */
-  'models.sub': 'На каких моделях работают ваши боты. Ключи остаются на машине, где они запущены.',
   'models.slot.model': 'Разговор',
   'models.slot.lightModel': 'Лёгкая модель',
   'models.slot.visionModel': 'Смотреть',

@@ -654,7 +654,6 @@ export const ja: Record<string, string> = {
   'lib.design': 'デザイン・クリエイティブ',
   'lib.meta': '方法論・メタスキル',
   /* 设置 › 模型 */
-  'models.sub': 'bot がどのモデルで働くか。キーは bot が動いているマシンに置かれます。',
   'models.slot.model': '会話',
   'models.slot.lightModel': '軽量モデル',
   'models.slot.visionModel': '画像を見る',

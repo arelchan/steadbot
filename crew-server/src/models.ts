@@ -40,7 +40,7 @@ export const SLOTS: SlotDef[] = [
   { id: 'visionModel', needs: 'vision', fallback: DEFAULT_VISION_MODEL },
   { id: 'guiModel', needs: 'vision', inherits: 'visionModel' },
   { id: 'imageModel', needs: 'image', only: ['openrouter', 'openai', 'xai', 'together', 'siliconflow', 'zhipu'], auto: true },
-  { id: 'searchModel', needs: 'chat', only: ['openrouter', 'perplexity'], inherits: 'lightModel' },
+  { id: 'searchModel', needs: 'chat', only: ['openrouter', 'perplexity', 'xai', 'zhipu', 'dashscope'], inherits: 'lightModel' },
   { id: 'embeddingModel', needs: 'embed', only: ['openrouter', 'openai', 'siliconflow', 'jina', 'voyage', 'dashscope', 'zhipu', 'mistral'], fallback: DEFAULT_EMBEDDING_MODEL },
   // No default and no off switch: reranking is the one job here that is better skipped than guessed at, so an
   // empty row simply means the engine re-scores its own way.
@@ -153,9 +153,11 @@ const IMAGE_MODELS: Record<string, ModelRow[]> = {
   siliconflow: [row('Qwen/Qwen-Image', 'Qwen Image'), row('Kwai-Kolors/Kolors', 'Kolors')],
   zhipu: [row('cogview-4', 'CogView-4')],
 };
-/** The search row at a vendor whose models search by themselves, with no plugin to switch on. */
+/** Search-capable models at the vendors pi has no catalog for (web.ts says how each is asked to search). */
 const SEARCH_MODELS: Record<string, ModelRow[]> = {
   perplexity: [row('sonar'), row('sonar-pro'), row('sonar-reasoning')],
+  zhipu: [row('glm-4.6'), row('glm-4.5-air')],
+  dashscope: [row('qwen-plus'), row('qwen-max'), row('qwen-turbo')],
 };
 
 function imageModels(): ModelRow[] {

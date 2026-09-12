@@ -655,7 +655,6 @@ export const zhTW: Record<string, string> = {
   'lib.design': '設計創意',
   'lib.meta': '方法與後設技能',
   /* 设置 › 模型 */
-  'models.sub': 'bot 幹活用哪些模型。鑰匙存在跑 bot 的這台機器上。',
   'models.slot.model': '對話',
   'models.slot.lightModel': '輕模型',
   'models.slot.visionModel': '看圖',
