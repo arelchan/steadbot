@@ -82,6 +82,8 @@ let deps: Deps | undefined;
 let child: ChildProcess | undefined;
 let up = false;
 let starting: Promise<boolean> | undefined;
+/** Bumped by every stop, so a start that was already in flight knows it is no longer the one being waited for. */
+let gen = 0;
 /** Compressed resident profile, refreshed after each extraction; injected every turn without a network call. */
 let profileCache: string[] = [];
 const idle = new Map<string, ReturnType<typeof setTimeout>>();
@@ -282,6 +284,7 @@ let proxyBase: string | undefined;
 
 export function startMemory(): Promise<boolean> {
   if (starting) return starting;
+  const mine = gen;
   starting = (async () => {
     if (process.env.CREW_MEMORY === '0') {
       console.log('[crew] 记忆：已关闭（CREW_MEMORY=0）');
@@ -353,6 +356,13 @@ export function startMemory(): Promise<boolean> {
     let repaired = false;
     for (let i = 0; i < 120; i++) {
       await new Promise((r) => setTimeout(r, 1000));
+      // Someone stopped it while this was still coming up (a model row changed, say). That stop is the newer
+      // instruction, and a fresh start is already on its way: leave the field to it.
+      if (mine !== gen) {
+        child?.kill();
+        child = undefined;
+        return false;
+      }
       if (await health()) {
         up = true;
         if (await probe()) {
@@ -393,12 +403,21 @@ export function startMemory(): Promise<boolean> {
   return starting;
 }
 
+/**
+ * Stop the engine — and forget that it was ever started.
+ *
+ * `startMemory` hands back the in-flight (or long-settled) promise rather than starting twice, so without
+ * clearing it here a stop-then-start — which is what 设置 › 模型 does when a row the engine reads changes —
+ * would kill the engine and then return the old promise, leaving memory down until the whole server restarted.
+ */
 export function stopMemory() {
   for (const t of idle.values()) clearTimeout(t);
   idle.clear();
   child?.kill();
   child = undefined;
   up = false;
+  starting = undefined;
+  gen += 1;
 }
 
 /**
