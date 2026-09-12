@@ -1,15 +1,11 @@
-import { httpBase, authHeaders, remember, remembered } from './runtime';
+import { httpBase, authHeaders } from './runtime';
 import type { UsageReport } from '../types';
 
 /**
- * 设置 › 用量. Like the models page: what it said last time is drawn immediately and corrected when this time's
- * answer lands, so the tab never opens on 「读取中…」 after the first visit.
+ * 设置 › 用量. One request at a time: the settings window warms it the moment it opens and the tab asks for the
+ * same thing when it is clicked, so by then it is usually already here — and until it is, the tab draws a
+ * skeleton rather than last time's numbers, which for money is the difference between waiting and being misled.
  */
-const WHAT = 'usage';
-
-export const lastUsage = (): UsageReport | undefined => remembered<UsageReport>(WHAT);
-
-/** One request at a time: the settings window warms this, and the tab asks for it again when it opens. */
 let inflight: Promise<UsageReport> | undefined;
 
 export function fetchUsage(days = 30): Promise<UsageReport> {
@@ -20,7 +16,5 @@ export function fetchUsage(days = 30): Promise<UsageReport> {
 async function read(days: number): Promise<UsageReport> {
   const r = await fetch(`${httpBase || window.location.origin}/usage?days=${days}`, { headers: authHeaders() });
   if (!r.ok) throw new Error(r.status === 404 ? 'old' : String(r.status));
-  const report = (await r.json()) as UsageReport;
-  remember(WHAT, report);
-  return report;
+  return (await r.json()) as UsageReport;
 }

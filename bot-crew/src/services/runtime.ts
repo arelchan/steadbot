@@ -43,30 +43,6 @@ export const wsUrl = target.kind === 'remote' ? `${target.url.replace(/^http/, '
 export const httpBase = target.kind === 'remote' ? target.url : localHttpBase;
 const token = target.kind === 'remote' ? target.token : '';
 
-/**
- * What a settings page looked like last time, kept in this browser so the next visit draws something instead of
- * 「读取中…」 while the answer travels. Per runtime, because two servers do not have the same models or spending;
- * always refreshed behind the drawing, never the source of truth.
- */
-const lastKey = (what: string) => `bot-crew:last:${what}@${httpBase || 'local'}`;
-
-export function remembered<T>(what: string): T | undefined {
-  try {
-    const raw = localStorage.getItem(lastKey(what));
-    return raw ? (JSON.parse(raw) as T) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-export function remember(what: string, value: unknown): void {
-  try {
-    localStorage.setItem(lastKey(what), JSON.stringify(value));
-  } catch {
-    /* private window, or out of room: the page still works, it just waits next time */
-  }
-}
-
 /** Headers for HTTP calls to the current runtime. */
 export const authHeaders = (): Record<string, string> => (token ? { authorization: `Bearer ${token}` } : {});
 /** Append the token to a URL that will be opened by the browser itself (links, iframes, images). */

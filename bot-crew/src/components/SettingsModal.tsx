@@ -2,14 +2,13 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, setSettings } from '../store';
 import type { UpgradeStatus, UsageReport } from '../types';
-import { httpBase, authHeaders } from '../services/runtime';
 import { fetchUpgradeStatus, runUpgrade } from '../services/upgrade';
-import { fetchUsage, lastUsage } from '../services/usage';
+import { fetchUsage } from '../services/usage';
 import { fetchModels } from '../services/models';
 import { ACCENTS, SCALES, THEMES, getAccent, getDesktopNotify, getScale, getTheme, notifySupported, setAccent, setDesktopNotify, setScale, setTheme, type Accent, type Scale, type Theme } from '../services/theme';
 import { RuntimeBody } from './RuntimeView';
 import { ModelsTab } from './ModelsTab';
-import { Row, Pick } from './Field';
+import { Row, Pick, Skel } from './Field';
 import { cx } from '../utils';
 import { LOCALES, useT, useLocale, setLocale, intlLocale, tn, t as tr, type Locale } from '../i18n';
 
@@ -294,8 +293,7 @@ const fmtMoney = (n: number) => (n >= 1 ? `$${n.toFixed(2)}` : n > 0 ? `$${n.toF
 
 function Usage() {
   const t = useT();
-  // Last visit's numbers, drawn at once; this visit's answer replaces them when it lands.
-  const [report, setReport] = useState<UsageReport | undefined>(lastUsage);
+  const [report, setReport] = useState<UsageReport>();
   const [err, setErr] = useState('');
   useEffect(() => {
     let alive = true;
@@ -311,7 +309,28 @@ function Usage() {
   }, []);
   const max = useMemo(() => Math.max(1, ...(report?.daily ?? []).map((d) => d.cost)), [report]);
   if (err && !report) return (<><Head title={t('set.usage')} /><div className="quiet">{err}</div></>);
-  if (!report) return (<><Head title={t('set.usage')} /><div className="quiet">{t('common.loading')}</div></>);
+  // The shape of the answer while it travels: three numbers, a month of bars, a couple of lines. Never last
+  // month's numbers standing in for this month's — for money that is not a head start, it is a wrong answer.
+  if (!report)
+    return (
+      <>
+        <Head title={t('set.usage')} />
+        <div className="usage-top">
+          {[0, 1, 2].map((i) => (
+            <div className="ut-cell" key={i}>
+              <Skel w={i === 0 ? 72 : 56} h={22} />
+              <Skel w={36} h={11} />
+            </div>
+          ))}
+        </div>
+        <h4><Skel w={52} h={12} /></h4>
+        <div className="spark wait">
+          {Array.from({ length: 30 }, (_, i) => (
+            <span className="spark-b" key={i}><i style={{ height: `${20 + ((i * 37) % 70)}%` }} /></span>
+          ))}
+        </div>
+      </>
+    );
   const total = report.total;
   return (
     <>

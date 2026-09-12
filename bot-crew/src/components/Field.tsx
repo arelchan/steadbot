@@ -20,6 +20,14 @@ export function Row({ label, note, children }: { label: string; note?: ReactNode
   );
 }
 
+/**
+ * A block standing in for something that has not arrived yet — the shape of the answer, not a stale copy of it.
+ * `w` is a width (px or any CSS length); rows are as tall as the text they replace.
+ */
+export function Skel({ w, h = 13 }: { w: number | string; h?: number }) {
+  return <span className="skel" style={{ width: typeof w === 'number' ? `${w}px` : w, height: h }} />;
+}
+
 type Item = { value: string; label: string; group?: string; disabled?: boolean };
 
 /** Everything inside an <option>, flattened to the one line it shows as. */

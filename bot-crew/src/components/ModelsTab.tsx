@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Row, Pick } from './Field';
+import { Row, Pick, Skel } from './Field';
 import { cx } from '../utils';
 import { useT } from '../i18n';
-import { fetchModels, lastModels, saveModels } from '../services/models';
+import { fetchModels, saveModels } from '../services/models';
 import type { ModelChoice, ModelMeta, ModelSlot, ModelsPage, ModelsPatch, SlotId } from '../types';
 
 /**
@@ -25,9 +25,7 @@ const idOf = (spec?: string) => (spec && spec.includes('/') ? spec.slice(spec.in
 
 export function ModelsTab() {
   const t = useT();
-  // Whatever the last visit ended with is drawn immediately and corrected when the answer lands, so reopening the
-  // window is not a wait for a round trip that almost always says the same thing.
-  const [page, setPage] = useState<ModelsPage | undefined>(lastModels);
+  const [page, setPage] = useState<ModelsPage>();
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   /** the row whose key field is open right now */
@@ -83,7 +81,7 @@ export function ModelsTab() {
   };
 
   if (err && !page) return <div className="quiet">{err}</div>;
-  if (!page) return <div className="quiet">{t('common.loading')}</div>;
+  if (!page) return <Waiting />;
 
   return (
     <div className={cx('models', busy && 'busy')}>
@@ -121,6 +119,37 @@ function guess(page: ModelsPage, patch: ModelsPatch): ModelsPage {
     ...page,
     slots: page.slots.map((s) => (s.id in slots ? { ...s, value: slots[s.id] ?? undefined, effective: slots[s.id] ?? undefined, meta: undefined } : s)),
   };
+}
+
+/** The eight rows in their own shape while the answer is on its way — the layout that is coming, with nothing said. */
+function Waiting() {
+  return (
+    <div className="models">
+      <div className="set-rows">
+        {[
+          [32, 112],
+          [48, 128],
+          [32, 104],
+          [64, 96],
+          [32, 84],
+          [64, 60],
+          [32, 92],
+          [32, 88],
+        ].map(([label, note], i) => (
+          <div className="set-r" key={i}>
+            <div className="set-rl">
+              <Skel w={label} h={14} />
+              <span className="set-rn"><Skel w={note} h={11} /></span>
+            </div>
+            <div className="set-rc">
+              <Skel w="100%" h={31} />
+              <Skel w="100%" h={31} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SlotView({
