@@ -25,7 +25,7 @@ import type { CrewStore } from './store.ts';
 import { redactSecrets } from './secrets.ts';
 
 /** The app all of this product's memory lives under. Pinned into the engine's queries: write and read must match. */
-const APP = 'everbot';
+const APP = 'steadbot';
 /** There is one human. When there are more this becomes their id; the shape does not change. */
 const HUMAN = 'chen';
 /** The user's id as the write path needs it (bots.ts labels his messages with it). */

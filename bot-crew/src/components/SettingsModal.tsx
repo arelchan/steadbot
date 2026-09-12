@@ -401,7 +401,7 @@ function Usage() {
 /* ---------------- 关于 + 升级 ---------------- */
 
 /**
- * Polls the local EverBot: it holds the code, so it is the one that knows whether there is a newer version.
+ * Polls the local Steadbot: it holds the code, so it is the one that knows whether there is a newer version.
  *
  * Running one is not this window's business — it takes the machine away for minutes and the window can be closed
  * — so pressing the button hands it to the App (services/upgrade.ts), which draws a curtain over everything.
@@ -435,7 +435,7 @@ function About({ up }: { up: ReturnType<typeof useUpgrade> }) {
         <div className="about-mark">🤖</div>
         <div className="about-id">
           <div className="about-n">
-            EverBot
+            Steadbot
             {name && <span className="about-tag">{name}</span>}
           </div>
           <div className="about-v">

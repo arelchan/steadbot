@@ -68,7 +68,7 @@ export class Upgrader extends EventEmitter {
       machineName: m?.name,
       busy: this.running,
     };
-    if (!hasGit()) st.blocked = '这台电脑上的 EverBot 不是从 git 仓库装的；重新 clone 一份再用，升级才有来源';
+    if (!hasGit()) st.blocked = '这台电脑上的 Steadbot 不是从 git 仓库装的；重新 clone 一份再用，升级才有来源';
     else if (moved && !m?.host) st.blocked = '这台电脑上没有那台机器的登录信息，没法替它升级；在「云电脑」里重新连一次';
     else if (this.runtime.mode === 'standby') st.blocked = '另一台机器正在跑这些 bot';
     else if (dirty && !moved) st.blocked = '这台电脑上有没提交的改动，先提交或撤销再升级';
@@ -139,7 +139,7 @@ async function ensureCheckout(l: MachineLink, log: (s: string) => void) {
   log('把那台机器接到仓库上（第一次要装一个只读部署密钥）…');
   const key = await root(
     l,
-    `mkdir -p /root/.ssh && chmod 700 /root/.ssh; test -f ${KEY} || ssh-keygen -q -t ed25519 -f ${KEY} -N '' -C everbot-deploy; chmod 600 ${KEY}; ` +
+    `mkdir -p /root/.ssh && chmod 700 /root/.ssh; test -f ${KEY} || ssh-keygen -q -t ed25519 -f ${KEY} -N '' -C steadbot-deploy; chmod 600 ${KEY}; ` +
       `ssh-keyscan -t ed25519 github.com >> /root/.ssh/known_hosts 2>/dev/null; sort -u -o /root/.ssh/known_hosts /root/.ssh/known_hosts 2>/dev/null; ` +
       `echo KEY=$(cat ${KEY}.pub)`,
   );
@@ -160,7 +160,7 @@ async function ensureCheckout(l: MachineLink, log: (s: string) => void) {
 /** Register a read-only deploy key on the repository, ignoring one that is already registered. */
 async function addDeployKey(pub: string, title: string) {
   try {
-    await execFileP('gh', ['api', `repos/${REPO}/keys`, '--method', 'POST', '-f', `title=everbot · ${title}`, '-f', `key=${pub}`, '-F', 'read_only=true'], { timeout: 30_000 });
+    await execFileP('gh', ['api', `repos/${REPO}/keys`, '--method', 'POST', '-f', `title=steadbot · ${title}`, '-f', `key=${pub}`, '-F', 'read_only=true'], { timeout: 30_000 });
   } catch (e) {
     const err = ((e as { stderr?: string }).stderr ?? (e as Error).message) || '';
     // Re-running an upgrade re-offers the same key; GitHub rejects the duplicate, which is exactly what we want.

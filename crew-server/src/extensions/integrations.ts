@@ -178,7 +178,7 @@ export function agentExtension(c: BotCtx, runner: AgentRunner): InlineExtension 
           '选哪个 agent：用户点名就用那个；否则用「集成」里已开启且可用的第一个。写代码优先 Claude Code / Codex / OpenCode，通用调研和多工具任务 Hermes / OpenClaw 也行。',
           '一次交一个完整任务，等结果回来再决定下一步；追加要求直接再交一次，会接着同一个会话。要彻底重来就 fresh=true。',
           '结果有文件产出时，告诉用户文件在你的工作区里；agent 说没登录时，把 loginHint 里的那句话原样转给用户。',
-          '说明里写着「装在你的电脑上 · 经它调用」的 agent，是借用户电脑上的：电脑关了或电脑上的 EverBot 没开就用不了。报错说电脑不在线时，告诉用户打开电脑上的 EverBot 再试，不要自己反复重试。',
+          '说明里写着「装在你的电脑上 · 经它调用」的 agent，是借用户电脑上的：电脑关了或电脑上的 Steadbot 没开就用不了。报错说电脑不在线时，告诉用户打开电脑上的 Steadbot 再试，不要自己反复重试。',
         ],
         parameters: Type.Object({
           agent: StringEnum(AGENT_IDS),

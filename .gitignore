@@ -1,7 +1,7 @@
-# EverBot lives in this folder alongside unrelated work: track only the product.
+# Steadbot lives in this folder alongside unrelated work: track only the product.
 /*
 !/.gitignore
-!/everbot
+!/steadbot
 !/crew-server/
 !/bot-crew/
 !/DESIGN.md

@@ -440,7 +440,7 @@ export const zh = {
   'usage.offline': '连不上跑 bot 的那台机器。',
 
   /* ---- 关于 / 升级 ---- */
-  'about.noLocal': '连不上本机的 EverBot',
+  'about.noLocal': '连不上本机的 Steadbot',
   'about.upgradeTo': '升级到 {v}',
   'about.upgrading': '升级中…',
   'about.upgradedRestart': '升级完成，正在重启；几秒后自动连回来。',
@@ -704,9 +704,9 @@ export const zh = {
   'err.timeout': '等了太久没有回应',
   'err.unreachable': '连不上那台机器',
   'err.failed': '失败',
-  'err.noLocalEverbot': '连不上这台电脑上的 EverBot：{why}',
+  'err.noLocalSteadbot': '连不上这台电脑上的 Steadbot：{why}',
   'err.upgradeTimeout': '升级超时了；那台机器可能还在构建，过几分钟刷新看看',
-  'err.localEverbotDown': '连不上这台电脑上的 EverBot；它可能没在跑',
+  'err.localSteadbotDown': '连不上这台电脑上的 Steadbot；它可能没在跑',
   'err.installLinkLost': '和本机服务的连接断了，安装中止；请重试',
   'err.noPairingCode': '没拿到连接码',
 

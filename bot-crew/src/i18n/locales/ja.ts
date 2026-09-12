@@ -387,7 +387,7 @@ export const ja: Dict = {
   'usage.readFail': '使用量を取得できません（{code}）',
   'usage.offline': 'bot を動かしているマシンに接続できません。',
 
-  'about.noLocal': 'このパソコンの EverBot に接続できません',
+  'about.noLocal': 'このパソコンの Steadbot に接続できません',
   'about.upgradeTo': '{v} に更新',
   'about.upgrading': 'アップグレード中…',
   'about.upgradedRestart': '完了。再起動中です。数秒で再接続します。',
@@ -646,9 +646,9 @@ export const ja: Dict = {
   'err.timeout': '待ちましたが応答がありません',
   'err.unreachable': 'あのマシンに接続できません',
   'err.failed': '失敗しました',
-  'err.noLocalEverbot': 'このパソコンの EverBot に接続できません：{why}',
+  'err.noLocalSteadbot': 'このパソコンの Steadbot に接続できません：{why}',
   'err.upgradeTimeout': 'アップグレードがタイムアウトしました。まだビルド中かもしれません。数分後に再読み込みしてください',
-  'err.localEverbotDown': 'このパソコンの EverBot に接続できません。動いていない可能性があります',
+  'err.localSteadbotDown': 'このパソコンの Steadbot に接続できません。動いていない可能性があります',
   'err.installLinkLost': 'ローカルサービスとの接続が切れ、インストールを中止しました。もう一度お試しください',
   'err.noPairingCode': 'ペアリングコードを取得できませんでした',
 

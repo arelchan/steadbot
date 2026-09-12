@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# EverBot · 本地一键启动
+# Steadbot · 本地一键启动
 #
-#   everbot            # 启动后端 + App，并打开浏览器（已在跑就只打开浏览器）
-#   everbot stop       # 停掉两者
-#   everbot status     # 看状态
-#   everbot logs       # 跟后端日志
+#   steadbot            # 启动后端 + App，并打开浏览器（已在跑就只打开浏览器）
+#   steadbot stop       # 停掉两者
+#   steadbot status     # 看状态
+#   steadbot logs       # 跟后端日志
 #
-# 第一次用先装上命令（在仓库根目录跑一次）：bash everbot install
+# 第一次用先装上命令（在仓库根目录跑一次）：bash steadbot install
 #
-# 可选环境变量：EVERBOT_PORT（后端端口，默认 5200）、EVERBOT_APP_PORT（App 端口，默认 5199）、
-#              EVERBOT_NO_BROWSER=1（不自动开浏览器）、CREW_HOME（数据目录，默认 ~/.crew）
+# 可选环境变量：STEADBOT_PORT（后端端口，默认 5200）、STEADBOT_APP_PORT（App 端口，默认 5199）、
+#              STEADBOT_NO_BROWSER=1（不自动开浏览器）、CREW_HOME（数据目录，默认 ~/.crew）
 set -euo pipefail
 
-# Resolve through symlinks: `everbot` is normally invoked via a link on PATH, and the repo is where the
+# Resolve through symlinks: `steadbot` is normally invoked via a link on PATH, and the repo is where the
 # real file lives, not where the link sits.
 src="${BASH_SOURCE[0]}"
 while [ -L "$src" ]; do
@@ -24,8 +24,8 @@ root="$(cd -P "$(dirname "$src")" && pwd)"
 server="$root/crew-server"
 app="$root/bot-crew"
 home="${CREW_HOME:-$HOME/.crew}"
-port="${EVERBOT_PORT:-5200}"
-app_port="${EVERBOT_APP_PORT:-5199}"
+port="${STEADBOT_PORT:-5200}"
+app_port="${STEADBOT_APP_PORT:-5199}"
 run="$home/run"
 logs="$home/logs"
 mkdir -p "$run" "$logs"
@@ -78,7 +78,7 @@ do_status() {
 
 do_logs() { exec tail -n 80 -f "$logs/server.log"; }
 
-# Put `everbot` on PATH so it works from any directory. A symlink, so it follows the repo.
+# Put `steadbot` on PATH so it works from any directory. A symlink, so it follows the repo.
 do_install() {
   local target="" d
   for d in "$HOME/.local/bin" "/opt/homebrew/bin" "/usr/local/bin"; do
@@ -92,8 +92,8 @@ do_install() {
     warn "$target 还不在 PATH 里，把下面这行加进 ~/.zshrc，然后开一个新终端："
     printf '   export PATH="$HOME/.local/bin:$PATH"\n'
   fi
-  ln -sf "$root/everbot" "$target/everbot"
-  ok "装好了：$target/everbot　以后在任意目录直接敲 everbot"
+  ln -sf "$root/steadbot" "$target/steadbot"
+  ok "装好了：$target/steadbot　以后在任意目录直接敲 steadbot"
 }
 
 need_node() {
@@ -121,7 +121,7 @@ check_config() {
      "model": "openrouter/deepseek/deepseek-v4-flash",
      "keys": { "OPENROUTER_API_KEY": "sk-or-..." }
    }
-   先起来看看界面也行，配好密钥后再跑一次 bash everbot.sh 即可。
+   先起来看看界面也行，配好密钥后再跑一次 bash steadbot.sh 即可。
 TIP
   fi
 }
@@ -156,12 +156,12 @@ do_start() {
 
   do_status | grep -E '^\S+ 注意' || true
   local url="http://localhost:$app_port"
-  if [ "${EVERBOT_NO_BROWSER:-}" != 1 ]; then
+  if [ "${STEADBOT_NO_BROWSER:-}" != 1 ]; then
     if command -v open >/dev/null 2>&1; then open "$url"; elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$url" >/dev/null 2>&1 || true; fi
   fi
   echo
-  ok "EverBot 起来了：$url"
-  echo "   停止：everbot stop    日志：everbot logs"
+  ok "Steadbot 起来了：$url"
+  echo "   停止：steadbot stop    日志：steadbot logs"
 }
 
 case "${1:-start}" in
@@ -171,5 +171,5 @@ case "${1:-start}" in
   status) do_status ;;
   logs) do_logs ;;
   install) do_install ;;
-  *) echo "用法：everbot [start|stop|restart|status|logs|install]"; exit 1 ;;
+  *) echo "用法：steadbot [start|stop|restart|status|logs|install]"; exit 1 ;;
 esac

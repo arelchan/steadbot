@@ -15,7 +15,7 @@ const execFileP = promisify(execFile);
  * "本机转接" — the user's own computer lends its agents (Claude Code, Codex, Hermes…) to bots that run elsewhere.
  *
  * The bots may live on a cloud machine, but the agents and their logins stay on the user's computer. When the
- * local EverBot is a signpost (its home was moved away), it dials the machine the bots moved to and offers
+ * local Steadbot is a signpost (its home was moved away), it dials the machine the bots moved to and offers
  * itself as an agent host. A bot's `delegate_agent` then runs on the computer, the bot's workspace travelling
  * there and back, while every permission question still goes through the bot (its autonomy, its user).
  * Computer off → the agents are simply unavailable; the bots keep doing everything else.
@@ -69,7 +69,7 @@ const SKIP = ['node_modules', '.venv', '__pycache__', '.cache', '.DS_Store'];
 export async function packDir(dir: string): Promise<Buffer | undefined> {
   if (!existsSync(dir) || !readdirSync(dir).length) return undefined;
   if (dirSize(dir, SYNC_CAP) > SYNC_CAP) return undefined;
-  const out = join(tmpdir(), `everbot-ws-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.tgz`);
+  const out = join(tmpdir(), `steadbot-ws-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.tgz`);
   try {
     await execFileP('tar', ['-czf', out, ...SKIP.map((s) => `--exclude=${s}`), '-C', dir, '.'], { maxBuffer: 1024 * 1024 });
     const buf = readFileSync(out);
@@ -82,7 +82,7 @@ export async function packDir(dir: string): Promise<Buffer | undefined> {
 /** Unpack over a directory: files are created or overwritten, nothing is deleted. */
 export async function unpackInto(dir: string, buf: Buffer): Promise<void> {
   mkdirSync(dir, { recursive: true });
-  const tmp = join(tmpdir(), `everbot-ws-in-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.tgz`);
+  const tmp = join(tmpdir(), `steadbot-ws-in-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.tgz`);
   writeFileSync(tmp, buf);
   try {
     await execFileP('tar', ['-xzf', tmp, '-C', dir], { maxBuffer: 1024 * 1024 });
@@ -166,7 +166,7 @@ export class AgentHosts {
       this.info = undefined;
       for (const [id, r] of this.runs) {
         clearTimeout(r.timer);
-        r.reject(new Error('和你电脑的连接断了（EverBot 关了或电脑睡了），这次没做完'));
+        r.reject(new Error('和你电脑的连接断了（Steadbot 关了或电脑睡了），这次没做完'));
         this.runs.delete(id);
       }
       this.announce();
@@ -232,7 +232,7 @@ export class AgentHosts {
    */
   async run(agent: AgentId, botId: string, task: string, cwd: string, hooks: HostRunHooks, opts: { fresh?: boolean; signal?: AbortSignal; timeoutMs?: number } = {}): Promise<HostRunResult> {
     const ws = this.ws;
-    if (!ws || !this.info) throw new Error('你的电脑上的 EverBot 不在线，本机 agent 现在用不了。电脑开着、EverBot 开着就行');
+    if (!ws || !this.info) throw new Error('你的电脑上的 Steadbot 不在线，本机 agent 现在用不了。电脑开着、Steadbot 开着就行');
     if (!this.has(agent)) throw new Error(`你的电脑「${this.info.name}」上没有装 ${AGENTS.find((a) => a.agent === agent)?.name ?? agent}`);
     const runId = Math.random().toString(36).slice(2, 12);
     const packed = await packDir(cwd);
@@ -270,7 +270,7 @@ export class AgentHosts {
         ? { available: true, acp: h.acp, status: 'ok', viaHost: this.info!.name, note: `装在你的电脑「${this.info!.name}」上 · 经它调用${h.acp ? '（ACP：流式、可见工具调用、权限确认）' : '（一次性调用）'} · 电脑开着才能用` }
         : this.info
           ? { available: false, acp: false, status: 'off', viaHost: undefined, note: `你的电脑「${this.info.name}」上没有 ${spec.bin} 命令；在电脑上装好后点「重新检测」` }
-          : { available: false, acp: false, status: 'off', viaHost: undefined, note: `你的电脑不在线。电脑上开着 EverBot，bot 就能借用电脑上的 ${spec.name}` };
+          : { available: false, acp: false, status: 'off', viaHost: undefined, note: `你的电脑不在线。电脑上开着 Steadbot，bot 就能借用电脑上的 ${spec.name}` };
       const changed = (Object.keys(patch) as (keyof Integration)[]).some((k) => row[k] !== patch[k]);
       if (changed) this.store.patchIntegration(row.id, patch);
     }

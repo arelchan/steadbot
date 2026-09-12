@@ -387,7 +387,7 @@ export const ko: Dict = {
   'usage.readFail': '사용량을 읽을 수 없습니다 ({code})',
   'usage.offline': 'bot을 돌리는 머신에 연결할 수 없습니다.',
 
-  'about.noLocal': '이 컴퓨터의 EverBot에 연결할 수 없습니다',
+  'about.noLocal': '이 컴퓨터의 Steadbot에 연결할 수 없습니다',
   'about.upgradeTo': '{v}(으)로 업데이트',
   'about.upgrading': '업그레이드 중…',
   'about.upgradedRestart': '완료되어 재시작 중입니다. 몇 초 뒤 다시 연결됩니다.',
@@ -646,9 +646,9 @@ export const ko: Dict = {
   'err.timeout': '오래 기다렸지만 응답이 없습니다',
   'err.unreachable': '그 머신에 연결할 수 없습니다',
   'err.failed': '실패했습니다',
-  'err.noLocalEverbot': '이 컴퓨터의 EverBot에 연결할 수 없습니다: {why}',
+  'err.noLocalSteadbot': '이 컴퓨터의 Steadbot에 연결할 수 없습니다: {why}',
   'err.upgradeTimeout': '업그레이드가 시간 초과되었습니다. 그 머신이 아직 빌드 중일 수 있으니 몇 분 뒤 새로고침하세요',
-  'err.localEverbotDown': '이 컴퓨터의 EverBot에 연결할 수 없습니다. 실행 중이 아닐 수 있습니다',
+  'err.localSteadbotDown': '이 컴퓨터의 Steadbot에 연결할 수 없습니다. 실행 중이 아닐 수 있습니다',
   'err.installLinkLost': '로컬 서비스와의 연결이 끊겨 설치를 중단했습니다. 다시 시도해 주세요',
   'err.noPairingCode': '페어링 코드를 받지 못했습니다',
 

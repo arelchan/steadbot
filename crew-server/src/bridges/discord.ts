@@ -84,7 +84,7 @@ export class DiscordBridge implements Bridge {
       const { heartbeat_interval: iv } = p.d as { heartbeat_interval: number };
       this.beat = setInterval(() => ws.readyState === ws.OPEN && ws.send(JSON.stringify({ op: 1, d: this.seq })), iv);
       this.beat.unref?.();
-      ws.send(JSON.stringify({ op: 2, d: { token: this.token, intents: INTENTS, properties: { os: 'linux', browser: 'everbot', device: 'everbot' } } }));
+      ws.send(JSON.stringify({ op: 2, d: { token: this.token, intents: INTENTS, properties: { os: 'linux', browser: 'steadbot', device: 'steadbot' } } }));
       return;
     }
     if (p.op === 1) return void ws.send(JSON.stringify({ op: 1, d: this.seq }));

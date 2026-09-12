@@ -386,7 +386,7 @@ export const pushToast = (t: Omit<ToastItem, 'id' | 'ts'>) => {
   if (document.visibilityState !== 'visible' && getDesktopNotify()) {
     try {
       const bot = getState().bots.find((b) => b.id === toast.botId);
-      const n = new Notification(bot?.name ?? 'EverBot', { body: toast.text, tag: toast.threadId, icon: '/favicon.svg' });
+      const n = new Notification(bot?.name ?? 'Steadbot', { body: toast.text, tag: toast.threadId, icon: '/favicon.svg' });
       n.onclick = () => {
         window.focus();
         select(toast.threadId);

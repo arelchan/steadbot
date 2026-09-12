@@ -320,7 +320,7 @@ export class ChannelManager implements Hub {
       }
       const [botId, ch] = k.split(':') as [string, Im];
       const bot = this.store.bot(botId);
-      if (bot?.im?.[ch]?.status === 'ok') this.setLink(botId, ch, { ...bot.im[ch]!, status: 'off', note: '这台机器上的 EverBot 停了' });
+      if (bot?.im?.[ch]?.status === 'ok') this.setLink(botId, ch, { ...bot.im[ch]!, status: 'off', note: '这台机器上的 Steadbot 停了' });
     }
     this.bridges.clear();
     this.running.clear();

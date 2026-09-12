@@ -1,6 +1,6 @@
-# EverBot · App（bot-crew，多 bot 异步委托）
+# Steadbot · App（bot-crew，多 bot 异步委托）
 
-> 产品名 EverBot。本地一键启动：仓库根目录 `bash everbot.sh`。
+> 产品名 Steadbot。本地一键启动：仓库根目录 `bash steadbot.sh`。
 
 一个「像在 IM 里安排同事」的个人 agent 工作台前端。用户有多个职责不同的 bot，
 交代一句话就走，bot 记下事项去做，只在需要拍板、澄清或卡住时回来找人。

@@ -199,7 +199,7 @@ export interface Integration {
   acp?: boolean;
   /** how to sign in when the agent reports it is not authenticated */
   loginHint?: string;
-  /** the agent is not on this machine but on the user's computer (its name), which lends it while its EverBot is open */
+  /** the agent is not on this machine but on the user's computer (its name), which lends it while its Steadbot is open */
   viaHost?: string;
   /** extra CLI args for the agent runner */
   agentArgs?: string[];

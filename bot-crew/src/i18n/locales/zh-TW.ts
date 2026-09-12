@@ -388,7 +388,7 @@ export const zhTW: Dict = {
   'usage.readFail': '讀不到用量（{code}）',
   'usage.offline': '連不上跑 bot 的那台機器。',
 
-  'about.noLocal': '連不上本機的 EverBot',
+  'about.noLocal': '連不上本機的 Steadbot',
   'about.upgradeTo': '升級到 {v}',
   'about.upgrading': '升級中…',
   'about.upgradedRestart': '升級完成，正在重啟；幾秒後自動連回來。',
@@ -647,9 +647,9 @@ export const zhTW: Dict = {
   'err.timeout': '等了太久沒有回應',
   'err.unreachable': '連不上那台機器',
   'err.failed': '失敗',
-  'err.noLocalEverbot': '連不上這台電腦上的 EverBot：{why}',
+  'err.noLocalSteadbot': '連不上這台電腦上的 Steadbot：{why}',
   'err.upgradeTimeout': '升級逾時了；那台機器可能還在建置，過幾分鐘重新整理看看',
-  'err.localEverbotDown': '連不上這台電腦上的 EverBot；它可能沒在跑',
+  'err.localSteadbotDown': '連不上這台電腦上的 Steadbot；它可能沒在跑',
   'err.installLinkLost': '和本機服務的連線斷了，安裝中止；請重試',
   'err.noPairingCode': '沒拿到連線碼',
 

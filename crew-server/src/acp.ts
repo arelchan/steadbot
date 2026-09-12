@@ -147,7 +147,7 @@ export class AcpClient {
   async initialize(): Promise<void> {
     const r = await this.request<{ agentInfo?: { name?: string; version?: string }; authMethods?: { id: string; name: string; description?: string }[] }>(
       'initialize',
-      { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }, clientInfo: { name: 'everbot', version: '0.1' } },
+      { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }, clientInfo: { name: 'steadbot', version: '0.1' } },
       90_000,
     );
     this.agentInfo = r.agentInfo;

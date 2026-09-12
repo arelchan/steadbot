@@ -109,7 +109,7 @@ export class WsAgentService implements AgentService {
       remoteApply(() => setState({ online: false }));
       if (this.stopped) return;
       // A few failures in a row usually means the stored pairing is stale (the machine was reinstalled); the
-      // EverBot on this computer knows the current one, so ask it and follow before retrying forever.
+      // Steadbot on this computer knows the current one, so ask it and follow before retrying forever.
       if (this.retry === 3) void healRuntimeTarget().then((changed) => changed && window.location.reload());
       const delay = Math.min(10_000, 500 * 2 ** this.retry++);
       this.timer = setTimeout(() => this.connect(), delay);
@@ -363,7 +363,7 @@ export class WsAgentService implements AgentService {
           break;
         }
         // 升级那三种不走这条线：它们来自 services/upgrade.ts 单独连的那条 socket——
-        // 升级永远由**本机**的 EverBot 执行，哪怕 App 正指着云上的 runtime（见那个文件的注释）。
+        // 升级永远由**本机**的 Steadbot 执行，哪怕 App 正指着云上的 runtime（见那个文件的注释）。
         // 这里列出来不是摆设：少列一个，下面的 never 就会报错。
         case 'upgrade_status':
         case 'upgrade_log':

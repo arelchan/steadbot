@@ -20,7 +20,7 @@ const repoDir = join(serverDir, '..');
 /** Written into the image at build time (Dockerfile), because the image has no .git. */
 const STAMP = join(serverDir, '.build-commit');
 
-export const REPO = process.env.CREW_REPO ?? 'arelchan/everbot';
+export const REPO = process.env.CREW_REPO ?? 'arelchan/steadbot';
 export const BRANCH = process.env.CREW_BRANCH ?? 'main';
 
 const git = (args: string[], cwd = repoDir): string | undefined => {
@@ -66,7 +66,7 @@ export async function latestCommit(signal?: AbortSignal): Promise<string | undef
   }
   try {
     const r = await fetch(`https://api.github.com/repos/${REPO}/commits/${BRANCH}`, {
-      headers: { accept: 'application/vnd.github.sha', 'user-agent': 'everbot' },
+      headers: { accept: 'application/vnd.github.sha', 'user-agent': 'steadbot' },
       signal: signal ?? AbortSignal.timeout(8000),
     });
     if (!r.ok) return undefined;

@@ -4,7 +4,7 @@ import { getState, setState } from '../store';
 import { t } from '../i18n';
 
 /**
- * 升级. The code lives on the user's own computer, so the local EverBot is always the one that performs an
+ * 升级. The code lives on the user's own computer, so the local Steadbot is always the one that performs an
  * upgrade — it restarts itself when the bots run here, and pushes to the machine over ssh when they don't.
  * That means this talks to localhost even while the App is pointed at a cloud runtime.
  */
@@ -29,7 +29,7 @@ export function runUpgrade(onLine: (line: string) => void): Promise<{ restarting
     try {
       ws = new WebSocket(url);
     } catch (e) {
-      return reject(new Error(t('err.noLocalEverbot', { why: (e as Error).message })));
+      return reject(new Error(t('err.noLocalSteadbot', { why: (e as Error).message })));
     }
     let done = false;
     const finish = (fn: () => void) => {
@@ -62,7 +62,7 @@ export function runUpgrade(onLine: (line: string) => void): Promise<{ restarting
     };
     // The local server restarts itself mid-upgrade when the bots run here: a closed socket is the success signal.
     ws.onclose = () => finish(() => { clearTimeout(timer); resolve({ restarting: true }); });
-    ws.onerror = () => finish(() => { clearTimeout(timer); reject(new Error(t('err.localEverbotDown'))); });
+    ws.onerror = () => finish(() => { clearTimeout(timer); reject(new Error(t('err.localSteadbotDown'))); });
   });
 }
 

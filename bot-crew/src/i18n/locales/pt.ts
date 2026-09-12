@@ -387,7 +387,7 @@ export const pt: Dict = {
   'usage.readFail': 'Não deu para ler o consumo ({code})',
   'usage.offline': 'Sem conexão com a máquina que roda os bots.',
 
-  'about.noLocal': 'Sem conexão com o EverBot deste computador',
+  'about.noLocal': 'Sem conexão com o Steadbot deste computador',
   'about.upgradeTo': 'Atualizar para {v}',
   'about.upgrading': 'Atualizando…',
   'about.upgradedRestart': 'Atualizado e reiniciando; reconecta em alguns segundos.',
@@ -646,9 +646,9 @@ export const pt: Dict = {
   'err.timeout': 'Esperou demais sem resposta',
   'err.unreachable': 'Não dá para alcançar aquela máquina',
   'err.failed': 'Falhou',
-  'err.noLocalEverbot': 'Sem conexão com o EverBot deste computador: {why}',
+  'err.noLocalSteadbot': 'Sem conexão com o Steadbot deste computador: {why}',
   'err.upgradeTimeout': 'A atualização estourou o tempo; a máquina pode estar compilando ainda — recarregue em alguns minutos',
-  'err.localEverbotDown': 'Sem conexão com o EverBot deste computador; talvez não esteja rodando',
+  'err.localSteadbotDown': 'Sem conexão com o Steadbot deste computador; talvez não esteja rodando',
   'err.installLinkLost': 'A conexão com o serviço local caiu e a instalação parou. Tente de novo.',
   'err.noPairingCode': 'Nenhum código de pareamento voltou',
 

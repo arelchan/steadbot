@@ -116,7 +116,7 @@ export function Sidebar() {
     <aside className="col sidebar">
       <Resizer col="sidebar" edge="right" />
       <div className="hd">
-        <h1>EverBot</h1>
+        <h1>Steadbot</h1>
         <div className="menu-wrap" ref={menuRef}>
           <button className={cx('iconbtn', menu && 'on')} title={t('side.new')} onClick={() => setMenu(!menu)}>＋</button>
           {menu && (

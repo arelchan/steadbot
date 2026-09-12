@@ -184,7 +184,7 @@ export class WeixinBridge implements Bridge {
           msg: {
             from_user_id: '',
             to_user_id: target,
-            client_id: `everbot-${randomUUID().slice(0, 12)}`,
+            client_id: `steadbot-${randomUUID().slice(0, 12)}`,
             message_type: FROM_BOT,
             message_state: 2,
             context_token: ctx,

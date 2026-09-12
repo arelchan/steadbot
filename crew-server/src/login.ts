@@ -128,12 +128,12 @@ export class LoginDesk {
               .filter(({ r }) => r.width >= 120 && r.width <= 640 && Math.abs(r.width - r.height) / Math.max(r.width, r.height) < 0.2)
               .sort((a, b) => b.r.width - a.r.width)[0];
             if (!fit) return null;
-            fit.e.setAttribute('data-everbot-qr', '1');
+            fit.e.setAttribute('data-steadbot-qr', '1');
             return true;
           })
           .catch(() => null);
         if (found) {
-          const auto = await crop('[data-everbot-qr="1"]').catch(() => undefined);
+          const auto = await crop('[data-steadbot-qr="1"]').catch(() => undefined);
           if (auto) return auto;
         }
       }

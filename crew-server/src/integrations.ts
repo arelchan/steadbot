@@ -101,10 +101,10 @@ export async function seedIntegrations(store: CrewStore) {
     const available = config.localAgents && (await whichBin(a.bin));
     const acp = available ? !!(await acpLaunch(a)) : false;
     const existing = store.data.integrations.find((i) => i.kind === 'agent' && i.agent === a.agent);
-    // On a remote server (token-gated) the agents live on the user's computer, which lends them while its EverBot is open (host.ts).
+    // On a remote server (token-gated) the agents live on the user's computer, which lends them while its Steadbot is open (host.ts).
     const note = !available
       ? config.authToken
-        ? `这台机器上没有 ${a.name}。你的电脑上装了它、并开着 EverBot 时，bot 可以借用电脑上的`
+        ? `这台机器上没有 ${a.name}。你的电脑上装了它、并开着 Steadbot 时，bot 可以借用电脑上的`
         : `本机没有 ${a.bin} 命令；装好后点「重新检测」`
       : acp
         ? `本机已安装 · ACP 接入（流式、可见工具调用、权限确认、会话延续）`

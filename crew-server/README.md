@@ -1,7 +1,7 @@
-# EverBot · 服务端（crew-server，基于 pi）
+# Steadbot · 服务端（crew-server，基于 pi）
 
-> 产品名 EverBot。目录仍叫 `crew-server`，数据目录仍是 `~/.crew`，环境变量仍是 `CREW_*`；这些内部名字在建独立开源仓库时统一迁移。
-> 本地一键启动：仓库根目录 `bash everbot.sh`。
+> 产品名 Steadbot。目录仍叫 `crew-server`，数据目录仍是 `~/.crew`，环境变量仍是 `CREW_*`；这些内部名字在建独立开源仓库时统一迁移。
+> 本地一键启动：仓库根目录 `bash steadbot.sh`。
 
 每个 bot 是一个 [pi](https://github.com/earendil-works/pi) `AgentSession`；事项、拍板、动作、记忆都是 pi Extension；前端通过 WebSocket 连进来。设计文档见 [../bot-crew/docs/pi-integration-plan.md](../bot-crew/docs/pi-integration-plan.md)。
 

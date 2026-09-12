@@ -429,7 +429,7 @@ export const ru: Dict = {
   'usage.readFail': 'Не удалось прочитать расход ({code})',
   'usage.offline': 'Нет связи с машиной, на которой работают боты.',
 
-  'about.noLocal': 'Нет связи с EverBot на этом компьютере',
+  'about.noLocal': 'Нет связи с Steadbot на этом компьютере',
   'about.upgradeTo': 'Обновить до {v}',
   'about.upgrading': 'Обновляется…',
   'about.upgradedRestart': 'Обновлено, идёт перезапуск; связь вернётся через несколько секунд.',
@@ -696,9 +696,9 @@ export const ru: Dict = {
   'err.timeout': 'Слишком долго ждали ответа',
   'err.unreachable': 'Не удаётся связаться с той машиной',
   'err.failed': 'Не удалось',
-  'err.noLocalEverbot': 'Нет связи с EverBot на этом компьютере: {why}',
+  'err.noLocalSteadbot': 'Нет связи с Steadbot на этом компьютере: {why}',
   'err.upgradeTimeout': 'Обновление не уложилось во время; возможно, машина ещё собирает — обновите страницу через несколько минут',
-  'err.localEverbotDown': 'Нет связи с EverBot на этом компьютере; возможно, он не запущен',
+  'err.localSteadbotDown': 'Нет связи с Steadbot на этом компьютере; возможно, он не запущен',
   'err.installLinkLost': 'Связь с локальным сервисом оборвалась, установка остановлена. Попробуйте ещё раз.',
   'err.noPairingCode': 'Код связи не пришёл',
 
