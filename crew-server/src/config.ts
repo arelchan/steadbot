@@ -32,8 +32,8 @@ interface FileConfig {
   modelInfo?: ModelInfo;
   keys?: Record<string, string>; // e.g. { ANTHROPIC_API_KEY: "...", OPENROUTER_API_KEY: "..." }
   /**
-   * 设置 › 模型: one key per row ("model", "visionModel", …). A row left empty borrows the first key set on the
-   * same provider, so nobody pastes the same key eight times — but every row can hold its own.
+   * 设置 › 模型: one key per row ("model", "visionModel", …), used by that row alone. A row left empty runs on
+   * whatever the machine was deployed with (`keys` / env), and on nothing if there is nothing.
    */
   slotKeys?: Record<string, string>;
   /** @deprecated keys by provider, from the first version of that page; read as a last resort. */

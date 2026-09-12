@@ -196,8 +196,8 @@ export class BotManager extends EventEmitter {
    * is saved — a key or a model changed on the page has to be true on the next turn, not the next restart.
    */
   pickModels(fakeFactory: () => FakeBrain) {
-    // Each row resolves on the provider that carries *its* key — its own when it has one, the shared provider
-    // when it borrows (models.ts). Everything below therefore goes through `resolve(slot, …)`, never a bare id.
+    // Each row resolves on the provider that carries *its* key — a clone when the row has one of its own, the
+    // plain provider otherwise (models.ts). So every pick goes through `providerForSlot`, never a bare provider id.
     const pick = (slot: SlotId, spec?: string, as?: { vision?: boolean }) => {
       if (!spec) return undefined;
       const i = spec.indexOf('/');
@@ -264,8 +264,9 @@ export class BotManager extends EventEmitter {
    *
    * pi holds one credential per provider, so a row that carries its own key cannot share the provider with a row
    * that carries another. It gets a clone instead — same base URL, same api, same model list, its own key — under
-   * `<provider>#<row>`. Re-registered on every pick so a key changed on the page is live on the next turn. Rows
-   * that borrow stay on the plain provider, which `applyProviderKeys` has already keyed.
+   * `<provider>#<row>`. Re-registered on every pick so a key changed on the page is live on the next turn. A row
+   * with no key of its own stays on the plain provider, keyed by `applyProviderKeys` from the environment if the
+   * deployment put anything there.
    */
   private providerForSlot(slot: SlotId, base: string): string | undefined {
     if (!this.modelRuntime.getProvider(base)) return undefined;

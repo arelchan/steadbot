@@ -26,7 +26,7 @@ export interface SlotDef {
   needs: 'chat' | 'vision' | 'image' | 'embed' | 'rerank';
   /** the providers that can serve this row at all; absent means any of them */
   only?: string[];
-  /** left empty, this row borrows another one */
+  /** left empty, this row runs on another row's model */
   inherits?: SlotId;
   /** left empty, this row falls back to a model the product ships with */
   fallback?: string;
@@ -150,12 +150,12 @@ export const useRuntime = (rt: ModelRuntime) => {
 /**
  * Whose key a row uses.
  *
- * One row, one key — that is the rule the page is built on. But nobody should paste the same OpenRouter key eight
- * times, so a row with nothing of its own borrows the first key set on the same provider, and failing that
- * whatever the deployment left in the environment. `own` is the row's own, `borrowed` names the row it is
- * borrowing from, `ambient` is the environment.
+ * One row, one key, and no reaching sideways: a row runs on the key typed into it. The one exception is not
+ * another row but the machine — a deployment that put a key in the environment is paying for every row that has
+ * not been given one, which is how the hosted box runs and how an open-source checkout with `OPENROUTER_API_KEY`
+ * set starts working without touching the page.
  */
-export type KeySource = { kind: 'own' } | { kind: 'borrowed'; from: SlotId } | { kind: 'ambient' };
+export type KeySource = { kind: 'own' } | { kind: 'ambient' };
 
 /** Which provider a row goes to, even before it has a model: a row pinned to one provider is on it either way. */
 export function providerOfSlot(slot: SlotId): string | undefined {
@@ -167,13 +167,7 @@ export function keyOf(slot: SlotId): { key: string; source: KeySource } | undefi
   const own = config.slotKeys[slot]?.trim();
   if (own) return { key: own, source: { kind: 'own' } };
   const provider = providerOfSlot(slot);
-  if (!provider) return undefined;
-  for (const other of SLOTS) {
-    if (other.id === slot) continue;
-    const k = config.slotKeys[other.id]?.trim();
-    if (k && providerOfSlot(other.id) === provider) return { key: k, source: { kind: 'borrowed', from: other.id } };
-  }
-  const ambient = ambientKey(provider);
+  const ambient = provider ? ambientKey(provider) : undefined;
   return ambient ? { key: ambient, source: { kind: 'ambient' } } : undefined;
 }
 
@@ -235,9 +229,12 @@ export function effectiveOf(id: SlotId, seen = new Set<SlotId>()): string | unde
   return def.fallback;
 }
 
-/** Whether anything at all can pay for this provider right now: a row's key, an older one, or the environment. */
+/**
+ * Whether a row moved to this provider would already have something to pay with — the environment, or a key pi
+ * has stored. Deliberately not counting another row's key: that key is that row's, so a row that would need one
+ * of its own is asked for one the moment the provider is picked.
+ */
 function anyKeyFor(rt: ModelRuntime, id: string): boolean {
-  for (const s of SLOTS) if (config.slotKeys[s.id]?.trim() && providerOfSlot(s.id) === id) return true;
   return !!ambientKey(id) || rt.getProviderAuthStatus(id).configured;
 }
 
@@ -319,21 +316,20 @@ export function migrateSlots(rt: ModelRuntime | undefined): void {
 }
 
 /**
- * Give pi a key per provider, for the rows that do not carry one of their own.
- *
- * pi holds one credential per provider, so this is only the shared floor: a row with its own key is resolved onto
- * a provider of its own instead (bots.ts `slotProvider`). Runtime keys are an in-memory overlay; config.json is
- * where they live.
+ * Hand pi whatever the machine itself is paying with — the environment, and the older per-provider keys from
+ * before the page existed. Rows with their own key do not come through here at all: pi holds one credential per
+ * provider, so such a row is resolved onto a provider of its own instead (bots.ts `providerForSlot`). Runtime
+ * keys are an in-memory overlay; config.json is where they live.
  */
 export async function applyProviderKeys(rt: ModelRuntime | undefined): Promise<void> {
   if (!rt) return;
   const floor = new Map<string, string>();
+  for (const [id, key] of Object.entries(config.providerKeys)) if (key?.trim()) floor.set(id, key.trim());
   for (const def of SLOTS) {
-    const key = config.slotKeys[def.id]?.trim();
     const provider = providerOfSlot(def.id);
-    if (key && provider && !floor.has(provider)) floor.set(provider, key);
+    const ambient = provider && !floor.has(provider) ? ambientKey(provider) : undefined;
+    if (provider && ambient) floor.set(provider, ambient);
   }
-  for (const [id, key] of Object.entries(config.providerKeys)) if (key?.trim() && !floor.has(id)) floor.set(id, key.trim());
   for (const [id, key] of floor) {
     if (!rt.getProvider(id)) continue;
     await rt.setRuntimeApiKey(id, key).catch((e: Error) => console.warn(`[crew] ${id} 的钥匙没被接受：`, e.message));
@@ -345,7 +341,7 @@ export const MEMORY_SLOTS: SlotId[] = ['model', 'lightModel', 'visionModel', 'em
 
 export interface ModelsPatch {
   slots?: Partial<Record<SlotId, string | null>>;
-  /** row → the key that row uses; null takes the row's own key away and lets it borrow again */
+  /** row → the key that row uses; null takes it away, leaving the row on whatever the machine pays with */
   keys?: Partial<Record<SlotId, string | null>>;
   /** metadata for a model id the user typed by hand */
   meta?: Record<string, ModelInfo | null>;

@@ -13,8 +13,8 @@ import type { ModelChoice, ModelMeta, ModelSlot, ModelsPage, ModelsPatch, SlotId
  * which model. Providers are what the rows are made of, not a step to walk through first; nobody sits down
  * wanting to "add Anthropic", they want the eyes to be better.
  *
- * A row with no key of its own borrows the first key set on the same provider, and says whose it is borrowing —
- * so one OpenRouter key is typed once, and a row that needs its own account can still have one.
+ * Keys belong to the row and only to the row: what is typed here pays for this job and nothing else. A row left
+ * empty runs on whatever the machine itself was deployed with, and says so.
  */
 
 const MANUAL = '__manual__';
@@ -143,9 +143,9 @@ function SlotView({
           ? t('models.default', { model: short(slot.fallback) })
           : t('models.none');
 
-  // One word about the key, and clicking it opens the field. Anything more — whose key this row is borrowing,
-  // how to stop using its own — belongs in the field itself, not in eight repeated lines of note text.
-  const keyWord = slot.blocked ? t('models.needKey') : slot.keyFrom?.kind === 'own' ? t('models.ownKey') : t('models.sharedKey');
+  // One word about the key, and clicking it opens the field. Anything more belongs in the field itself, not in
+  // eight repeated lines of note text.
+  const keyWord = slot.blocked ? t('models.needKey') : slot.keyFrom?.kind === 'own' ? t('models.ownKey') : t('models.envKey');
 
   return (
     <>
@@ -215,7 +215,6 @@ function SlotView({
         <KeyAsk
           label={provider?.apiKey ?? t('models.keyOf', { who: provider?.name ?? '' })}
           has={!!slot.key}
-          borrowed={slot.keyFrom?.kind === 'borrowed' ? t(`models.slot.${slot.keyFrom.from}`) : undefined}
           onDone={onKey}
         />
       )}
@@ -224,13 +223,13 @@ function SlotView({
   );
 }
 
-/** The one place a key is typed. It never comes back: the server only ever says which row has one, and whose. */
-function KeyAsk({ label, has, borrowed, onDone }: { label: string; has: boolean; borrowed?: string; onDone: (v?: string) => void }) {
+/** The one place a key is typed. It never comes back: the server only ever says which row has one. */
+function KeyAsk({ label, has, onDone }: { label: string; has: boolean; onDone: (v?: string) => void }) {
   const t = useT();
   const [v, setV] = useState('');
   return (
     <div className="key-ask">
-      <span className="ka-l">{borrowed ? t('models.borrowed', { from: borrowed }) : label}</span>
+      <span className="ka-l">{label}</span>
       <input
         className="in mono"
         type="password"

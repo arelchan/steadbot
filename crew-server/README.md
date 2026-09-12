@@ -47,7 +47,7 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
 }
 ```
 
-`slotKeys` **按行存**：一行一把钥匙。某一行没有自己的，就借同一家里第一把填了的（`keyOf`），所以一把 OpenRouter key 只用填一次，而需要单独账号的那一行仍然能有自己的。pi 每家 provider 只放得下一把凭据，所以有自己钥匙的行会落到一个克隆出来的 provider 上（`openrouter#visionModel`，同样的 baseUrl 和模型表、自己的 key，见 `bots.ts` 的 `providerForSlot`）；记账时会把 `#` 后面切掉，账上仍然是 openrouter。老的 `keys`（按环境变量名）和 `providerKeys`（按 provider）仍然读，作为谁都没填时的兜底。`modelMeta` 按 `provider/model-id` 记 pi 目录里还没有的新模型的上下文和价格——页面上填了模型 id 之后会就地问；老的全局 `modelInfo` 仍然作为兜底。`composioApiKey` 和 `googleClientId/Secret` 是产品级的（连接器走 Composio 托管 OAuth），不在页面上。当前产品配置：LLM 走 OpenRouter 的 `deepseek/deepseek-v4-flash`，头像走 `google/gemini-3.1-flash-image`。环境变量 `CREW_HOME / CREW_PORT / CREW_MODEL / CREW_FAKE=1` 可覆盖。
+`slotKeys` **按行存**：一行一把钥匙，只给这一行用，不跨行借（`keyOf`）。行里没填，就用这台机器部署时留下的（`keys` 里的环境变量 / `providerKeys`），再没有就是「还没有钥匙」。pi 每家 provider 只放得下一把凭据，所以有自己钥匙的行会落到一个克隆出来的 provider 上（`openrouter#visionModel`，同样的 baseUrl 和模型表、自己的 key，见 `bots.ts` 的 `providerForSlot`）；记账时会把 `#` 后面切掉，账上仍然是 openrouter。`modelMeta` 按 `provider/model-id` 记 pi 目录里还没有的新模型的上下文和价格——页面上填了模型 id 之后会就地问；老的全局 `modelInfo` 仍然作为兜底。`composioApiKey` 和 `googleClientId/Secret` 是产品级的（连接器走 Composio 托管 OAuth），不在页面上。当前产品配置：LLM 走 OpenRouter 的 `deepseek/deepseek-v4-flash`，头像走 `google/gemini-3.1-flash-image`。环境变量 `CREW_HOME / CREW_PORT / CREW_MODEL / CREW_FAKE=1` 可覆盖。
 
 需要的模型：
 

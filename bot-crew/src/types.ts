@@ -288,12 +288,12 @@ export interface ModelProvider {
   /** 这家的 key 叫什么（「OpenRouter API key」） */
   apiKey?: string;
   oauth?: { label: string; subscription: boolean };
-  /** 已经有行给它配了钥匙 */
+  /** 环境里或 pi 那边本来就有这家的钥匙 */
   keyed?: boolean;
 }
 
-/** 这一行用的钥匙是谁的：自己的 / 跟别的行借的 / 环境里本来就有的 */
-export type KeySource = { kind: 'own' } | { kind: 'borrowed'; from: SlotId } | { kind: 'ambient' };
+/** 这一行用的钥匙是谁的：自己填的，还是部署时留在环境里的 */
+export type KeySource = { kind: 'own' } | { kind: 'ambient' };
 
 export interface ModelChoice {
   id: string;

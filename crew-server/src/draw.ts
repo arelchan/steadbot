@@ -77,7 +77,7 @@ export const TIER_HINT: Record<DrawTier, string> = {
  * Which model draws. The table above is the answer unless the user pinned one in 设置 › 模型 — pinning is the
  * escape hatch for "I want everything drawn by this", and leaving it empty is what every install should do.
  */
-/** Whose key pays for a picture: the 画图 row's own, else whatever it borrows (models.ts). */
+/** Whose key pays for a picture: the 画图 row's own, else what the machine was deployed with (models.ts). */
 export const drawKey = () => endpointOf('imageModel')?.key;
 
 export const modelIdFor = (style?: string, tier?: DrawTier) =>
