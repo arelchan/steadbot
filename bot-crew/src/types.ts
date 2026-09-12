@@ -599,6 +599,10 @@ export interface CrewEvent {
 }
 
 export interface State {
+  /** 设置 › 模型 and 设置 › 用量, pushed by the server over the socket. Never persisted: what they say has to be
+   *  current or absent, so a new window shows a skeleton until this connection's own answer arrives. */
+  models?: ModelsPage;
+  usage?: UsageReport;
   /** the server this page is connected to (undefined until the first snapshot) */
   runtime?: RuntimeInfo;
   settings?: CrewSettings;

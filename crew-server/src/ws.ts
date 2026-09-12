@@ -14,6 +14,11 @@ export interface WsHandlers {
   snapshotMode: () => 'live' | 'fake';
   /** Extra snapshot fields not owned by the store (e.g. skills). */
   snapshotExtra?: () => Partial<Snapshot>;
+  /**
+   * Sent to a client right after its snapshot. For things the App will want but nothing on screen is waiting for —
+   * they ride the connection that is already open instead of becoming a request when a window is opened.
+   */
+  afterSnapshot?: (reply: (m: ServerMessage) => void) => void;
   /** Extra HTTP routes (e.g. IM callbacks). Return true when handled. */
   http?: (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
   onClient: (msg: ClientMessage, reply: (m: ServerMessage) => void) => void | Promise<void>;
@@ -151,6 +156,8 @@ export function startServer(store: CrewStore, port: number, avatarsDir: string, 
       state: { ...store.data, messages: store.data.messages.filter((m) => !fromIm(m.via)), pendings: store.data.pendings.filter((p) => !fromIm(p.via)), integrations: store.data.integrations.map(redact), ...(handlers.snapshotExtra?.() ?? {}) },
       mode: handlers.snapshotMode(),
     });
+    // After, never inside: the snapshot is what the first paint waits for.
+    setImmediate(() => handlers.afterSnapshot?.(reply));
     socket.on('message', async (raw) => {
       let msg: ClientMessage;
       try {

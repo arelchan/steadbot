@@ -39,8 +39,13 @@ export interface UsageEntry {
 const file = () => join(config.home, 'usage.jsonl');
 const KEEP_DAYS = 120;
 
+/** Bumped by every write, so whoever is showing the ledger knows there is something new to show. */
+let version = 0;
+export const ledgerVersion = () => version;
+
 /** One line per call. Append-only; the report reads it back (usage.ts). */
 export function record(e: UsageEntry): void {
+  version += 1;
   try {
     appendFileSync(file(), JSON.stringify(e) + '\n');
   } catch (err) {

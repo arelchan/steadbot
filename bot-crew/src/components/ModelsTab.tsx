@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useStore } from '../store';
 import { Row, Pick, Skel } from './Field';
 import { cx } from '../utils';
 import { useT } from '../i18n';
@@ -25,7 +26,10 @@ const idOf = (spec?: string) => (spec && spec.includes('/') ? spec.slice(spec.in
 
 export function ModelsTab() {
   const t = useT();
-  const [page, setPage] = useState<ModelsPage>();
+  // The server pushes this page over the socket the App is already on — on connect, and again whenever it
+  // changes. Local state on top of it, so a choice draws before the save has been acknowledged.
+  const pushed = useStore((s) => s.models);
+  const [page, setPage] = useState<ModelsPage | undefined>(pushed);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   /** the row whose key field is open right now */
@@ -34,6 +38,11 @@ export function ModelsTab() {
   const asked = useRef(new Set<string>());
 
   useEffect(() => {
+    if (pushed) setPage(pushed);
+  }, [pushed]);
+  // A runtime from before the push existed: ask it the old way, once.
+  useEffect(() => {
+    if (pushed) return;
     let alive = true;
     fetchModels()
       .then((p) => alive && setPage(p))

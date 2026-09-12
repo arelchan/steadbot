@@ -32,6 +32,7 @@ import { applyProviderKeys, modelsPage, saveModels, type ModelsPatch } from './m
 import { fetchAssets } from './assets.ts';
 import { versionLine } from './version.ts';
 import { usageReport } from './usage.ts';
+import { ledgerVersion } from './meter.ts';
 import { Runtime } from './runtime.ts';
 import { remoteInstall } from './remote-install.ts';
 import { ensureSteward, STEWARD_FIRST_QUERY, STEWARD_SKILL_NAME, loadMachine, connectMachine, surveyMachine, probeMachine, portOf } from './machine.ts';
@@ -923,11 +924,25 @@ async function main() {
   void upgrader.refreshLatest();
   setInterval(() => void upgrader.refreshLatest().then(broadcastUpgrade), 10 * 60_000).unref();
   const broadcastUpgrade = () => server?.broadcast({ type: 'upgrade_status', status: upgrader.status() });
+  // Spending changes with every call a bot makes; the 用量 page is pushed when it has actually moved, at most
+  // once every half minute, so an open window is current without anyone asking for it.
+  let sentLedger = ledgerVersion();
+  setInterval(() => {
+    if (ledgerVersion() === sentLedger) return;
+    sentLedger = ledgerVersion();
+    server?.broadcast({ type: 'usage', report: usageReport(store, 30) });
+  }, 30_000).unref();
   upgrader.on('log', (line: string) => server?.broadcast({ type: 'upgrade_log', line }));
 
   const server = startServer(store, config.port, config.avatarsDir, {
     snapshotMode: () => bots.mode,
     snapshotExtra: () => ({ runtime: runtime.info(), skills: skills.list(store.data.bots.map((b) => b.id)), library: library.list(), typing: store.typingSnapshot(), upgrade: upgrader.status() }),
+    // 设置 › 模型 and 设置 › 用量 used to be a request each, made when the window was opened. They are small and
+    // the socket is already up, so they arrive with the connection instead — and are pushed again when they change.
+    afterSnapshot: (reply) => {
+      reply({ type: 'models', page: modelsPage(bots.modelRuntime) });
+      reply({ type: 'usage', report: usageReport(store, 30) });
+    },
     // Only the runtime that runs the bots borrows agents; a signpost has no bots to lend them to.
     onHost: active ? (socket) => hosts.attach(socket) : undefined,
     onVnc: active ? (req, socket, head) => desktops.proxy(req, socket, head) : undefined,
@@ -1071,7 +1086,10 @@ async function main() {
             everos.stopMemory();
             void everos.startMemory();
           }
-          return json(200, modelsPage(bots.modelRuntime, want));
+          const page = modelsPage(bots.modelRuntime, want);
+          // Every window showing this page gets the change, not just the one that made it.
+          if (touched.keys || touched.models) server?.broadcast({ type: 'models', page: modelsPage(bots.modelRuntime) });
+          return json(200, page);
         }
         return json(200, modelsPage(bots.modelRuntime, want));
       }

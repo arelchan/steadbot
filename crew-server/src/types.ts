@@ -1,4 +1,5 @@
 /* Shared domain types. Mirrors bot-crew/src/types.ts; the wire protocol lives at the bottom. */
+import type { ModelsPage } from './models.ts';
 
 export type Channel = 'app' | 'feishu' | 'wechat' | 'weixin' | 'slack' | 'telegram' | 'discord' | 'whatsapp';
 export type Autonomy = 'tell' | 'prepare' | 'do';
@@ -563,6 +564,7 @@ export type ServerMessage =
   | { type: 'upgrade_log'; line: string }
   | { type: 'upgrade_done'; error?: string; restarting?: boolean }
   | { type: 'usage'; report: UsageReport }
+  | { type: 'models'; page: ModelsPage }
   | { type: 'snapshot'; state: Snapshot; mode: 'live' | 'fake' }
   | { type: 'message'; message: Message }
   | { type: 'message_patch'; id: string; patch: Partial<Message> }

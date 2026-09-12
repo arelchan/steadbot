@@ -4,7 +4,6 @@ import { useStore, setSettings } from '../store';
 import type { UpgradeStatus, UsageReport } from '../types';
 import { fetchUpgradeStatus, runUpgrade } from '../services/upgrade';
 import { fetchUsage } from '../services/usage';
-import { fetchModels } from '../services/models';
 import { ACCENTS, SCALES, THEMES, getAccent, getDesktopNotify, getScale, getTheme, notifySupported, setAccent, setDesktopNotify, setScale, setTheme, type Accent, type Scale, type Theme } from '../services/theme';
 import { RuntimeBody } from './RuntimeView';
 import { ModelsTab } from './ModelsTab';
@@ -32,12 +31,6 @@ export function SettingsModal({ tab: initial = 'general', onClose }: { tab?: Tab
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  // The two tabs that have to ask the server something are warmed the moment this window opens, so clicking
-  // 模型 or 用量 lands on an answer that is already here rather than on a request that starts then.
-  useEffect(() => {
-    void fetchModels().catch(() => undefined);
-    void fetchUsage().catch(() => undefined);
-  }, []);
   return createPortal(
     <div className="overlay" onClick={onClose}>
       <div className="modal cfg" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal aria-label={t('set.title')}>
@@ -293,12 +286,17 @@ const fmtMoney = (n: number) => (n >= 1 ? `$${n.toFixed(2)}` : n > 0 ? `$${n.toF
 
 function Usage() {
   const t = useT();
-  const [report, setReport] = useState<UsageReport>();
+  // Pushed over the socket with the connection, and again whenever anything was spent.
+  const pushed = useStore((s) => s.usage);
+  const [fetched, setFetched] = useState<UsageReport>();
+  const report = pushed ?? fetched;
   const [err, setErr] = useState('');
+  // A runtime from before the push existed: ask it the old way, once.
   useEffect(() => {
+    if (pushed) return;
     let alive = true;
     fetchUsage()
-      .then((x) => alive && setReport(x))
+      .then((x) => alive && setFetched(x))
       .catch((e: Error) => {
         if (!alive) return;
         setErr(e.message === 'old' ? t('usage.oldVersion') : /Failed to fetch|NetworkError/.test(e.message) ? t('usage.offline') : t('usage.readFail', { code: e.message }));

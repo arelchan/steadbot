@@ -39,6 +39,9 @@ function load(): State {
         layout: { ...DEFAULT_LAYOUT, ...(parsed.layout ?? {}) },
         focusMessageId: undefined,
         online: undefined,
+        // Pushed by the server on every connection; never restored from disk (see State).
+        models: undefined,
+        usage: undefined,
       };
     }
   } catch {
@@ -49,7 +52,7 @@ function load(): State {
 
 function persist() {
   try {
-    const { toasts: _t, typing: _y, panel: _p, focusMessageId: _f, online: _o, ...rest } = state;
+    const { toasts: _t, typing: _y, panel: _p, focusMessageId: _f, online: _o, models: _m, usage: _u, ...rest } = state;
     localStorage.setItem(KEY, JSON.stringify(rest));
   } catch {
     /* ignore */

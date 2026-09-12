@@ -1,8 +1,9 @@
 import { setRuntime, healRuntimeTarget } from './runtime';
 import type { AgentService } from './agent';
 import { showIdentity, getState, setState, select, setTyping, pushToast, resolvePending, removeBot, removeMatter, upsertSkill, upsertIntegration, clearThread, uid, setRemoteSink, remoteApply } from '../store';
-import { botThread, type Action, type Bot, type Channel, type Computer, type CrewEvent, type CrewSettings, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo } from '../types';
+import { botThread, type Action, type Bot, type Channel, type Computer, type CrewEvent, type CrewSettings, type FileRef, type Integration, type LibraryEntry, type Matter, type Message, type Pending, type RuntimeInfo, type SkillDoc, type ThreadId, type Todo, type ModelsPage, type UsageReport } from '../types';
 import { t } from '../i18n';
+import { absorbModels } from './models';
 
 type Snapshot = Pick<ReturnType<typeof getState>, 'bots' | 'matters' | 'todos' | 'pendings' | 'actions' | 'messages' | 'sharedProfile'> & { events?: CrewEvent[]; skills?: SkillDoc[]; library?: LibraryEntry[]; integrations?: Integration[]; typing?: Record<string, string[]>; runtime?: RuntimeInfo; settings?: CrewSettings; computer?: Computer };
 
@@ -35,6 +36,8 @@ type ServerMessage =
   | { type: 'remote_install_log'; line: string }
   | { type: 'remote_install_done'; code?: string; url?: string; error?: string }
   | { type: 'runtime'; runtime: RuntimeInfo }
+  | { type: 'models'; page: ModelsPage }
+  | { type: 'usage'; report: UsageReport }
   | { type: 'migrated'; direction: 'to' | 'from'; url: string; bots: number }
   | { type: 'error'; error: string };
 
@@ -342,6 +345,13 @@ export class WsAgentService implements AgentService {
           else w.resolve({ code: m.code, url: m.url ?? '' });
           break;
         }
+        // 设置 的两页：连上就送过来，之后变了再送一次，所以打开设置不用再去问一趟。
+        case 'models':
+          setState({ models: absorbModels(m.page) });
+          break;
+        case 'usage':
+          setState({ usage: m.report });
+          break;
         case 'runtime':
           setState({ runtime: m.runtime });
           break;

@@ -13,6 +13,12 @@ const url = (want?: string) => `${httpBase || window.location.origin}/models${wa
 
 let cached: { at: string; page: ModelsPage } | undefined;
 
+/**
+ * A page pushed over the socket goes through the same merge as one that was fetched: the server sends the lists
+ * the eight rows are on, and whatever else this session has already looked up stays.
+ */
+export const absorbModels = (page: ModelsPage): ModelsPage => keep(page);
+
 /** The lists already fetched stay; a page that did not carry them is not a page that says they are gone. */
 function keep(page: ModelsPage): ModelsPage {
   const at = httpBase || window.location.origin;
