@@ -860,6 +860,14 @@ async function main() {
       if (runtime.mode !== 'active' && !['migrate_from', 'upgrade'].includes(msg.type))
         throw new Error(runtime.mode === 'moved' ? `bot 已搬到 ${runtime.movedTo ?? '另一台机器'}，这里只是路牌` : '另一台机器正在运行这些 bot');
       switch (msg.type) {
+        case 'load_more': {
+          // 往上翻。按时间倒着取一页，再正过来发；到头了就说到头了，免得客户端一直问。
+          const all = store.data.messages.filter((m) => m.threadId === msg.threadId && m.ts < msg.before && (!m.via || m.via === 'app'));
+          const limit = Math.min(Math.max(msg.limit ?? 200, 1), 500);
+          const page = all.slice(-limit);
+          reply({ type: 'more_messages', threadId: msg.threadId, messages: page, more: page.length < all.length });
+          break;
+        }
         case 'user_message':
           router.onUserMessage(msg.threadId, msg.text, msg.via ?? 'app', msg.id, msg.files);
           break;

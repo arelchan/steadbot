@@ -45,18 +45,41 @@ function load(): State {
         upgrading: undefined,
       };
     }
-  } catch {
-    /* ignore */
+  } catch (e) {
+    // 一个坏字节就把用户整份本地视图换成 demo 种子数据，而且一个字都不说——
+    // 这里不是"忽略"，是得让人知道。坏的那份挪到一边留着，不要直接盖掉。
+    try {
+      const bad = localStorage.getItem(KEY);
+      if (bad) localStorage.setItem(`${KEY}.corrupt`, bad);
+    } catch {
+      /* 存不下就算了 */
+    }
+    console.error('[crew] 本地缓存读不出来，这次从空的起（坏的那份存在 bot-crew:v1.corrupt）', e);
   }
   return seedState();
 }
 
+/**
+ * 本地只留最近这些条。服务端才是权威，每次连上都会把首屏重新推过来，
+ * 所以这里存的是"下次打开先有东西看"，不是历史的备份。
+ * localStorage 的 5MB 是硬上限，撑破了写入会抛，而且抛得很安静。
+ */
+const KEEP = 500;
+
 function persist() {
+  const { toasts: _t, typing: _y, panel: _p, focusMessageId: _f, online: _o, models: _m, usage: _u, upgrading: _g, ...rest } = state;
+  const trimmed = { ...rest, messages: rest.messages.slice(-KEEP) };
   try {
-    const { toasts: _t, typing: _y, panel: _p, focusMessageId: _f, online: _o, models: _m, usage: _u, upgrading: _g, ...rest } = state;
-    localStorage.setItem(KEY, JSON.stringify(rest));
-  } catch {
-    /* ignore */
+    localStorage.setItem(KEY, JSON.stringify(trimmed));
+  } catch (e) {
+    // 满了。以前这里是 catch {}——于是从某一刻起就再也没存进去过，没有任何人知道。
+    // 丢掉历史再存一次：下次打开少几条旧消息，总好过整个配置都存不下。
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ ...trimmed, messages: trimmed.messages.slice(-50) }));
+      console.warn('[crew] 本地缓存满了，只留了最近 50 条消息', e);
+    } catch (e2) {
+      console.error('[crew] 本地缓存写不进去，这次的改动不会留到下次打开', e2);
+    }
   }
 }
 
@@ -153,6 +176,25 @@ export const setColumnWidth = (k: keyof Layout, px: number) =>
   });
 export const openTask = (todoId: string) => setState({ panel: { mode: 'task', todoId } });
 export const focusMessage = (id?: string) => setState({ focusMessageId: id });
+
+/**
+ * 往上翻拿回来的更早的消息。按 id 去重后并回去——重连时首屏会再给一遍最近那批，
+ * 翻上来的那些不能因此消失。
+ */
+export const prependMessages = (older: Message[]) =>
+  setState((s) => {
+    if (!older.length) return {};
+    const have = new Set(s.messages.map((m) => m.id));
+    const add = older.filter((m) => !have.has(m.id));
+    if (!add.length) return {};
+    return { messages: [...add, ...s.messages].sort((a, b) => a.ts - b.ts) };
+  });
+
+/** 这条线最早那条的时间：往上翻从这里往前要。 */
+export const earliestTs = (threadId: ThreadId) => {
+  const ms = getState().messages.filter((m) => m.threadId === threadId);
+  return ms.length ? Math.min(...ms.map((m) => m.ts)) : Date.now();
+};
 
 export const addMessage = (m: Omit<Message, 'id'> & { id?: string }): Message => {
   const msg: Message = { id: m.id ?? uid(), ...m } as Message;

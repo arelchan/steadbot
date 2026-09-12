@@ -8,7 +8,7 @@ import { basename, extname, join, normalize } from 'node:path';
 import { execFile } from 'node:child_process';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { CrewStore, StoreEvent } from './store.ts';
-import type { Bot, ClientMessage, ServerMessage, Snapshot } from './types.ts';
+import type { Bot, ClientMessage, Message, ServerMessage, Snapshot } from './types.ts';
 
 export interface WsHandlers {
   snapshotMode: () => 'live' | 'fake';
@@ -155,13 +155,26 @@ export function startServer(store: CrewStore, port: number, avatarsDir: string, 
 
   store.on('change', (e: StoreEvent) => broadcast(e));
 
-  wss.on('connection', (socket) => {
+  wss.on('connection', (socket, req) => {
     alive.add(socket);
     socket.on('pong', () => alive.add(socket));
     const reply = (m: ServerMessage) => socket.readyState === WebSocket.OPEN && socket.send(JSON.stringify(m));
+    /**
+     * 首屏每条线最多给多少条。**由客户端在地址里说**（?recent=200），不是服务端一刀切——
+     * 这样就没有"上线顺序"这回事：老客户端不带这个参数，照旧拿全量。
+     * 换成服务端单方面截断的话，老客户端会把截断结果整体写回 localStorage，
+     * 把自己那份完整历史覆盖掉，而且没有任何恢复路径。
+     */
+    const recent = Number(new URL(req.url ?? '/', 'http://x').searchParams.get('recent')) || 0;
+    const head = (all: Message[]) => {
+      if (!recent) return all;
+      const byThread = new Map<string, Message[]>();
+      for (const m of all) (byThread.get(m.threadId) ?? byThread.set(m.threadId, []).get(m.threadId)!).push(m);
+      return [...byThread.values()].flatMap((ms) => ms.slice(-recent)).sort((a, b) => a.ts - b.ts);
+    };
     reply({
       type: 'snapshot',
-      state: { ...store.data, bots: store.data.bots.map(toWire), messages: store.data.messages.filter((m) => !fromIm(m.via)), pendings: store.data.pendings.filter((p) => !fromIm(p.via)), integrations: store.data.integrations.map(redact), ...(handlers.snapshotExtra?.() ?? {}) },
+      state: { ...store.data, bots: store.data.bots.map(toWire), messages: head(store.data.messages.filter((m) => !fromIm(m.via))), pendings: store.data.pendings.filter((p) => !fromIm(p.via)), integrations: store.data.integrations.map(redact), ...(handlers.snapshotExtra?.() ?? {}) },
       mode: handlers.snapshotMode(),
     });
     // After, never inside: the snapshot is what the first paint waits for.

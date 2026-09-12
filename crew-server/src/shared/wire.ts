@@ -33,6 +33,8 @@ export interface Snapshot {
 /* ---------------- wire protocol ---------------- */
 
 export type ClientMessage =
+  /** 往上翻：这条线在 before 之前还有没有更早的。首屏只给最近若干条（ws 地址里的 recent）。 */
+  | { type: 'load_more'; threadId: ThreadId; before: number; limit?: number }
   | { type: 'user_message'; id?: string; threadId: ThreadId; text: string; via?: Channel; files?: FileRef[] }
   | { type: 'migrate_to'; url: string; token: string; force?: boolean }
   | { type: 'remote_install'; host: string; user: string; password?: string; domain?: string }
@@ -114,4 +116,6 @@ export type ServerMessage =
   | { type: 'integration'; integration: Integration }
   | { type: 'integration_deleted'; id: string }
   | { type: 'thread_cleared'; threadId: ThreadId }
+  /** 往上翻的结果。more=false 表示到头了，别再问。 */
+  | { type: 'more_messages'; threadId: ThreadId; messages: Message[]; more: boolean }
   | { type: 'error'; error: string };

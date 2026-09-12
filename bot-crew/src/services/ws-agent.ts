@@ -1,6 +1,6 @@
 import { setRuntime, healRuntimeTarget } from './runtime';
 import type { AgentService } from './agent';
-import { showIdentity, getState, setState, select, setTyping, pushToast, resolvePending, removeBot, removeMatter, upsertSkill, upsertIntegration, clearThread, uid, setRemoteSink, remoteApply } from '../store';
+import { showIdentity, getState, setState, select, setTyping, pushToast, resolvePending, removeBot, removeMatter, upsertSkill, upsertIntegration, clearThread, prependMessages, earliestTs, uid, setRemoteSink, remoteApply } from '../store';
 import { botThread, type Channel, type FileRef, type ThreadId } from '../types';
 import type { ClientMessage, ServerMessage } from '../types';
 import { t } from '../i18n';
@@ -27,6 +27,10 @@ export class WsAgentService implements AgentService {
   private outbox: string[] = [];
   private retry = 0;
   private timer: ReturnType<typeof setTimeout> | undefined;
+  /** 这条线已经翻到头了，别再问 */
+  private exhausted: Record<string, boolean> = {};
+  /** 这条线有一次 load_more 在路上，别重复问（滚动会连着触发好几次） */
+  private pendingMore = new Set<string>();
   private stopped = false;
   mode: 'live' | 'fake' | 'offline' = 'offline';
   private url: string;
@@ -191,6 +195,13 @@ export class WsAgentService implements AgentService {
     this.send({ type: 'computer_power', on });
   }
 
+  /** 往上翻。已经翻到头、或者上一次还在路上，就不重复要（滚到顶会连着触发好几次）。 */
+  loadMore(threadId: ThreadId) {
+    if (this.exhausted[threadId] || this.pendingMore.has(threadId)) return;
+    this.pendingMore.add(threadId);
+    this.send({ type: 'load_more', threadId, before: earliestTs(threadId) });
+  }
+
   dropEvent(id: string) {
     this.send({ type: 'drop_event', id });
   }
@@ -336,6 +347,12 @@ export class WsAgentService implements AgentService {
         case 'migrated': {
           const w = this.migrateWaiters.splice(0);
           w.forEach((x) => x.resolve());
+          break;
+        }
+        case 'more_messages': {
+          prependMessages(m.messages);
+          this.exhausted[m.threadId] = !m.more;
+          this.pendingMore.delete(m.threadId);
           break;
         }
         case 'error': {

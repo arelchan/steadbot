@@ -53,6 +53,8 @@ export interface AgentService {
   /** 例行任务试跑：不等到点，现在就让它跑一次 */
   runRoutine(botId: string, routineId: string): void;
   dropEvent(id: string): void;
+  /** 往上翻：把这条线更早的消息要回来。首屏只给最近若干条，够不着的靠它。 */
+  loadMore(threadId: ThreadId): void;
   start(): void;
   stop(): void;
 }
@@ -425,6 +427,9 @@ export class MockAgentService implements AgentService {
   }
   computerFocus() {
     /* mock: no computer */
+  }
+  loadMore() {
+    /* 本地 mock 里全部历史都在手上，没有"更早的" */
   }
   dropEvent() {
     /* mock: the store already dropped it */

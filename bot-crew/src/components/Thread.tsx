@@ -66,6 +66,21 @@ export function Thread({ threadId }: { threadId: ThreadId }) {
     el.scrollTop = el.scrollHeight;
   }, [messages.length, typing.length, threadId, focusId]);
 
+  /**
+   * 翻到顶就把更早的要回来。首屏每条线只给最近 200 条（ws 地址里的 recent），
+   * 够不着的在这里补。要回来之后把滚动位置按高度差补上，不然内容会在手底下跳。
+   */
+  const onScroll = () => {
+    const el = scroller.current;
+    if (!el || el.scrollTop > 80) return;
+    const before = el.scrollHeight;
+    agent.loadMore(threadId);
+    requestAnimationFrame(() => {
+      const grew = el.scrollHeight - before;
+      if (grew > 0) el.scrollTop += grew;
+    });
+  };
+
   if (!bot && !matter) return <div className="col thread"><div className="empty">{t('thread.gone')}</div></div>;
 
   return (
@@ -79,7 +94,7 @@ export function Thread({ threadId }: { threadId: ThreadId }) {
         </div>
       </header>
 
-      <div className="msgs" ref={scroller}>
+      <div className="msgs" ref={scroller} onScroll={onScroll}>
         {messages.map((m, i) => {
           const prev = messages[i - 1];
           const showDay = !prev || dayKey(prev.ts) !== dayKey(m.ts);

@@ -10,7 +10,15 @@ export type RuntimeTarget = { kind: 'local' } | { kind: 'remote'; url: string; t
 const KEY = 'bot-crew:runtime';
 const ENV_WS = (import.meta as unknown as { env: Record<string, string | undefined> }).env.VITE_CREW_WS;
 
-export const localWsUrl = ENV_WS ?? '';
+/**
+ * 首屏每条线最多要多少条历史。写在地址里，是因为快照在连上那一刻就发出来了，
+ * 服务端没机会先问客户端要多少；而让服务端一刀切的话，老客户端会把截断结果
+ * 整体写回 localStorage，把自己那份完整历史盖掉，还没有恢复路径。
+ */
+export const RECENT = 200;
+const withRecent = (u: string) => (u ? `${u}${u.includes('?') ? '&' : '?'}recent=${RECENT}` : u);
+
+export const localWsUrl = withRecent(ENV_WS ?? '');
 export const localHttpBase = ENV_WS ? ENV_WS.replace(/^ws(s?):\/\//, 'http$1://').replace(/\/ws$/, '') : '';
 
 export function getRuntime(): RuntimeTarget {
@@ -38,7 +46,7 @@ export function setRuntime(t: RuntimeTarget) {
 const target = getRuntime();
 export const isRemote = target.kind === 'remote';
 /** WebSocket URL of the runtime this page is connected to ('' = in-browser mock). */
-export const wsUrl = target.kind === 'remote' ? `${target.url.replace(/^http/, 'ws')}/ws?token=${encodeURIComponent(target.token)}` : localWsUrl;
+export const wsUrl = target.kind === 'remote' ? withRecent(`${target.url.replace(/^http/, 'ws')}/ws?token=${encodeURIComponent(target.token)}`) : localWsUrl;
 /** HTTP base of that runtime. */
 export const httpBase = target.kind === 'remote' ? target.url : localHttpBase;
 const token = target.kind === 'remote' ? target.token : '';
