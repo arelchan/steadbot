@@ -213,6 +213,7 @@ function SlotView({
         }
       >
         <Pick
+          placeholder={t('models.pickProvider')}
           value={prov}
           onChange={(v) => {
             setManual(false);
@@ -224,7 +225,6 @@ function SlotView({
             if (v && !page.providers.find((p) => p.id === v)?.keyed) onAsk(slot.id);
           }}
         >
-          <option value="">{t('models.pickProvider')}</option>
           <optgroup label={t('models.connected')}>
             {choices.filter((p) => p.keyed).map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
           </optgroup>

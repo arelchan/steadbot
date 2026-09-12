@@ -1507,6 +1507,7 @@ li.md-task.done { color: var(--text-2); }
 .pick-face:focus-visible { outline: 0; border-color: var(--accent-hair); }
 .pick.open .pick-face { background: var(--tint); border-color: var(--accent-hair); }
 .pick .pf-t { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick .pf-t.ph { color: var(--muted); }
 .pick::after { content: '⌄'; position: absolute; right: 12px; top: 0; bottom: 5px; display: flex; align-items: center; font-size: 12px; color: var(--muted); pointer-events: none; }
 .pick.wide .pick-face { min-width: 270px; }
 .pick-pop { position: fixed; z-index: 90; display: flex; flex-direction: column; min-width: 180px; background: var(--panel); border: 1px solid var(--hair-2); border-radius: var(--r); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14); overflow: hidden; }

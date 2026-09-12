@@ -56,7 +56,20 @@ const POP_MAX = 320;
  * scroll. It is portalled to the body and positioned in viewport coordinates, so no modal's overflow can clip it,
  * and flips above the field when there is more room up there.
  */
-export function Pick({ value, onChange, children, wide }: { value: string; onChange: (v: string) => void; children: ReactNode; wide?: boolean }) {
+export function Pick({
+  value,
+  onChange,
+  children,
+  wide,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  children: ReactNode;
+  wide?: boolean;
+  /** What the field reads before anything is chosen. It is a state, not a choice, so it is never in the list. */
+  placeholder?: string;
+}) {
   const t = useT();
   const items = useMemo(() => itemsOf(children), [children]);
   const current = items.find((i) => i.value === value);
@@ -150,7 +163,7 @@ export function Pick({ value, onChange, children, wide }: { value: string; onCha
         onClick={() => setOpen((o) => !o)}
         onKeyDown={keys}
       >
-        <span className="pf-t">{current?.label ?? items[0]?.label ?? ''}</span>
+        <span className={cx('pf-t', !current && 'ph')}>{current?.label ?? placeholder ?? items[0]?.label ?? ''}</span>
       </button>
       {open &&
         createPortal(
