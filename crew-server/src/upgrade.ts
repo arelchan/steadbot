@@ -233,7 +233,12 @@ async function applyOnMachine(l: MachineLink, changed: string[], log: (s: string
   const compose = `cd ${dep} && docker compose`;
   // Recreate rather than restart: the container has to pick up the new CREW_COMMIT. Then wait for it to answer,
   // so the App is not told "cannot reach the machine" while it is still booting.
-  const wait = `P=$(sed -n 's/^CREW_PORT=//p' .env); P=${'${P:-5200}'}; for i in $(seq 1 90); do curl -fsS -m 2 "http://127.0.0.1:$P/health" >/dev/null 2>&1 && break; sleep 1; done`;
-  const r = await root(l, `${stamp} && (${compose} up -d --no-build >/dev/null 2>&1 || ${compose} restart >/dev/null 2>&1); cd ${dep} && ${wait}; echo DONE`, 8 * 60_000);
-  if (!clean(r.out).includes('DONE')) throw new Error(`重启失败：${clean(r.out).trim().slice(-240)}`);
+  // 循环跑完没答应也要说出来：以前这里是 `…; echo DONE`，超时照样打 DONE，于是 App 上显示
+  // 「✔ 升级完成」而容器其实还没起来（或者在崩溃重启循环里，而 docker ps 显示 Up）。
+  // 那是最坏的一种假象：出了事，你看到的是成功。
+  const wait = `P=$(sed -n 's/^CREW_PORT=//p' .env); P=${'${P:-5200}'}; for i in $(seq 1 90); do curl -fsS -m 2 "http://127.0.0.1:$P/health" >/dev/null 2>&1 && { echo DONE; exit 0; }; sleep 1; done; echo NOANSWER; exit 1`;
+  const r = await root(l, `${stamp} && (${compose} up -d --no-build >/dev/null 2>&1 || ${compose} restart >/dev/null 2>&1); cd ${dep} && ${wait}`, 8 * 60_000);
+  const said = clean(r.out);
+  if (said.includes('NOANSWER')) throw new Error('容器起来了但 90 秒内没答应 /health——多半在崩溃重启循环里，去机器上看 docker logs');
+  if (!said.includes('DONE')) throw new Error(`重启失败：${said.trim().slice(-240)}`);
 }
