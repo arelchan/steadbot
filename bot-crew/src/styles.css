@@ -1376,14 +1376,21 @@ li.md-task.done { color: var(--text-2); }
 .rt-host-dot.wait { background: var(--warn); animation: breathe 1.4s ease-in-out infinite; }
 
 /* ---- 工作区: one column beside the conversation — the bot's screen, its tasks, its routines ---- */
-.workspace { display: flex; flex-direction: column; gap: 10px; max-height: 100%; overflow: hidden; }
+/* 整条带子在窗口不够高时自己滚，而不是把下面的框挤没 */
+.workspace { display: flex; flex-direction: column; gap: 10px; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
 .ws-sec { flex: 0 0 auto; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-radius: var(--r-lg); box-shadow: var(--sh-1), 0 0 0 1px var(--hair-2); overflow: hidden; }
-.ws-sec.grow { flex: 1 1 auto; }
+/* 事项那一格吃掉剩下的高度，但有个下限：窗口再矮也不会被压成一条缝，压不下去了就整条带子滚 */
+.ws-sec.grow { flex: 1 1 auto; min-height: 208px; }
 .ws-hd { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 10px 16px; font-weight: 600; cursor: pointer; user-select: none; flex: 0 0 auto; }
 .ws-t .quiet { font-weight: 400; margin-left: 6px; }
 .ws-chev { color: var(--muted); transform: rotate(90deg); transition: transform 0.15s ease; font-size: 15px; line-height: 1; }
 .ws-chev.open { transform: rotate(-90deg); }
-.ws-body { overflow-y: auto; padding: 0 10px 12px; min-height: 0; }
+/*
+ * 每个框有自己的高度上限：事项多了在框里滚，不把别的框顶出视野。flex: none 是关键——不写的话框会被压扁，
+ * 整条带子永远「刚好装得下」，窗口再矮也不滚，只是把内容挤没。
+ */
+.ws-body { flex: none; overflow-y: auto; overscroll-behavior: contain; padding: 0 10px 12px; min-height: 0; max-height: min(44vh, 380px); }
+.ws-sec.grow .ws-body { flex: 1 1 auto; max-height: none; }
 .ws-empty { padding: 2px 6px 6px; font-size: 12px; line-height: 1.55; }
 /* 身份 in the same slot, same cards as the workspace */
 .workspace .ident { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; }
@@ -1562,7 +1569,6 @@ li.md-task.done { color: var(--text-2); }
 .pick-pop .pp-none { color: var(--muted); font-size: 12px; padding: 12px; }
 
 /* 设置 › 模型：一行一件事，右边是「谁来干」和「用哪个模型」 */
-.models.busy { opacity: 0.55; pointer-events: none; }
 .models .set-rc { display: grid; grid-template-columns: 168px 236px; gap: 10px; }
 .models .set-rc .pick, .models .set-rc .pick-face, .models .set-rc .in { width: 100%; max-width: none; }
 .models .in { font-size: 12.5px; width: 232px; background: var(--panel-2); border: 1px solid var(--hair-2); border-radius: var(--r-sm); padding: 7px 11px; }

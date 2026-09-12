@@ -9,13 +9,19 @@ import type { UpgradePhase } from '../types';
 /**
  * 升级 takes the machine away: it restarts, and when the image changed it rebuilds for minutes. Anything the user
  * does in the meantime is either lost or sent to a server that is not there, so the App stops being a place you
- * can act — one curtain over everything, and the machine's own output behind it.
+ * can act — one curtain over everything.
  *
- * There is no honest percentage to show (nobody knows how long a docker build will take), so what moves is what
- * is actually known: which of the four slow things is happening, how long it has been, and the last line the
- * machine printed. No cancel: once the container is coming down, stopping here would not put it back.
+ * Three stages, the ones every updater has: download, install, restart. There is no honest percentage to show
+ * (nobody knows how long a docker build will take), so the numbers that move are the ones that are real: which
+ * stage, and elapsed time. The machine's own output is underneath, in 详细信息, not on the face of it — a commit
+ * hash on screen is a developer reading their own logs, not an update. No cancel: the container is already on its
+ * way down, and a button here would not put it back.
  */
-const STEPS: UpgradePhase[] = ['fetch', 'wait', 'apply', 'back'];
+const STEPS = ['down', 'install', 'restart'] as const;
+const STEP_OF: Record<UpgradePhase, number> = { fetch: 0, wait: 1, apply: 1, back: 2, done: 2, error: 2 };
+
+/** "等 助理、小明 忙完这一轮再重启…" — the names are the only part of that worth putting on screen. */
+const whoOf = (line: string) => /等\s*(.+?)\s*忙完/.exec(line)?.[1] ?? '';
 
 export function UpgradeCurtain() {
   const run = useStore((s) => s.upgrading);
@@ -43,9 +49,17 @@ export function UpgradeCurtain() {
   if (!run) return null;
   const failed = run.phase === 'error';
   const done = run.phase === 'done';
-  const at = STEPS.indexOf(run.phase);
-  const mins = Math.floor(secs / 60);
-  const elapsed = mins ? t('up.elapsedMin', { m: String(mins), s: String(secs % 60).padStart(2, '0') }) : t('up.elapsedSec', { s: String(secs) });
+  const at = STEP_OF[run.phase];
+  const elapsed = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  const who = run.phase === 'wait' ? whoOf(run.line) : '';
+  const rebuilding = run.lines.some((l) => /重建镜像/.test(l));
+  const status = done
+    ? t('up.st.done')
+    : who
+      ? t('up.st.wait', { who })
+      : run.phase === 'apply'
+        ? t(rebuilding ? 'up.st.rebuild' : 'up.st.restart')
+        : t(`up.st.${run.phase === 'wait' ? 'apply' : run.phase}`);
 
   return createPortal(
     <div className="curtain" role="dialog" aria-modal aria-label={t('up.title')}>
@@ -75,7 +89,7 @@ export function UpgradeCurtain() {
             </ol>
             <div className={cx('cur-bar', done && 'full')}><i /></div>
             <div className="cur-now">
-              <span className="cur-line">{run.line || t(`up.doing.${run.phase}`)}</span>
+              <span className="cur-line">{status}</span>
               <span className="cur-secs">{elapsed}</span>
             </div>
             {run.lines.length > 1 && (

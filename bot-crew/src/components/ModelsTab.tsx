@@ -31,7 +31,6 @@ export function ModelsTab() {
   const pushed = useStore((s) => s.models);
   const [page, setPage] = useState<ModelsPage | undefined>(pushed);
   const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
   /** the row whose key field is open right now */
   const [asking, setAsking] = useState<SlotId>();
   /** providers whose catalog we have already asked for, so a row does not ask twice while it is on the way */
@@ -68,15 +67,14 @@ export function ModelsTab() {
   /**
    * `want` is the provider a row has just moved to: its catalog comes back with the save, in the same trip.
    *
-   * Choosing a provider or a model draws the choice immediately and lets the save catch up — the server's answer
-   * for those is the same thing the row already shows, and waiting for it (greyed out, twice, over whatever
-   * network the box is behind) is what made every switch feel like a reload. A key is different: what the row is
-   * running on afterwards is the server's to say, so that one waits.
+   * Nothing here waits for the server. A provider, a model, a key — the row draws the choice at once and the save
+   * catches up, because the answer coming back says the same thing the row already shows. Freezing the page for
+   * it (greyed, unclickable, for a round trip to whatever network the box is behind) is a page pretending to be
+   * busy on the user's behalf. If the save does fail, the page is re-read and the truth comes back.
    */
-  const apply = async (patch: ModelsPatch, want?: string, now = false) => {
+  const apply = async (patch: ModelsPatch, want?: string) => {
     if (want) asked.current.add(want);
-    if (now) setPage((p) => p && guess(p, patch));
-    else setBusy(true);
+    setPage((p) => p && guess(p, patch));
     try {
       setPage(await saveModels(patch, want));
       setErr('');
@@ -84,8 +82,6 @@ export function ModelsTab() {
       setErr(t('models.saveFail'));
       if (want) asked.current.delete(want);
       void fetchModels().then(setPage).catch(() => undefined);
-    } finally {
-      if (!now) setBusy(false);
     }
   };
 
@@ -93,7 +89,7 @@ export function ModelsTab() {
   if (!page) return <Waiting />;
 
   return (
-    <div className={cx('models', busy && 'busy')}>
+    <div className="models">
       <div className="set-rows">
         {page.slots.map((s) => (
           <SlotView
@@ -106,7 +102,7 @@ export function ModelsTab() {
               setAsking(undefined);
               if (v !== undefined) void apply({ keys: { [s.id]: v || null } });
             }}
-            onPatch={(p, want) => void apply(p, want, true)}
+            onPatch={(p, want) => void apply(p, want)}
             onNeed={need}
           />
         ))}
@@ -119,14 +115,21 @@ export function ModelsTab() {
 /**
  * The page as it will be once the server has agreed: the rows this patch names, carrying what was just chosen.
  * Inheritance and defaults are the server's to work out, so a row left empty here simply shows its empty label —
- * which is what it will say anyway a moment later.
+ * which is what it will say anyway a moment later. A key never comes back from the server, so a row that was
+ * just given one says so the only way it ever does: 有钥匙.
  */
 function guess(page: ModelsPage, patch: ModelsPatch): ModelsPage {
   const slots = patch.slots ?? {};
-  if (!Object.keys(slots).length) return page;
+  const keys = patch.keys ?? {};
+  if (!Object.keys(slots).length && !Object.keys(keys).length) return page;
   return {
     ...page,
-    slots: page.slots.map((s) => (s.id in slots ? { ...s, value: slots[s.id] ?? undefined, effective: slots[s.id] ?? undefined, meta: undefined } : s)),
+    slots: page.slots.map((s) => {
+      let next = s;
+      if (s.id in slots) next = { ...next, value: slots[s.id] ?? undefined, effective: slots[s.id] ?? undefined, meta: undefined };
+      if (s.id in keys) next = keys[s.id] ? { ...next, key: '••••', keyFrom: { kind: 'own' }, blocked: false } : { ...next, key: undefined };
+      return next;
+    }),
   };
 }
 
