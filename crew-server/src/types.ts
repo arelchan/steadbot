@@ -3,8 +3,33 @@ import type { ModelsPage } from './models.ts';
 
 export type Channel = 'app' | 'feishu' | 'wechat' | 'weixin' | 'slack' | 'telegram' | 'discord' | 'whatsapp';
 export type Autonomy = 'tell' | 'prepare' | 'do';
+/**
+ * 渠道这一个概念，只有这三张表。它曾经在代码里被各写各的：两处内联的中文名漏了一半渠道
+ * （成长动线写出「住进了【weixin】」，喂给模型的自我描述告诉一个接了微信的 bot 它在「weixin」上），
+ * 两套互不相同的别名表，外加一份 IM_NAME。加一个渠道，改这里，别处跟着走。
+ */
+export const CHANNELS: Channel[] = ['app', 'telegram', 'discord', 'whatsapp', 'slack', 'feishu', 'wechat', 'weixin'];
 /** 通道的中文名，界面、提示词、给 bot 看的说明都用这一份。 */
 export const CHANNEL_LABEL: Record<Channel, string> = { app: '应用内', feishu: '飞书', wechat: '企业微信', weixin: '微信', slack: 'Slack', telegram: 'Telegram', discord: 'Discord', whatsapp: 'WhatsApp' };
+/** 用户和模型会用的各种叫法。小写比较，所以这里只写小写；中文没有大小写，照写。 */
+const CHANNEL_ALIASES: Record<Channel, string[]> = {
+  app: ['app', '应用', '应用内', '这里'],
+  feishu: ['feishu', 'lark', '飞书'],
+  wechat: ['wecom', 'wechat_work', '企业微信', '企微'],
+  weixin: ['weixin', 'wechat', '微信'],
+  slack: ['slack'],
+  telegram: ['telegram', 'tg', '电报'],
+  discord: ['discord', 'dc'],
+  whatsapp: ['whatsapp', 'wa'],
+};
+const ALIAS_TO_CHANNEL = new Map<string, Channel>(
+  CHANNELS.flatMap((c) => [[c, c] as [string, Channel], [CHANNEL_LABEL[c].toLowerCase(), c] as [string, Channel], ...CHANNEL_ALIASES[c].map((a) => [a, c] as [string, Channel])]),
+);
+// 「wechat」两边都想要：它是 wechat 这个渠道 id，也是微信的英文名。历来按微信解，写在这里
+// 是为了不依赖上面那个数组的顺序——企业微信要用 wecom。
+ALIAS_TO_CHANNEL.set('wechat', 'weixin');
+/** 「飞书」「lark」「Feishu」都认。认不出返回 undefined——别猜。 */
+export const channelFromName = (s: string): Channel | undefined => ALIAS_TO_CHANNEL.get(s.trim().toLowerCase());
 export type ConnectionKind = 'browser' | 'mcp' | 'api' | 'pay' | 'calendar' | 'mail';
 
 export interface Connection {

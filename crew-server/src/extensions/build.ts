@@ -3,12 +3,11 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import type { BotCtx } from './ctx.ts';
 import type { CrewOps } from './crew-tools.ts';
-import { CHANNEL_LABEL, type Bot, type Channel } from '../types.ts';
+import { CHANNEL_LABEL, channelFromName, type Bot, type Channel } from '../types.ts';
 import { IMS } from '../channels.ts';
 import { join } from 'node:path';
 import type { SkillStore } from '../skills.ts';
 
-const CHANNEL_ALIAS: Record<string, Channel> = { 应用: 'app', 应用内: 'app', App: 'app', app: 'app', 飞书: 'feishu', 企业微信: 'wechat', 企微: 'wechat', 微信: 'weixin', weixin: 'weixin', Slack: 'slack', slack: 'slack', Telegram: 'telegram', telegram: 'telegram', 电报: 'telegram' };
 
 type Details = { jobId?: string; aspect: string; action: string; label?: string };
 
@@ -181,7 +180,7 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
                 const channels = v.channels?.length
                   ? v.channels.map((raw) => {
                       const want = String(raw).trim().toLowerCase();
-                      const ch = here.find((x) => x === want || CHANNEL_ALIAS[String(raw).trim()] === x);
+                      const ch = here.find((x) => x === want || channelFromName(String(raw)) === x);
                       if (!ch) throw new Error(`发不到「${raw}」。现在能发的是：${here.map((x) => CHANNEL_LABEL[x]).join('、')}${here.length === 1 ? '（要发到 IM，先 build(aspect=channel, action=add)）' : ''}`);
                       return ch;
                     })

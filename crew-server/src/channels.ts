@@ -12,7 +12,7 @@ import { WecomBridge } from './bridges/wecom.ts';
 import { WeixinBridge } from './bridges/weixin.ts';
 import { DiscordBridge } from './bridges/discord.ts';
 import { WhatsappBridge } from './bridges/whatsapp.ts';
-import { botThread, matterThread, parseThread, type Bot, type Card, type Channel, type ImLink, type Matter, type Message, type Pending, type ThreadId } from './types.ts';
+import { botThread, matterThread, parseThread, CHANNELS, CHANNEL_LABEL, type Bot, type Card, type Channel, type ImLink, type Matter, type Message, type Pending, type ThreadId } from './types.ts';
 
 /*
  * IM model: every bot is its own bot on an IM. 邮件管家 on Feishu is a Feishu app of its own, with its own name,
@@ -22,8 +22,9 @@ import { botThread, matterThread, parseThread, type Bot, type Card, type Channel
  */
 
 export type Im = Exclude<Channel, 'app'>;
-export const IMS: Im[] = ['telegram', 'discord', 'whatsapp', 'slack', 'feishu', 'wechat', 'weixin'];
-export const IM_NAME: Record<Channel, string> = { app: 'App', feishu: '飞书', telegram: 'Telegram', slack: 'Slack', wechat: '企业微信', weixin: '微信', discord: 'Discord', whatsapp: 'WhatsApp' };
+export const IMS: Im[] = CHANNELS.filter((c): c is Im => c !== 'app');
+/** @deprecated 就是 CHANNEL_LABEL，留个别名让老调用点不用一次全改。 */
+export const IM_NAME = CHANNEL_LABEL;
 
 /** Which credential fields each IM needs; the keys are what the credentials card submits. */
 export const CHANNEL_KEYS: Record<Im, string[]> = {

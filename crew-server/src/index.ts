@@ -46,12 +46,11 @@ import type { Card, GrowthKind } from './types.ts';
 import { BUILTIN_SKILL_NAMES, seedBuiltinSkills } from './builtin-skills.ts';
 import type { CrewOps } from './extensions/crew-tools.ts';
 import { startServer } from './ws.ts';
-import { botThread, matterThread, parseThread, type Bot, type FileRef, type Integration, type ThreadId } from './types.ts';
+import { botThread, matterThread, parseThread, channelFromName, type Bot, type FileRef, type Integration, type ThreadId } from './types.ts';
 
 
 /** An IM by any name a bot might use for it. */
-const IM_ALIAS: Record<string, Im | 'app'> = { 飞书: 'feishu', feishu: 'feishu', lark: 'feishu', telegram: 'telegram', 电报: 'telegram', tg: 'telegram', slack: 'slack', 企业微信: 'wechat', 企微: 'wechat', wecom: 'wechat', 微信: 'weixin', weixin: 'weixin', wechat: 'weixin', discord: 'discord', dc: 'discord', whatsapp: 'whatsapp', wa: 'whatsapp', app: 'app' };
-const imFromName = (s: string): Im | 'app' | undefined => IM_ALIAS[s.trim().toLowerCase()] ?? IM_ALIAS[s.trim()];
+const imFromName = (s: string): Im | 'app' | undefined => channelFromName(s);
 
 let ipCache: { at: number; ip: string } | undefined;
 /** This machine's public address, for platforms that want a trusted-IP list. */
