@@ -85,3 +85,32 @@ export function checkFormats(text: string): FormatProblem[] {
   }
   return out;
 }
+
+/**
+ * 地址能不能点开，也是机械可判的。
+ *
+ * bot 跑在云机器上时，它起的服务、它那台机器的内网地址，用户一律打不开——这跟渲染坏掉的 mermaid 是
+ * 同一类事：发出去了，发现的人是用户。所以在同一道闸口拦一次，让模型要么 deliver 那个文件，要么把
+ * 地址去掉。只看正文：代码块和行内代码里的 localhost 是在讲配置，不是递给用户点的。
+ */
+const UNREACHABLE = new RegExp(
+  [
+    'https?://(?:localhost|127(?:\\.\\d{1,3}){3}|0\\.0\\.0\\.0|\\[::1\\]|10(?:\\.\\d{1,3}){3}|192\\.168(?:\\.\\d{1,3}){2}|172\\.(?:1[6-9]|2\\d|3[01])(?:\\.\\d{1,3}){2})(?::\\d+)?\\S*',
+    '(?<![\\w/.])localhost:\\d{2,5}\\S*',
+    'file://\\S+',
+  ].join('|'),
+  'gi',
+);
+
+/** 这条消息里有没有「只有你这台机器打得开」的地址。只在 bot 不在用户电脑上跑时才有意义。 */
+export function checkReach(text: string): FormatProblem[] {
+  const prose = text.replace(/```[\s\S]*?(?:```|$)/g, ' ').replace(/`[^`\n]*`/g, ' ');
+  const hits = [...new Set((prose.match(UNREACHABLE) ?? []).map((u) => u.replace(/[)）、，。,.;；]+$/, '')))];
+  if (!hits.length) return [];
+  return [
+    {
+      where: `地址 ${hits.slice(0, 3).join('、')}`,
+      note: '这是你这台机器上的地址，用户在另一台机器上，点开是空的——要给他看那个页面就 deliver 那个文件；只是说明情况，就别把地址写出来',
+    },
+  ];
+}

@@ -44,7 +44,7 @@ import { recoverExtension } from './extensions/recover.ts';
 import { operateExtension } from './extensions/operate.ts';
 import type { Hands } from './gui.ts';
 import { redactSecrets } from './secrets.ts';
-import { checkFormats } from './format-check.ts';
+import { checkFormats, checkReach } from './format-check.ts';
 import type { ConnectorManager } from './connectors.ts';
 import type { BotCtx, CurrentTurn } from './extensions/ctx.ts';
 import { identityExtension } from './extensions/identity.ts';
@@ -369,7 +369,7 @@ export class BotManager extends EventEmitter {
       noExtensions: true,
       extensionFactories: [
         bridge,
-        identityExtension(ctx, () => this.skills.of(botId), () => this.ops),
+        identityExtension(ctx, () => this.skills.of(botId), () => this.ops, () => this.runner.hosts?.status()),
         todoExtension(ctx),
         deliverExtension(ctx),
         scheduleExtension(ctx),
@@ -548,14 +548,15 @@ export class BotManager extends EventEmitter {
         }
         // Formats that either parse or don't (a mermaid diagram, a ```json block, a fence that never closed): the
         // reader would be the one to discover it. Hold the message once and let the model say it again properly.
-        const wrong = checkFormats(text);
+        // 同一道闸口还拦一件事：跑在云机器上的 bot 递出来的 localhost / 内网地址，用户点开是空的。
+        const wrong = [...checkFormats(text), ...(config.authToken ? checkReach(text) : [])];
         if (wrong.length && rt && !rt.formatNudged) {
           rt.formatNudged = true;
           console.warn(`[crew] bot ${botId}: format check failed — ${wrong.map((w) => w.where).join(', ')}`);
           void this.send(botId, {
             threadId,
             kind: 'system',
-            text: `【系统】你上一条没有发出去，用户还没看到：${wrong.map((w) => `${w.where}：${w.note}`).join('；')}。把整条重发一遍，改对这几处，其余内容照旧。`,
+            text: `【系统】你上一条没有发出去，用户还没看到：${wrong.map((w) => `${w.where}：${w.note}`).join('；')}。把整条重发一遍，改掉这几处（该删的就删），其余内容照旧。`,
             depth: (cur?.depth ?? 0) + 1,
           });
           break;
