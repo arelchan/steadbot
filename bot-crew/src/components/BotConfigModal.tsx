@@ -11,14 +11,14 @@ import { Markdown } from './Markdown';
 import { Pick } from './Field';
 import { ConfirmDialog } from './ConfirmDialog';
 import { cx, fullDate, fmtTime, msgTime } from '../utils';
-import { useT, tn, t as tr } from '../i18n';
+import { useT, tn, t as tr, tDyn as trDyn, type MsgKey } from '../i18n';
 
 /** Library category names live in the catalogs, keyed by the category id the backend uses. */
-const libCat = (c: string) => tr(`lib.${c}`);
+const libCat = (c: string) => trDyn(`lib.${c}`);
 
 export type Tab = 'growth' | 'instructions' | 'memory' | 'knowledge' | 'skills' | 'routines' | 'im' | 'integrations';
 
-const TABS: { id: Tab; key: string }[] = [
+const TABS: { id: Tab; key: MsgKey }[] = [
   { id: 'growth', key: 'cfg.growth' },
   { id: 'instructions', key: 'cfg.instructions' },
   { id: 'memory', key: 'cfg.memory' },
@@ -390,7 +390,7 @@ export function sayWhen(schedule: string): string {
   const w = readWhen(schedule);
   if (w.freq === 'daily') return tr('cfg.rtSay.daily', { at: w.at });
   if (w.freq === 'weekdays') return tr('cfg.rtSay.weekdays', { at: w.at });
-  if (w.freq === 'weekly') return tr('cfg.rtSay.weekly', { day: tr(`cfg.rtDay.${w.day}`), at: w.at });
+  if (w.freq === 'weekly') return tr('cfg.rtSay.weekly', { day: tr(`cfg.rtDay.${w.day as 0 | 1 | 2 | 3 | 4 | 5 | 6}`), at: w.at });
   if (w.freq === 'hourly') return tr('cfg.rtSay.hourly');
   if (w.freq === 'hours') return tr('cfg.rtSay.hours', { n: String(w.every) });
   return tr('cfg.rtSay.minutes', { n: String(w.every) });
@@ -504,7 +504,7 @@ function RoutineDetail({ bot, r, isNew, onBack, onSaved }: { bot: Bot; r: Routin
           {w.freq === 'weekly' && (
             <Pick value={String(w.day)} onChange={(v) => setWhen({ day: Number(v) })}>
               {WEEK.map((_, i) => (
-                <option key={i} value={i}>{t(`cfg.rtDay.${i}`)}</option>
+                <option key={i} value={i}>{t(`cfg.rtDay.${i as 0 | 1 | 2 | 3 | 4 | 5 | 6}`)}</option>
               ))}
             </Pick>
           )}

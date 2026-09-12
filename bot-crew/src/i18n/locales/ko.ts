@@ -1,5 +1,6 @@
 /** 한국어. */
-export const ko: Record<string, string> = {
+import type { Dict } from '../index';
+export const ko: Dict = {
   'common.cancel': '취소',
   'common.confirm': '확인',
   'common.save': '저장',
@@ -131,11 +132,6 @@ export const ko: Record<string, string> = {
   'draft.placeholder': '첫 문장 — 무엇을 맡길지…',
 
   'profile.title': 'bot이 보는 나',
-  'profile.sub': '공유되는 층은 모든 bot이 봅니다. bot 각자의 층은 그 bot에게만 적용됩니다',
-  'profile.shared': '모든 bot 공유',
-  'profile.addShared': '모든 bot이 알아야 할 내용을 추가…',
-  'profile.own': '{name}이(가) 기억한 것',
-  'profile.goSee': '보러 가기',
 
   'group.new': '새 그룹',
   'group.lead': '리드',
@@ -273,9 +269,6 @@ export const ko: Record<string, string> = {
   'cfg.soul': '성격',
   'cfg.rolePlaceholder': '무엇을 맡고, 어떤 순서로 하고, 어느 단계에서 먼저 물을지',
   'cfg.soulPlaceholder': '성격, 말투',
-  'cfg.memDelete': '삭제',
-  'cfg.memAdd': '한 줄 추가하고 Enter',
-  'cfg.sharedMem': '모든 bot 공유',
   'cfg.library': '기술 라이브러리',
   'cfg.skillRemove': '제거',
   'cfg.skillAdd': '기술 이름을 쓰고 Enter — 매뉴얼은 스스로 씁니다',

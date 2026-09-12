@@ -1,5 +1,6 @@
 /** 日本語. */
-export const ja: Record<string, string> = {
+import type { Dict } from '../index';
+export const ja: Dict = {
   'common.cancel': 'キャンセル',
   'common.confirm': '確認',
   'common.save': '保存',
@@ -131,11 +132,6 @@ export const ja: Record<string, string> = {
   'draft.placeholder': '最初のひとこと。何を任せる？',
 
   'profile.title': 'bot から見たあなた',
-  'profile.sub': '共有の層はすべての bot が見られます。各 bot 独自の層はその bot だけに効きます',
-  'profile.shared': 'すべての bot で共有',
-  'profile.addShared': 'すべての bot が知っておくべきことを追加…',
-  'profile.own': '{name} が覚えたこと',
-  'profile.goSee': '見に行く',
 
   'group.new': '新しいグループ',
   'group.lead': 'まとめ役',
@@ -273,9 +269,6 @@ export const ja: Record<string, string> = {
   'cfg.soul': '人格',
   'cfg.rolePlaceholder': '何を担当し、どんな手順で進め、どこで先に確認するか',
   'cfg.soulPlaceholder': '性格、話し方',
-  'cfg.memDelete': '削除',
-  'cfg.memAdd': '追加して Enter',
-  'cfg.sharedMem': 'すべての bot で共有',
   'cfg.library': 'スキルライブラリ',
   'cfg.skillRemove': '外す',
   'cfg.skillAdd': 'スキル名を書いて Enter。手順書は自分で書きます',

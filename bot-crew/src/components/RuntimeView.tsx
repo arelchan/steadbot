@@ -8,7 +8,7 @@ import { getRuntime, setRuntime, parsePairingCode, probeRuntime, oneShot, localW
 import { ConfirmDialog } from './ConfirmDialog';
 import { cloudAvailable, provisionCloudHome, cloudHomeStatus, destroyCloudHome } from '../services/cloud';
 import { cx } from '../utils';
-import { useT, tx, t as tr } from '../i18n';
+import { useT, tx, t as tr, tDyn as trDyn } from '../i18n';
 
 /**
  * "Where the bots live." One page, plain words: which machine runs the bots right now, what that means,
@@ -144,17 +144,18 @@ type Step = 'idle' | 'checking' | 'confirm' | 'moving' | 'done';
 const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
 
 /** Where to get a machine that stays on. Copy is per vendor: what to pick when buying, where the IP / password / firewall live. */
-const VENDORS: { id: string; url: string; user: string }[] = [
+type VendorId = 'tencent' | 'aliyun' | 'own';
+const VENDORS: { id: VendorId; url: string; user: string }[] = [
   { id: 'tencent', url: 'https://cloud.tencent.com/product/lighthouse', user: 'ubuntu' },
   { id: 'aliyun', url: 'https://www.aliyun.com/product/swas', user: 'root' },
   { id: 'own', url: '', user: 'root' },
 ];
-/** A vendor's words, in the current language. */
+/** A vendor's words, in the current language. 文案键里带厂商 id，编译期算不出来，走 tDyn。 */
 const vendorText = (id: string) => ({
-  name: tr(`rt.vendor.${id}.name`),
-  tag: tr(`rt.vendor.${id}.tag`),
-  buy: [1, 2, 3].map((i) => tr(`rt.vendor.${id}.buy${i}`)),
-  after: [1, 2, 3].map((i) => tr(`rt.vendor.${id}.after${i}`)),
+  name: trDyn(`rt.vendor.${id}.name`),
+  tag: trDyn(`rt.vendor.${id}.tag`),
+  buy: [1, 2, 3].map((i) => trDyn(`rt.vendor.${id}.buy${i}`)),
+  after: [1, 2, 3].map((i) => trDyn(`rt.vendor.${id}.after${i}`)),
 });
 
 /** Four screens, one at a time: pick where to get a machine → set it up → run one command here → paste the code and move. */
@@ -279,8 +280,8 @@ function MoveOutCard() {
                 <div className="vendors">
                   {VENDORS.map((x) => (
                     <button key={x.id} className={cx('vendor', vendor.id === x.id && 'on')} onClick={() => { setVendor(x); setUser(x.user); }}>
-                      <span className="vendor-n">{tr(`rt.vendor.${x.id}.name`)}</span>
-                      <span className="vendor-t">{tr(`rt.vendor.${x.id}.tag`)}</span>
+                      <span className="vendor-n">{trDyn(`rt.vendor.${x.id}.name`)}</span>
+                      <span className="vendor-t">{trDyn(`rt.vendor.${x.id}.tag`)}</span>
                     </button>
                   ))}
                 </div>

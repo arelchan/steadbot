@@ -1,5 +1,6 @@
 /** Русский. Счётные строки дают формы one / few / many (плюс other как запасную). */
-export const ru: Record<string, string> = {
+import type { Dict } from '../index';
+export const ru: Dict = {
   'common.cancel': 'Отмена',
   'common.confirm': 'Подтвердить',
   'common.save': 'Сохранить',
@@ -145,11 +146,6 @@ export const ru: Record<string, string> = {
   'draft.placeholder': 'Первая фраза — чем он занимается…',
 
   'profile.title': 'Каким они видят вас',
-  'profile.sub': 'Общий слой видят все боты; личный слой каждого действует только на него',
-  'profile.shared': 'Общее для всех ботов',
-  'profile.addShared': 'Добавьте то, что должны знать все боты…',
-  'profile.own': 'Запомнил {name}',
-  'profile.goSee': 'Посмотреть',
 
   'group.new': 'Новая группа',
   'group.lead': 'ведущий',
@@ -309,9 +305,6 @@ export const ru: Record<string, string> = {
   'cfg.soul': 'Характер',
   'cfg.rolePlaceholder': 'За что отвечает, по какому порядку действует, на каком шаге спрашивает вас',
   'cfg.soulPlaceholder': 'Характер, манера речи',
-  'cfg.memDelete': 'Удалить',
-  'cfg.memAdd': 'Добавьте строку и нажмите Enter',
-  'cfg.sharedMem': 'Общее для всех ботов',
   'cfg.library': 'Библиотека навыков',
   'cfg.skillRemove': 'Убрать',
   'cfg.skillAdd': 'Напишите название и нажмите Enter — инструкцию он напишет сам',

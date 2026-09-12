@@ -9,10 +9,10 @@ import { RuntimeBody } from './RuntimeView';
 import { ModelsTab } from './ModelsTab';
 import { Row, Pick, Skel } from './Field';
 import { cx } from '../utils';
-import { LOCALES, useT, useLocale, setLocale, intlLocale, tn, type Locale } from '../i18n';
+import { LOCALES, useT, useLocale, setLocale, intlLocale, tn, type Locale, type MsgKey } from '../i18n';
 
 type Tab = 'general' | 'models' | 'cloud' | 'usage' | 'about';
-const TABS: { id: Tab; key: string }[] = [
+const TABS: { id: Tab; key: MsgKey }[] = [
   { id: 'general', key: 'set.general' },
   { id: 'models', key: 'set.models' },
   { id: 'cloud', key: 'set.cloud' },

@@ -1,5 +1,6 @@
 /** English. */
-export const en: Record<string, string> = {
+import type { Dict } from '../index';
+export const en: Dict = {
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',
   'common.save': 'Save',

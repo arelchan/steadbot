@@ -1,5 +1,6 @@
 /** Deutsch. */
-export const de: Record<string, string> = {
+import type { Dict } from '../index';
+export const de: Dict = {
   'common.cancel': 'Abbrechen',
   'common.confirm': 'Bestätigen',
   'common.save': 'Speichern',
@@ -131,11 +132,6 @@ export const de: Record<string, string> = {
   'draft.placeholder': 'Erster Satz – worum er sich kümmert…',
 
   'profile.title': 'Wie sie dich sehen',
-  'profile.sub': 'Die geteilte Ebene sehen alle Bots; die eigene Ebene eines Bots gilt nur für ihn',
-  'profile.shared': 'Von allen Bots geteilt',
-  'profile.addShared': 'Etwas hinzufügen, das alle Bots wissen sollten…',
-  'profile.own': 'Von {name} notiert',
-  'profile.goSee': 'Ansehen',
 
   'group.new': 'Neue Gruppe',
   'group.lead': 'Federführend',
@@ -273,9 +269,6 @@ export const de: Record<string, string> = {
   'cfg.soul': 'Persönlichkeit',
   'cfg.rolePlaceholder': 'Wofür er zuständig ist, wie er vorgeht, wo er dich zuerst fragt',
   'cfg.soulPlaceholder': 'Charakter, Tonfall',
-  'cfg.memDelete': 'Löschen',
-  'cfg.memAdd': 'Eine hinzufügen, Enter',
-  'cfg.sharedMem': 'Von allen Bots geteilt',
   'cfg.library': 'Bibliothek',
   'cfg.skillRemove': 'Entfernen',
   'cfg.skillAdd': 'Namen schreiben, Enter – das Handbuch schreibt er selbst',

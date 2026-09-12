@@ -1,5 +1,6 @@
 /** 繁體中文. */
-export const zhTW: Record<string, string> = {
+import type { Dict } from '../index';
+export const zhTW: Dict = {
   'common.cancel': '取消',
   'common.confirm': '確認',
   'common.save': '儲存',
@@ -131,11 +132,6 @@ export const zhTW: Record<string, string> = {
   'draft.placeholder': '第一句話，說清楚它管什麼…',
 
   'profile.title': '記憶',
-  'profile.sub': '共享的那層所有 bot 都看得到，每個 bot 自己的那層只影響它',
-  'profile.shared': '所有 bot 共享',
-  'profile.addShared': '加一條所有 bot 都該知道的事…',
-  'profile.own': '{name} 自己記的',
-  'profile.goSee': '去看它',
 
   'group.new': '新增群組',
   'group.lead': '主責',
@@ -274,9 +270,6 @@ export const zhTW: Record<string, string> = {
   'cfg.soul': '個性',
   'cfg.rolePlaceholder': '負責什麼、照什麼流程做、哪一步要先問你',
   'cfg.soulPlaceholder': '個性、說話方式',
-  'cfg.memDelete': '刪掉',
-  'cfg.memAdd': '加一條，按 Enter',
-  'cfg.sharedMem': '所有 bot 共享',
   'cfg.library': '技能庫',
   'cfg.skillRemove': '移除',
   'cfg.skillAdd': '寫一個技能名稱，按 Enter，它自己寫手冊',
