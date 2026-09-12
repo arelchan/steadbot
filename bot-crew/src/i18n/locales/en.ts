@@ -701,7 +701,6 @@ export const en: Record<string, string> = {
   'models.default': 'Default · {model}',
   'models.auto': 'Picked per picture',
   'models.none': 'Not set',
-  'models.off': 'Off',
   'models.manual': 'Type an id…',
   'models.manualHint': 'model id',
   'models.pickProvider': 'Pick one',

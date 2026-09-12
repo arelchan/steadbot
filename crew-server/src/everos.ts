@@ -41,8 +41,7 @@ const SPACE = 'shared';
  * are `cohere/rerank-v3.5` and `qwen/qwen3-reranker-8b`. It matters more than it sounds: the engine
  * refuses every `/knowledge/search` method without one, and the agent track's hybrid lane too.
  */
-const rerankModel = () => config.rerankModel;
-const hasRerank = () => rerankModel() !== 'off' && !!endpointOf('rerankModel');
+const hasRerank = () => !!endpointOf('rerankModel');
 
 const PORT = Number(process.env.CREW_MEMORY_PORT ?? 5211);
 const BASE = process.env.EVEROS_URL ?? `http://127.0.0.1:${PORT}`;

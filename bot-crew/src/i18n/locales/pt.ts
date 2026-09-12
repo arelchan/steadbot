@@ -673,7 +673,6 @@ export const pt: Record<string, string> = {
   'models.default': 'Padrão · {model}',
   'models.auto': 'Escolhido por imagem',
   'models.none': 'Não definido',
-  'models.off': 'Desligado',
   'models.manual': 'Digitar um id…',
   'models.manualHint': 'id do modelo',
   'models.pickProvider': 'Escolha um',

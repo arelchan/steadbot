@@ -723,7 +723,6 @@ export const zh: Record<string, string> = {
   'models.default': '默认 · {model}',
   'models.auto': '按风格自动挑',
   'models.none': '还没选',
-  'models.off': '关掉',
   'models.manual': '手动填写…',
   'models.manualHint': '直接填模型 id',
   'models.pickProvider': '选一家',

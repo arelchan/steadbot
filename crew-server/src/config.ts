@@ -40,7 +40,7 @@ interface FileConfig {
   providerKeys?: Record<string, string>;
   /** What turns text into vectors (the skill library and the memory engine both search with it). OpenRouter only. */
   embeddingModel?: string;
-  /** Reranker for the memory engine; "off" turns it off. OpenRouter only. */
+  /** Reranker for the memory engine; empty means none, and the engine re-scores its own way. */
   rerankModel?: string;
   /** Metadata per "provider/model-id", for models pi's catalog does not list yet. Falls back to `modelInfo`. */
   modelMeta?: Record<string, ModelInfo>;
@@ -126,7 +126,6 @@ if (!process.env.TZ) {
 
 /** What each slot falls back to when nobody chose: what the product shipped with. */
 export const DEFAULT_EMBEDDING_MODEL = 'openrouter/baai/bge-m3';
-export const DEFAULT_RERANK_MODEL = 'openrouter/cohere/rerank-v3.5';
 
 
 export const config = {
@@ -165,8 +164,9 @@ export const config = {
   get embeddingModel() {
     return process.env.CREW_EMBEDDING_MODEL ?? file.embeddingModel ?? DEFAULT_EMBEDDING_MODEL;
   },
+  /** No default: nothing chosen means nothing re-scores, and the engine falls back to its own way (everos.ts). */
   get rerankModel() {
-    return process.env.CREW_RERANK_MODEL ?? file.rerankModel ?? DEFAULT_RERANK_MODEL;
+    return process.env.CREW_RERANK_MODEL ?? file.rerankModel;
   },
   get modelInfo() {
     return file.modelInfo;

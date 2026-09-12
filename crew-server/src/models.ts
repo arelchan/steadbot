@@ -1,7 +1,7 @@
 import type { Api, Model } from '@earendil-works/pi-ai';
 import { builtinImagesModels } from '@earendil-works/pi-ai/providers/all';
 import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
-import { DEFAULT_EMBEDDING_MODEL, DEFAULT_RERANK_MODEL, ambientKey, config, readFileConfig, updateConfigFile, type ModelInfo } from './config.ts';
+import { DEFAULT_EMBEDDING_MODEL, ambientKey, config, readFileConfig, updateConfigFile, type ModelInfo } from './config.ts';
 import { DRAW_STYLES } from './draw.ts';
 import { DEFAULT_VISION_MODEL } from './vision.ts';
 
@@ -32,8 +32,6 @@ export interface SlotDef {
   fallback?: string;
   /** left empty, the product picks per call (drawing chooses by style and tier) */
   auto?: boolean;
-  /** the row can be switched off entirely */
-  offable?: boolean;
 }
 
 export const SLOTS: SlotDef[] = [
@@ -44,7 +42,9 @@ export const SLOTS: SlotDef[] = [
   { id: 'imageModel', needs: 'image', only: ['openrouter', 'openai', 'xai', 'together', 'siliconflow', 'zhipu'], auto: true },
   { id: 'searchModel', needs: 'chat', only: ['openrouter', 'perplexity'], inherits: 'lightModel' },
   { id: 'embeddingModel', needs: 'embed', only: ['openrouter', 'openai', 'siliconflow', 'jina', 'voyage', 'dashscope', 'zhipu', 'mistral'], fallback: DEFAULT_EMBEDDING_MODEL },
-  { id: 'rerankModel', needs: 'rerank', only: ['openrouter', 'jina', 'voyage', 'siliconflow', 'cohere'], fallback: DEFAULT_RERANK_MODEL, offable: true },
+  // No default and no off switch: reranking is the one job here that is better skipped than guessed at, so an
+  // empty row simply means the engine re-scores its own way.
+  { id: 'rerankModel', needs: 'rerank', only: ['openrouter', 'jina', 'voyage', 'siliconflow', 'cohere'] },
 ];
 
 /**
@@ -217,9 +217,8 @@ export function keyOf(slot: SlotId): { key: string; source: KeySource } | undefi
  * `EXTRA_PROVIDERS` when it does not; the key comes from the row.
  */
 export function endpointOf(slot: SlotId): { provider: string; model: string; baseUrl: string; key: string } | undefined {
-  const spec = effectiveOf(slot);
-  const s = splitSpec(spec);
-  if (!s || spec === 'off') return undefined;
+  const s = splitSpec(effectiveOf(slot));
+  if (!s) return undefined;
   const baseUrl = baseUrlOf(s.provider);
   const got = keyOf(slot);
   return baseUrl && got ? { provider: s.provider, model: s.id, baseUrl, key: got.key } : undefined;
@@ -254,7 +253,12 @@ const SLOT_ENV: Record<SlotId, string> = {
  * What the user actually chose, which is not the same as what `config.<slot>` answers — those getters already
  * fold in the product's defaults, and a default shown as a choice is a choice nobody made.
  */
-const slotValue = (id: SlotId): string | undefined => process.env[SLOT_ENV[id]] ?? (readFileConfig() as Record<string, string | undefined>)[id];
+const slotValue = (id: SlotId): string | undefined => {
+  const v = process.env[SLOT_ENV[id]] ?? (readFileConfig() as Record<string, string | undefined>)[id];
+  // "off" is what turning a row off used to write. There is no off switch any more — an empty row is what "not
+  // in effect" looks like — so an old one reads as empty.
+  return v === 'off' ? undefined : v;
+};
 
 /** Pinned from the environment: the page shows the value but will not let it be edited here. */
 export const slotPinned = (id: SlotId): boolean => !!process.env[SLOT_ENV[id]];
@@ -271,7 +275,7 @@ export function effectiveOf(id: SlotId, seen = new Set<SlotId>()): string | unde
   seen.add(id);
   const def = SLOTS.find((s) => s.id === id)!;
   const spec = slotValue(id)?.trim() || (def.inherits ? effectiveOf(def.inherits, seen) : def.fallback);
-  if (!spec || spec === 'off') return spec || undefined;
+  if (!spec) return undefined;
   const p = splitSpec(spec)?.provider;
   return def.only && (!p || !def.only.includes(p)) ? undefined : spec;
 }
@@ -341,7 +345,7 @@ export function modelsPage(rt: ModelRuntime | undefined, want?: string[]): Model
     const own = config.slotKeys[def.id]?.trim();
     // A row is blocked when the model it would use has nobody paying for it. A row on automatic counts too:
     // drawing with no key is still drawing with no key.
-    const blocked = effective !== 'off' && (!!effective || !!def.auto) && !got;
+    const blocked = (!!effective || !!def.auto) && !got;
     return {
       ...def,
       value,
@@ -424,9 +428,9 @@ export function saveModels(patch: ModelsPatch): { models: boolean; keys: boolean
       if (!SLOTS.some((s) => s.id === k)) continue;
       touched.models = true;
       if (MEMORY_SLOTS.includes(k as SlotId)) touched.memory = true;
-      if (v === null || v === '') delete cur[k];
-      // Switching a row off is the bare word, whatever a client sends: "voyage/off" would be a model named off.
-      else cur[k] = /^(.*\/)?off$/.test(v) ? 'off' : v;
+      // Empty, or the word an older client used for "switched off": the row goes back to having no answer.
+      if (v === null || v === '' || /^(.*\/)?off$/.test(v)) delete cur[k];
+      else cur[k] = v;
     }
     if (patch.keys) {
       const keys = { ...((cur.slotKeys as Record<string, string>) ?? {}) };

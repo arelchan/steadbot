@@ -674,7 +674,6 @@ export const zhTW: Record<string, string> = {
   'models.default': '預設 · {model}',
   'models.auto': '按風格自動挑',
   'models.none': '還沒選',
-  'models.off': '關掉',
   'models.manual': '手動填寫…',
   'models.manualHint': '直接填模型 id',
   'models.pickProvider': '選一家',

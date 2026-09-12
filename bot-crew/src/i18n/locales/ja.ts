@@ -673,7 +673,6 @@ export const ja: Record<string, string> = {
   'models.default': '既定 · {model}',
   'models.auto': '絵ごとに自動で選ぶ',
   'models.none': '未設定',
-  'models.off': 'オフ',
   'models.manual': 'id を入力…',
   'models.manualHint': 'モデル id',
   'models.pickProvider': '選ぶ',

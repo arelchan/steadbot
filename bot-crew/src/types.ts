@@ -254,8 +254,6 @@ export interface ModelSlot {
   fallback?: string;
   /** 留空就每次自己挑（画图按风格挑） */
   auto?: boolean;
-  /** 这一行可以关掉 */
-  offable?: boolean;
   /** 用户选的；空表示还在默认上 */
   value?: string;
   /** 这一轮真正会跑的 */

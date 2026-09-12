@@ -673,7 +673,6 @@ export const de: Record<string, string> = {
   'models.default': 'Standard · {model}',
   'models.auto': 'Pro Bild gewählt',
   'models.none': 'Nicht gesetzt',
-  'models.off': 'Aus',
   'models.manual': 'Id eingeben…',
   'models.manualHint': 'Modell-Id',
   'models.pickProvider': 'Auswählen',

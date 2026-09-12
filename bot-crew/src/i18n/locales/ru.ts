@@ -723,7 +723,6 @@ export const ru: Record<string, string> = {
   'models.default': 'По умолчанию · {model}',
   'models.auto': 'Выбирается под картинку',
   'models.none': 'Не задано',
-  'models.off': 'Выключить',
   'models.manual': 'Ввести id…',
   'models.manualHint': 'id модели',
   'models.pickProvider': 'Выберите',

@@ -174,16 +174,15 @@ function SlotView({
     if (prov && !loaded) onNeed(prov);
   }, [prov, loaded]);
   const visible = slot.needs === 'vision' ? list.filter((m) => m.vision) : list;
-  // "off" is the row itself being switched off, not a model at a provider: it is stored as the bare word.
-  const chosen = slot.value === 'off' ? 'off' : providerOf(slot.value) === prov ? idOf(slot.value) : '';
-  const spec = (id: string) => (id === 'off' ? 'off' : `${prov}/${id}`);
+  const chosen = providerOf(slot.value) === prov ? idOf(slot.value) : '';
+  const spec = (id: string) => `${prov}/${id}`;
   const provider = page.providers.find((p) => p.id === prov);
   const typeIt = manual || (!!prov && loaded && list.length === 0);
   // Chat and vision rows can go to any provider pi carries; the four rows this server calls itself name the
   // vendors whose protocol it actually speaks, and those include a few pi has never heard of (`chat: false`).
   const choices = slot.only ? page.providers.filter((p) => slot.only!.includes(p.id)) : page.providers.filter((p) => p.chat);
   // A hand-written id: the catalog cannot price it, so the row asks for the numbers itself.
-  const unknown = loaded && !!slot.effective && slot.effective !== 'off' && !!slot.value && !list.some((x) => x.id === idOf(slot.value));
+  const unknown = loaded && !!slot.effective && !!slot.value && !list.some((x) => x.id === idOf(slot.value));
 
   // What "nothing chosen" means for this row — unless the user has just moved the row to another provider, in
   // which case the inherited model or the shipped default is on the wrong one and the row is simply waiting.
@@ -264,9 +263,8 @@ function SlotView({
         ) : (
           <Pick value={chosen} onChange={(v) => (v === MANUAL ? setManual(true) : onPatch({ slots: { [slot.id]: v ? spec(v) : null } }))}>
             <option value="">{empty}</option>
-            {slot.offable && <option value="off">{t('models.off')}</option>}
             {/* A model typed by hand, or one the catalog has since dropped, still shows as the row's answer. */}
-            {chosen && chosen !== 'off' && !visible.some((m) => m.id === chosen) && <option value={chosen}>{list.find((m) => m.id === chosen)?.name ?? chosen}</option>}
+            {chosen && !visible.some((m) => m.id === chosen) && <option value={chosen}>{list.find((m) => m.id === chosen)?.name ?? chosen}</option>}
             {visible.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}

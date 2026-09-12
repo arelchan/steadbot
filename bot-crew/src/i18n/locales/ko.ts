@@ -673,7 +673,6 @@ export const ko: Record<string, string> = {
   'models.default': '기본 · {model}',
   'models.auto': '그림마다 자동 선택',
   'models.none': '미설정',
-  'models.off': '끄기',
   'models.manual': 'id 입력…',
   'models.manualHint': '모델 id',
   'models.pickProvider': '고르기',
