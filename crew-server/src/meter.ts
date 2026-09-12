@@ -10,7 +10,7 @@
  * So there is one ledger, and every call that is not a bot's own turn goes through here. New model calls that skip
  * it show up as a hole in the report rather than silently: that is the point of having one door.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Usage } from '@earendil-works/pi-ai';
 import { config } from './config.ts';

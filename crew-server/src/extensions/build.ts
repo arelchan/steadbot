@@ -6,7 +6,6 @@ import type { CrewOps } from './crew-tools.ts';
 import { CHANNEL_LABEL, type Bot, type Channel } from '../types.ts';
 import { IMS } from '../channels.ts';
 import { join } from 'node:path';
-import { config } from '../config.ts';
 import type { SkillStore } from '../skills.ts';
 
 const CHANNEL_ALIAS: Record<string, Channel> = { 应用: 'app', 应用内: 'app', App: 'app', app: 'app', 飞书: 'feishu', 企业微信: 'wechat', 企微: 'wechat', 微信: 'weixin', weixin: 'weixin', Slack: 'slack', slack: 'slack', Telegram: 'telegram', telegram: 'telegram', 电报: 'telegram' };

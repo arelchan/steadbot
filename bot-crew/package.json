@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "dev:live": "VITE_CREW_WS=ws://localhost:5200/ws vite"
+    "dev:live": "VITE_CREW_WS=ws://localhost:5200/ws vite",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit"
   },
   "dependencies": {
     "@novnc/novnc": "^1.7.0",

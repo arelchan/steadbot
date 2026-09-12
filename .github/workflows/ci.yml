@@ -1,0 +1,53 @@
+# 两个包各自把关。这道门挡的是「main 上的东西编译不过却没人知道」——App 跑的是 vite dev，
+# 不做类型检查，所以坏了要等到有人 build 才发现。
+#
+# 注意它不是部署闸门：升级是主动发 {type:'upgrade'} 触发的（App 的升级按钮 / deploy.mjs），
+# 机器自己 git checkout origin/main，不看 CI。这里红了只是让你在点之前知道。
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crew-server/package-lock.json
+      - run: npm ci
+        working-directory: crew-server
+      - run: npm run typecheck
+        working-directory: crew-server
+      # 服务端没有 lint 依赖，也不给它加：改 package.json 会命中 upgrade.ts 的 heavy 规则，
+      # 下次升级就从 40 秒重启变成几分钟重建镜像。用 npx 拉一个钉死的版本。
+      # 同样是棘轮：剩下的 38 条是 no-useless-fallback-in-spread 这类风格 nit，
+      # 在共享仓库里一次改 38 处只会制造 rebase 冲突，不值。死代码已经清掉。
+      - run: npx --yes oxlint@1.79.0 --max-warnings=38 src
+        working-directory: crew-server
+
+  client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: bot-crew/package-lock.json
+      - run: npm ci
+        working-directory: bot-crew
+      - run: npm run typecheck
+        working-directory: bot-crew
+      # 棘轮，不是零容忍：现存 49 条里有 30 条是 set-state-in-effect / exhaustive-deps，
+      # 那是要一处处判断的 React 行为，不能机械清。卡住当前数量，只许降不许升；
+      # 清掉几条就把这个数字改小几条。
+      - run: npx oxlint --max-warnings=49
+        working-directory: bot-crew
+      - run: npm run build
+        working-directory: bot-crew
