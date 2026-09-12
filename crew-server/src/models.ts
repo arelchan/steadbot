@@ -238,10 +238,23 @@ function anyKeyFor(rt: ModelRuntime, id: string): boolean {
   return !!ambientKey(id) || rt.getProviderAuthStatus(id).configured;
 }
 
-/** Everything 设置 › 模型 draws, in one answer. */
-export function modelsPage(rt: ModelRuntime | undefined): ModelsPage {
+/**
+ * Everything 设置 › 模型 draws — except the model catalogs it cannot show yet.
+ *
+ * Forty providers hold about eighteen hundred models between them, a fifth of a megabyte of JSON that the page
+ * reads eight rows' worth of. So only the lists a row is actually on travel with the page; `want` names the extra
+ * provider a row has just been moved to, and the App asks for that one the moment it needs it. A provider that is
+ * asked for and has no list of a given kind comes back as an empty array rather than a missing key — that is how
+ * the App tells "nothing here, type the id yourself" from "not fetched yet".
+ */
+export function modelsPage(rt: ModelRuntime | undefined, want?: string[]): ModelsPage {
   const providers: ProviderRow[] = [];
   const models: Record<string, ModelRow[]> = {};
+  const need = new Set<string>(want ?? []);
+  for (const def of SLOTS) {
+    const p = providerOfSlot(def.id);
+    if (p) need.add(p);
+  }
   if (rt) {
     for (const p of rt.getProviders()) {
       if (p.id === 'faux') continue;
@@ -256,15 +269,17 @@ export function modelsPage(rt: ModelRuntime | undefined): ModelsPage {
         oauth: auth?.oauth ? { label: auth.oauth.loginLabel || auth.oauth.name || p.name, subscription: auth.oauth.isSubscription === true } : undefined,
         keyed: anyKeyFor(rt, p.id),
       });
-      models[p.id] = list.map(modelRow).sort((a, b) => a.id.localeCompare(b.id));
+      if (need.has(p.id)) models[p.id] = list.map(modelRow).sort((a, b) => a.id.localeCompare(b.id));
     }
     providers.sort((a, b) => (a.keyed && !b.keyed ? -1 : b.keyed && !a.keyed ? 1 : a.name.localeCompare(b.name)));
   }
   // Drawing, embedding and reranking do not read a provider's chat catalog, so their lists travel under
   // `<what the row needs>:<provider>` and the App asks for them by that key.
-  models['image:openrouter'] = imageModels();
-  for (const [id, rows] of Object.entries(EMBED_MODELS)) models[`embed:${id}`] = rows;
-  for (const [id, rows] of Object.entries(RERANK_MODELS)) models[`rerank:${id}`] = rows;
+  for (const id of need) {
+    models[`image:${id}`] = id === 'openrouter' ? imageModels() : [];
+    models[`embed:${id}`] = EMBED_MODELS[id] ?? [];
+    models[`rerank:${id}`] = RERANK_MODELS[id] ?? [];
+  }
   const slots: SlotRow[] = SLOTS.map((def) => {
     const value = slotValue(def.id)?.trim() || undefined;
     const effective = effectiveOf(def.id);

@@ -1049,6 +1049,9 @@ async function main() {
           res.end(JSON.stringify(body));
           return true;
         };
+        // The row the user has just moved to another provider asks for that provider's catalog by name; the rest
+        // of the page carries only the lists its eight rows are already on.
+        const want = url.searchParams.getAll('for').filter(Boolean);
         if (req.method === 'POST') {
           const chunks: Buffer[] = [];
           await new Promise<void>((resolve, reject) => {
@@ -1071,9 +1074,9 @@ async function main() {
             everos.stopMemory();
             void everos.startMemory();
           }
-          return json(200, modelsPage(bots.modelRuntime));
+          return json(200, modelsPage(bots.modelRuntime, want));
         }
-        return json(200, modelsPage(bots.modelRuntime));
+        return json(200, modelsPage(bots.modelRuntime, want));
       }
       if (url.pathname === '/usage') {
         res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });

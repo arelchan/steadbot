@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Row, Pick } from './Field';
 import { cx } from '../utils';
 import { useT } from '../i18n';
-import { fetchModels, refreshModels, saveModels } from '../services/models';
+import { fetchModels, lastModels, refreshModels, saveModels } from '../services/models';
 import type { ModelChoice, ModelMeta, ModelSlot, ModelsPage, ModelsPatch, SlotId } from '../types';
 
 /**
@@ -25,11 +25,15 @@ const idOf = (spec?: string) => (spec && spec.includes('/') ? spec.slice(spec.in
 
 export function ModelsTab() {
   const t = useT();
-  const [page, setPage] = useState<ModelsPage>();
+  // Whatever the last visit ended with is drawn immediately and corrected when the answer lands, so reopening the
+  // window is not a wait for a round trip that almost always says the same thing.
+  const [page, setPage] = useState<ModelsPage | undefined>(lastModels);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   /** the row whose key field is open right now */
   const [asking, setAsking] = useState<SlotId>();
+  /** providers whose catalog we have already asked for, so a row does not ask twice while it is on the way */
+  const asked = useRef(new Set<string>());
 
   useEffect(() => {
     let alive = true;
@@ -40,6 +44,17 @@ export function ModelsTab() {
       alive = false;
     };
   }, []);
+
+  /** A row has moved to a provider whose catalog never travelled with the page; fetch that one list. */
+  const need = (provider: string) => {
+    if (asked.current.has(provider)) return;
+    asked.current.add(provider);
+    setBusy(true);
+    fetchModels(provider)
+      .then(setPage)
+      .catch(() => asked.current.delete(provider))
+      .finally(() => setBusy(false));
+  };
 
   const apply = async (patch: ModelsPatch) => {
     setBusy(true);
@@ -82,6 +97,7 @@ export function ModelsTab() {
               if (v !== undefined) void apply({ keys: { [s.id]: v || null } });
             }}
             onPatch={(p) => void apply(p)}
+            onNeed={need}
           />
         ))}
       </div>
@@ -100,6 +116,7 @@ function SlotView({
   onAsk,
   onKey,
   onPatch,
+  onNeed,
 }: {
   slot: ModelSlot;
   page: ModelsPage;
@@ -107,33 +124,43 @@ function SlotView({
   onAsk: (id: SlotId | undefined) => void;
   onKey: (key?: string) => void;
   onPatch: (p: ModelsPatch) => void;
+  onNeed: (provider: string) => void;
 }) {
   const t = useT();
   // The provider a row is on is the one its model belongs to — until the user picks a different one and has not
-  // yet picked a model from it. That in-between lives here, and is forgotten the moment the server answers.
+  // yet picked a model from it. That in-between lives here and outlasts the save that clears the old model, which
+  // is the moment the row has no provider of its own at all.
   const settled = providerOf(slot.value) ?? providerOf(slot.effective) ?? (slot.only?.length === 1 ? slot.only[0] : '');
-  const [picking, setPicking] = useState<{ from: string; to: string }>();
-  const prov = picking?.from === settled ? picking.to : settled;
+  const [picked, setPicked] = useState<string>();
+  const prov = picked ?? settled;
   const [manual, setManual] = useState(false);
 
   // Chat and vision rows read the provider's own catalog; drawing, vectors and re-ranking have no catalog to read,
   // so they carry a short list per provider — and where there is none, the row is a text field.
   const listKey = slot.needs === 'chat' || slot.needs === 'vision' ? prov : `${slot.needs}:${prov}`;
+  // A list that never travelled with the page is not an empty list: until it arrives the row waits rather than
+  // deciding this provider has no catalog and turning itself into a text field.
+  const loaded = !prov || listKey in page.models;
   const list: ModelChoice[] = useMemo(() => page.models[listKey] ?? [], [page, listKey]);
+  useEffect(() => {
+    if (prov && !loaded) onNeed(prov);
+  }, [prov, loaded]);
   const visible = slot.needs === 'vision' ? list.filter((m) => m.vision) : list;
   const chosen = providerOf(slot.value) === prov ? idOf(slot.value) : '';
   const spec = (id: string) => `${prov}/${id}`;
   const provider = page.providers.find((p) => p.id === prov);
-  const typeIt = manual || (!!prov && list.length === 0);
+  const typeIt = manual || (!!prov && loaded && list.length === 0);
   // Drawing and web search are OpenRouter's alone — pi's image api is its, and web search is its own plugin.
   const choices = slot.only ? page.providers.filter((p) => slot.only!.includes(p.id)) : page.providers;
   // A hand-written id: the catalog cannot price it, so the row asks for the numbers itself.
-  const unknown = !!slot.effective && slot.effective !== 'off' && !!slot.value && !list.some((x) => x.id === idOf(slot.value));
+  const unknown = loaded && !!slot.effective && slot.effective !== 'off' && !!slot.value && !list.some((x) => x.id === idOf(slot.value));
 
   // What "nothing chosen" means for this row — unless the user has just moved the row to another provider, in
   // which case the inherited model or the shipped default is on the wrong one and the row is simply waiting.
   const drifted = !!prov && !!slot.effective && providerOf(slot.effective) !== prov;
-  const empty = drifted
+  const empty = !loaded
+    ? t('common.loading')
+    : drifted
     ? t('models.pickModel')
     : slot.inherits
       ? t('models.inherit', { what: t(`models.slot.${slot.inherits}`) })
@@ -167,7 +194,7 @@ function SlotView({
           value={prov}
           onChange={(v) => {
             setManual(false);
-            setPicking({ from: settled, to: v });
+            setPicked(v);
             // A row cannot be half-changed: picking a new provider drops the old provider's model.
             if (slot.value && providerOf(slot.value) !== v) onPatch({ slots: { [slot.id]: null } });
             if (v && !page.providers.find((p) => p.id === v)?.keyed) onAsk(slot.id);
