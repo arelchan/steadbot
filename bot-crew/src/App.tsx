@@ -10,6 +10,7 @@ import { Draft } from './components/Draft';
 import { RuntimeView } from './components/RuntimeView';
 import { Toasts } from './components/Toasts';
 import { PreviewModal } from './components/Preview';
+import { UpgradeCurtain } from './components/UpgradeCurtain';
 import { useT, useLocale } from './i18n';
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
       <OfflineBar show={isLive && online === false} />
       <Toasts />
       <PreviewModal />
+      <UpgradeCurtain />
     </div>
   );
 }

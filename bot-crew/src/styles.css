@@ -1502,6 +1502,36 @@ li.md-task.done { color: var(--text-2); }
 .set-rn .link { font-size: 11.5px; }
 .set-rc { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
 
+/* 升级：一块幕布盖住一切，后面是机器自己在说话 */
+.curtain { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px) saturate(0.9); animation: fade 0.18s var(--ease); }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.cur-card { width: min(520px, 100%); background: var(--panel); border: 1px solid var(--hair-2); border-radius: var(--r); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18); padding: 22px 24px; }
+.cur-head { display: flex; align-items: baseline; gap: 10px; }
+.cur-t { font-size: 15px; font-weight: 600; }
+.cur-to { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.cur-steps { list-style: none; display: flex; margin: 18px 0 0; padding: 0; }
+.cur-steps li { flex: 1; display: flex; flex-direction: column; gap: 7px; position: relative; color: var(--muted); font-size: 11.5px; }
+.cur-steps li::before { content: ''; position: absolute; left: 0; right: 0; top: 4px; height: 1px; background: var(--hair-2); }
+.cur-steps li:first-child::before { left: 4px; }
+.cur-steps li:last-child::before { right: calc(100% - 5px); }
+.cs-dot { position: relative; width: 9px; height: 9px; border-radius: 50%; background: var(--hair); }
+.cur-steps li.was .cs-dot { background: var(--accent); }
+.cur-steps li.was { color: var(--text-2); }
+.cur-steps li.now { color: var(--accent); }
+.cur-steps li.now .cs-dot { background: var(--accent); box-shadow: 0 0 0 0 var(--accent-hair); animation: pulse 1.6s var(--ease) infinite; }
+@keyframes pulse { to { box-shadow: 0 0 0 7px transparent; } }
+.cur-bar { margin-top: 18px; height: 3px; border-radius: 2px; background: var(--tint); overflow: hidden; }
+.cur-bar i { display: block; height: 100%; width: 34%; border-radius: 2px; background: var(--accent); opacity: 0.85; animation: slide 1.5s var(--ease) infinite; }
+.cur-bar.full i { width: 100%; animation: none; }
+@keyframes slide { from { transform: translateX(-110%); } to { transform: translateX(320%); } }
+.cur-now { display: flex; align-items: baseline; gap: 12px; margin-top: 12px; font-size: 12px; }
+.cur-line { flex: 1; min-width: 0; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cur-secs { color: var(--muted); font-variant-numeric: tabular-nums; }
+.cur-more { margin-top: 10px; font-size: 11.5px; }
+.cur-err { margin-top: 14px; font-size: 12.5px; color: var(--warn); }
+.cur-foot { display: flex; justify-content: flex-end; margin-top: 14px; }
+.cur-card .up-log { margin-top: 12px; max-height: 180px; }
+
 /* waiting looks like the shape of the answer, never like a stale copy of it */
 .skel { display: inline-block; vertical-align: middle; border-radius: 5px; background: linear-gradient(90deg, var(--tint) 25%, var(--hair-2) 37%, var(--tint) 63%); background-size: 400% 100%; animation: skel 1.4s var(--ease) infinite; }
 @keyframes skel { from { background-position: 100% 0; } to { background-position: 0 0; } }

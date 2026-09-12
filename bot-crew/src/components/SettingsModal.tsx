@@ -2,14 +2,14 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, setSettings } from '../store';
 import type { UpgradeStatus, UsageReport } from '../types';
-import { fetchUpgradeStatus, runUpgrade } from '../services/upgrade';
+import { fetchUpgradeStatus, startUpgrade } from '../services/upgrade';
 import { fetchUsage } from '../services/usage';
 import { ACCENTS, SCALES, THEMES, getAccent, getDesktopNotify, getScale, getTheme, notifySupported, setAccent, setDesktopNotify, setScale, setTheme, type Accent, type Scale, type Theme } from '../services/theme';
 import { RuntimeBody } from './RuntimeView';
 import { ModelsTab } from './ModelsTab';
 import { Row, Pick, Skel } from './Field';
 import { cx } from '../utils';
-import { LOCALES, useT, useLocale, setLocale, intlLocale, tn, t as tr, type Locale } from '../i18n';
+import { LOCALES, useT, useLocale, setLocale, intlLocale, tn, type Locale } from '../i18n';
 
 type Tab = 'general' | 'models' | 'cloud' | 'usage' | 'about';
 const TABS: { id: Tab; key: string }[] = [
@@ -400,13 +400,15 @@ function Usage() {
 
 /* ---------------- 关于 + 升级 ---------------- */
 
-/** Polls the local EverBot: it holds the code, so it is the one that knows whether there is a newer version. */
+/**
+ * Polls the local EverBot: it holds the code, so it is the one that knows whether there is a newer version.
+ *
+ * Running one is not this window's business — it takes the machine away for minutes and the window can be closed
+ * — so pressing the button hands it to the App (services/upgrade.ts), which draws a curtain over everything.
+ */
 export function useUpgrade() {
   const [status, setStatus] = useState<UpgradeStatus | undefined>();
-  const [log, setLog] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-  const [done, setDone] = useState('');
+  const run = useStore((s) => s.upgrading);
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const refresh = () => void fetchUpgradeStatus().then((s) => s && setStatus(s));
   useEffect(() => {
@@ -414,23 +416,8 @@ export function useUpgrade() {
     timer.current = setInterval(refresh, 60_000);
     return () => clearInterval(timer.current);
   }, []);
-  const start = async () => {
-    setBusy(true);
-    setErr('');
-    setDone('');
-    setLog([]);
-    try {
-      const r = await runUpgrade((line) => setLog((x) => [...x.slice(-200), line]));
-      setDone(r.restarting ? tr('about.upgradedRestart') : tr('about.upgraded'));
-      if (r.restarting) setTimeout(() => window.location.reload(), 4000);
-      else refresh();
-    } catch (e) {
-      setErr((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return { status, log, busy, err, done, start, refresh };
+  const busy = !!run && run.phase !== 'error';
+  return { status, busy, start: () => void startUpgrade(status?.latestName ?? status?.latest?.slice(0, 8)), refresh };
 }
 
 function About({ up }: { up: ReturnType<typeof useUpgrade> }) {
@@ -464,9 +451,6 @@ function About({ up }: { up: ReturnType<typeof useUpgrade> }) {
         )}
       </div>
       {s?.blocked && <div className="about-blocked">{s.blocked}</div>}
-      {up.err && <div className="up-err">{up.err}</div>}
-      {up.done && <div className="up-ok">{up.done}</div>}
-      {up.log.length > 0 && <pre className="up-log">{up.log.slice(-40).join('\n')}</pre>}
 
       <h4>{t('about.machine')}</h4>
       <ul className="about-facts">

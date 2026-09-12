@@ -598,11 +598,26 @@ export interface CrewEvent {
   firedAt?: number;
 }
 
+/** 升级 as the whole App sees it: which of the four slow things is happening, and what the machine last printed. */
+export type UpgradePhase = 'fetch' | 'wait' | 'apply' | 'back' | 'done' | 'error';
+export interface UpgradeRun {
+  /** the version being installed, when it is known */
+  to?: string;
+  phase: UpgradePhase;
+  line: string;
+  lines: string[];
+  startedAt: number;
+  err?: string;
+}
+
 export interface State {
   /** 设置 › 模型 and 设置 › 用量, pushed by the server over the socket. Never persisted: what they say has to be
    *  current or absent, so a new window shows a skeleton until this connection's own answer arrives. */
   models?: ModelsPage;
   usage?: UsageReport;
+  /** an upgrade in progress: while this is set the App is behind a curtain (UpgradeCurtain.tsx).
+   *  Not `upgrade`: the snapshot already carries that name, for the machine's version status. */
+  upgrading?: UpgradeRun;
   /** the server this page is connected to (undefined until the first snapshot) */
   runtime?: RuntimeInfo;
   settings?: CrewSettings;
