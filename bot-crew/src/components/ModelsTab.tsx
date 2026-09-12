@@ -174,8 +174,9 @@ function SlotView({
     if (prov && !loaded) onNeed(prov);
   }, [prov, loaded]);
   const visible = slot.needs === 'vision' ? list.filter((m) => m.vision) : list;
-  const chosen = providerOf(slot.value) === prov ? idOf(slot.value) : '';
-  const spec = (id: string) => `${prov}/${id}`;
+  // "off" is the row itself being switched off, not a model at a provider: it is stored as the bare word.
+  const chosen = slot.value === 'off' ? 'off' : providerOf(slot.value) === prov ? idOf(slot.value) : '';
+  const spec = (id: string) => (id === 'off' ? 'off' : `${prov}/${id}`);
   const provider = page.providers.find((p) => p.id === prov);
   const typeIt = manual || (!!prov && loaded && list.length === 0);
   // Chat and vision rows can go to any provider pi carries; the four rows this server calls itself name the

@@ -425,7 +425,8 @@ export function saveModels(patch: ModelsPatch): { models: boolean; keys: boolean
       touched.models = true;
       if (MEMORY_SLOTS.includes(k as SlotId)) touched.memory = true;
       if (v === null || v === '') delete cur[k];
-      else cur[k] = v;
+      // Switching a row off is the bare word, whatever a client sends: "voyage/off" would be a model named off.
+      else cur[k] = /^(.*\/)?off$/.test(v) ? 'off' : v;
     }
     if (patch.keys) {
       const keys = { ...((cur.slotKeys as Record<string, string>) ?? {}) };
