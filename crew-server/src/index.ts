@@ -28,7 +28,7 @@ import { LoginDesk } from './login.ts';
 import { WeixinPairing } from './weixin-pair.ts';
 import { initDeps, kick as kickDeps, reconcile as reconcileDeps, ready as depsReady } from './deps.ts';
 import * as everos from './everos.ts';
-import { applyProviderKeys, modelsPage, refreshCatalog, saveModels, type ModelsPatch } from './models.ts';
+import { applyProviderKeys, modelsPage, saveModels, type ModelsPatch } from './models.ts';
 import { fetchAssets } from './assets.ts';
 import { versionLine } from './version.ts';
 import { usageReport } from './usage.ts';
@@ -1058,9 +1058,7 @@ async function main() {
             req.on('end', resolve);
             req.on('error', reject);
           });
-          const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as ModelsPatch & { refresh?: boolean };
-          if (body.refresh) await refreshCatalog(bots.modelRuntime).catch(() => undefined);
-          const touched = body.refresh ? { models: false, keys: false, memory: false } : saveModels(body);
+          const touched = saveModels(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as ModelsPatch);
           if (touched.keys) await applyProviderKeys(bots.modelRuntime);
           if (touched.keys || touched.models) {
             bots.pickModels(() => new FakeBrain(store));

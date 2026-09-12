@@ -749,7 +749,6 @@ export const ru: Record<string, string> = {
   'models.dropKey': 'удалить',
   'models.keyReplace': 'заменить',
   'models.save': 'Сохранить',
-  'models.refresh': 'Обновить списки моделей',
   'models.fetchFail': 'Не удалось прочитать настройки моделей',
   'models.saveFail': 'Не сохранено',
   'models.oldVersion': 'На той машине версия ещё без этой страницы',

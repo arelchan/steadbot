@@ -699,7 +699,6 @@ export const de: Record<string, string> = {
   'models.dropKey': 'entfernen',
   'models.keyReplace': 'ersetzen',
   'models.save': 'Speichern',
-  'models.refresh': 'Modelllisten aktualisieren',
   'models.fetchFail': 'Modelleinstellungen nicht lesbar',
   'models.saveFail': 'Nicht gespeichert',
   'models.oldVersion': 'Die Version auf der Maschine hat diese Seite noch nicht',

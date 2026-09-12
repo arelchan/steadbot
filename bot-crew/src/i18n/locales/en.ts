@@ -727,7 +727,6 @@ export const en: Record<string, string> = {
   'models.dropKey': 'remove it',
   'models.keyReplace': 'replace it',
   'models.save': 'Save',
-  'models.refresh': 'Refresh model lists',
   'models.fetchFail': 'Could not read the model settings',
   'models.saveFail': 'Not saved',
   'models.oldVersion': 'The version on that machine has no such page yet',

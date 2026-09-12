@@ -360,12 +360,6 @@ export function modelsPage(rt: ModelRuntime | undefined, want?: string[]): Model
   return { slots, providers, models };
 }
 
-/** pi's catalogs are static until someone asks; the page's 「刷新」 is what asks. */
-export async function refreshCatalog(rt: ModelRuntime | undefined): Promise<void> {
-  if (!rt) return;
-  await rt.refresh({});
-}
-
 /**
  * `embeddingModel` and `rerankModel` were bare model ids while there was only one place to send them. Now that the
  * row picks its own provider they are "provider/model-id" like everything else — and only pi can say whether the

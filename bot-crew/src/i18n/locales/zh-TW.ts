@@ -700,7 +700,6 @@ export const zhTW: Record<string, string> = {
   'models.dropKey': '刪掉',
   'models.keyReplace': '換一把',
   'models.save': '存下',
-  'models.refresh': '重新整理模型列表',
   'models.fetchFail': '讀不到模型設定',
   'models.saveFail': '沒存上',
   'models.oldVersion': '這台機器上的版本還沒有這個頁面',

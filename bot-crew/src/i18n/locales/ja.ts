@@ -699,7 +699,6 @@ export const ja: Record<string, string> = {
   'models.dropKey': '削除',
   'models.keyReplace': '差し替え',
   'models.save': '保存',
-  'models.refresh': 'モデル一覧を更新',
   'models.fetchFail': 'モデル設定を読めません',
   'models.saveFail': '保存できませんでした',
   'models.oldVersion': 'そのマシンのバージョンにはこの画面がありません',

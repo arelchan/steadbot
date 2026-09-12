@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Row, Pick } from './Field';
 import { cx } from '../utils';
 import { useT } from '../i18n';
-import { fetchModels, lastModels, refreshModels, saveModels } from '../services/models';
+import { fetchModels, lastModels, saveModels } from '../services/models';
 import type { ModelChoice, ModelMeta, ModelSlot, ModelsPage, ModelsPatch, SlotId } from '../types';
 
 /**
@@ -82,17 +82,6 @@ export function ModelsTab() {
     }
   };
 
-  const refresh = async () => {
-    setBusy(true);
-    try {
-      setPage(await refreshModels());
-    } catch {
-      /* the list already on screen still works */
-    } finally {
-      setBusy(false);
-    }
-  };
-
   if (err && !page) return <div className="quiet">{err}</div>;
   if (!page) return <div className="quiet">{t('common.loading')}</div>;
 
@@ -115,10 +104,7 @@ export function ModelsTab() {
           />
         ))}
       </div>
-      <div className="models-foot">
-        <button className="link" onClick={() => void refresh()} disabled={busy}>{t('models.refresh')}</button>
-        {err && <span className="quiet">{err}</span>}
-      </div>
+      {err && <div className="models-foot quiet">{err}</div>}
     </div>
   );
 }
@@ -263,6 +249,9 @@ function SlotView({
         ) : (
           <Pick value={chosen} onChange={(v) => (v === MANUAL ? setManual(true) : onPatch({ slots: { [slot.id]: v ? spec(v) : null } }))}>
             <option value="">{empty}</option>
+            {/* First, not buried under three hundred models: an id this catalog has never heard of is the one
+                thing the list itself cannot offer, and whoever wants it already knows it. */}
+            {list.length > 0 && <option value={MANUAL}>{t('models.manual')}</option>}
             {/* A model typed by hand, or one the catalog has since dropped, still shows as the row's answer. */}
             {chosen && !visible.some((m) => m.id === chosen) && <option value={chosen}>{list.find((m) => m.id === chosen)?.name ?? chosen}</option>}
             {visible.map((m) => (
@@ -271,7 +260,6 @@ function SlotView({
                 {m.costIn ? ` · $${m.costIn}/${m.costOut ?? 0}` : ''}
               </option>
             ))}
-            {list.length > 0 && <option value={MANUAL}>{t('models.manual')}</option>}
           </Pick>
         )}
       </Row>

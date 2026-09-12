@@ -699,7 +699,6 @@ export const ko: Record<string, string> = {
   'models.dropKey': '삭제',
   'models.keyReplace': '교체',
   'models.save': '저장',
-  'models.refresh': '모델 목록 새로고침',
   'models.fetchFail': '모델 설정을 읽지 못했습니다',
   'models.saveFail': '저장되지 않았습니다',
   'models.oldVersion': '그 기기의 버전에는 이 화면이 없습니다',

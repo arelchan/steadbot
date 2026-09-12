@@ -749,7 +749,6 @@ export const zh: Record<string, string> = {
   'models.dropKey': '删掉',
   'models.keyReplace': '换一把',
   'models.save': '存下',
-  'models.refresh': '刷新模型列表',
   'models.fetchFail': '读不到模型设置',
   'models.saveFail': '没存上',
   'models.oldVersion': '这台机器上的版本还没有这个页面',

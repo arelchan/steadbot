@@ -699,7 +699,6 @@ export const pt: Record<string, string> = {
   'models.dropKey': 'remover',
   'models.keyReplace': 'trocar',
   'models.save': 'Salvar',
-  'models.refresh': 'Atualizar listas de modelos',
   'models.fetchFail': 'Não deu para ler as configurações de modelos',
   'models.saveFail': 'Não salvou',
   'models.oldVersion': 'A versão daquela máquina ainda não tem esta página',
