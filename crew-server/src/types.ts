@@ -475,7 +475,6 @@ export interface LibraryEntry {
 /** 全局偏好：跟着这套 bot 走，不是某个浏览器的设置 */
 export interface CrewSettings {
   /** bot 用什么语言说话和写东西：界面语言的代码（zh、en、ja…），或 auto = 跟着用户当时说的语言 */
-  language?: string;
   /** 用户所在时区（IANA 名，App 上报）。例行任务的时间按它算：云机器本身跑在 UTC 上。 */
   timezone?: string;
 }

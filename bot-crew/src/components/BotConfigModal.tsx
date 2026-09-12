@@ -16,7 +16,7 @@ import { useT, tn, t as tr } from '../i18n';
 /** Library category names live in the catalogs, keyed by the category id the backend uses. */
 const libCat = (c: string) => tr(`lib.${c}`);
 
-export type Tab = 'growth' | 'instructions' | 'memory' | 'knowledge' | 'skills' | 'routines' | 'integrations';
+export type Tab = 'growth' | 'instructions' | 'memory' | 'knowledge' | 'skills' | 'routines' | 'im' | 'integrations';
 
 const TABS: { id: Tab; key: string }[] = [
   { id: 'growth', key: 'cfg.growth' },
@@ -25,6 +25,7 @@ const TABS: { id: Tab; key: string }[] = [
   { id: 'knowledge', key: 'cfg.knowledge' },
   { id: 'skills', key: 'cfg.skills' },
   { id: 'routines', key: 'cfg.routines' },
+  { id: 'im', key: 'cfg.channels' },
   { id: 'integrations', key: 'cfg.integrations' },
 ];
 
@@ -43,7 +44,8 @@ export function BotConfigModal({ bot, tab: initial = 'growth', routineId, onClos
     growth: bot.growth?.length ?? 0,
     skills: bot.skills.length,
     routines: bot.routines.filter((r) => r.enabled).length,
-    integrations: integrations.filter((i) => !i.owner && ((bot.integrationIds ?? []).includes(i.id) || (i.channel && bot.channels.includes(i.channel)))).length,
+    im: bot.channels.filter((c) => c !== 'app').length,
+    integrations: integrations.filter((i) => !i.owner && (bot.integrationIds ?? []).includes(i.id)).length,
   };
 
   return createPortal(
@@ -74,6 +76,7 @@ export function BotConfigModal({ bot, tab: initial = 'growth', routineId, onClos
             {tab === 'instructions' && <Instructions bot={bot} />}
             {tab === 'skills' && <Skills bot={bot} />}
             {tab === 'routines' && <Routines bot={bot} openId={routineId} />}
+            {tab === 'im' && <Channels bot={bot} />}
             {tab === 'integrations' && <Integrations bot={bot} />}
           </div>
         </section>
@@ -555,6 +558,29 @@ function RoutineDetail({ bot, r, isNew, onBack, onSaved }: { bot: Bot; r: Routin
   );
 }
 
+/* ---------------- 渠道 ---------------- */
+
+/**
+ * Where this bot can be reached. It used to be a section inside 连接, next to MCP servers and external agents,
+ * which put three different things under one word: an MCP server is a tool the bot may use, an IM is a place the
+ * bot lives — each one is its own account over there, with its own credentials, that people talk to directly.
+ */
+function Channels({ bot }: { bot: Bot }) {
+  const t = useT();
+  const channels = useStore((s) => s.integrations).filter((i) => i.kind === 'channel' && i.channel && i.channel !== 'app');
+  return (
+    <>
+      <Head title={t('cfg.channels')} />
+      <ul className="integ-list">
+        {channels.map((i) => (
+          <ImRow key={i.id} i={i} bot={bot} channel={i.channel!} />
+        ))}
+        {!channels.length && <li className="quiet">{t('common.none')}</li>}
+      </ul>
+    </>
+  );
+}
+
 /* ---------------- 连接 ---------------- */
 
 function Integrations({ bot }: { bot: Bot }) {
@@ -568,7 +594,6 @@ function Integrations({ bot }: { bot: Bot }) {
   };
   // A bot's own computer shows up as a private MCP connection (owner = the bot); it is not a shared connection.
   const mcps = integrations.filter((i) => i.kind === 'mcp' && !i.owner);
-  const channels = integrations.filter((i) => i.kind === 'channel' && i.channel && i.channel !== 'app');
   const agents = integrations.filter((i) => i.kind === 'agent');
   // Where the agents run when the bots live on a remote machine: on the user's computer, lent over the host link.
   const host = rt && !rt.local ? (rt.agentHost ? t('cfg.hostVia', { name: rt.agentHost.name }) : t('cfg.hostOff')) : undefined;
@@ -582,13 +607,6 @@ function Integrations({ bot }: { bot: Bot }) {
         ))}
       </ul>
       <AddMcp />
-
-      <h4>{t('cfg.im')}</h4>
-      <ul className="integ-list">
-        {channels.map((i) => (
-          <ImRow key={i.id} i={i} bot={bot} channel={i.channel!} />
-        ))}
-      </ul>
 
       <h4>
         {t('cfg.agents')}
