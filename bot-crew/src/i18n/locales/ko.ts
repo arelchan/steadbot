@@ -245,6 +245,7 @@ export const ko: Record<string, string> = {
   'screen.install': '클라우드 컴퓨터 준비',
   'screen.computer': '컴퓨터',
   'screen.usedBy': '{names} 사용 중',
+  'screen.itsTab': '이 봇이 보고 있는 탭',
   'screen.idle': ' · 쉬는 중',
   'screen.waking': ' · 깨어나는 중',
   'screen.noResponse': ' · 응답 없음',

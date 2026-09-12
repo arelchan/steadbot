@@ -951,7 +951,11 @@ async function main() {
       {
         // A still of the computer's screen, for the card (desktop.ts). 404 when the computer is off.
         if (url.pathname === '/screen.jpg') {
-          const p = desktops.snapshot(Math.min(1440, Math.max(160, Number(url.searchParams.get("w") ?? 640))));
+          const w = Math.min(1440, Math.max(160, Number(url.searchParams.get('w') ?? 640)));
+          // `bot` asks for what that bot is looking at — its own tab. Without one, or when it is not on the
+          // computer, the answer is the machine itself, which is what the card showed before any of this.
+          const who = url.searchParams.get('bot');
+          const p = (who ? await desktops.botShot(who, w).catch(() => undefined) : undefined) ?? desktops.snapshot(w);
           if (!p) {
             res.writeHead(404, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
             res.end('{"error":"off"}');

@@ -263,6 +263,7 @@ export const en: Record<string, string> = {
   'screen.install': 'Set up a cloud computer',
   'screen.computer': 'Computer',
   'screen.usedBy': '{names} using it',
+  'screen.itsTab': 'the tab it is on',
   'screen.idle': ' · idle',
   'screen.waking': ' · waking up',
   'screen.noResponse': ' · not responding',

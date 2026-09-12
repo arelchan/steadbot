@@ -245,6 +245,7 @@ export const pt: Record<string, string> = {
   'screen.install': 'Montar um computador na nuvem',
   'screen.computer': 'Computador',
   'screen.usedBy': '{names} está usando',
+  'screen.itsTab': 'a aba em que está',
   'screen.idle': ' · parado',
   'screen.waking': ' · acordando',
   'screen.noResponse': ' · sem resposta',

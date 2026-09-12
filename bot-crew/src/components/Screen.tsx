@@ -8,7 +8,10 @@ import { cx } from '../utils';
 import { useT } from '../i18n';
 
 /**
- * The bots' computer — one, shared by all of them, so every workspace shows this same screen. It is always
+ * The bots' computer — one machine, shared by all of them, but a workspace shows the tab of the bot it belongs
+ * to: what that bot is looking at is what you came to see, and three bots working at once share one screen where
+ * only one tab can be in front. Chrome will draw a tab that is not in front when asked for a picture of it, so
+ * watching one bot never pulls another's tab out from under it. The full view is still the whole machine. It is always
  * *there*: the card shows what is on the screen — live while a bot is using it, the last frame dimmed while it
  * sleeps. There is no power to manage: 「打开」 wakes it if it is asleep (about ten seconds), and it dozes off on
  * its own when nobody has touched it for a while. With no computer available (the bots run on the user's own
@@ -16,7 +19,7 @@ import { useT } from '../i18n';
  */
 type ScreenState = 'on' | 'starting' | 'off' | 'error' | 'none';
 
-export function ScreenCard() {
+export function ScreenCard({ botId }: { botId?: string }) {
   const t = useT();
   const rt = useStore((s) => s.runtime);
   const d = useStore((s) => s.computer);
@@ -25,7 +28,10 @@ export function ScreenCard() {
   const st: ScreenState = rt?.desktops ? (d?.state ?? 'off') : 'none';
   const old = !!rt && rt.mode === 'active' && rt.desktops === undefined;
   const idle = !!rt && rt.mode !== 'active';
-  const using = (st === 'on' ? (d?.users ?? []) : []).map((id) => bots.find((b) => b.id === id)?.name).filter((n): n is string => !!n);
+  const users = st === 'on' ? (d?.users ?? []) : [];
+  // In a bot's own workspace the frame is that bot's tab, so the caption says so rather than naming everyone.
+  const mine = !!botId && users.includes(botId);
+  const using = users.filter((id) => id !== botId).map((id) => bots.find((b) => b.id === id)?.name).filter((n): n is string => !!n);
   // On a screen the App cannot stream (the bots run on this very computer), the window is on the user's desktop:
   // the one action is to bring it up.
   const streamed = rt?.desktopsLive !== false;
@@ -40,7 +46,7 @@ export function ScreenCard() {
         <div className={cx('sc-frame', st)}>
           {st !== 'none' ? (
             <>
-              <Still live={st === 'on'} epoch={d?.since ?? 0} />
+              <Still live={st === 'on'} epoch={d?.since ?? 0} bot={botId} />
               <button className="sc-open" onClick={open}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9.5 2.5H13.5V6.5M13.5 2.5L9 7M6.5 13.5H2.5V9.5M2.5 13.5L7 9" />
@@ -58,7 +64,8 @@ export function ScreenCard() {
         <div className="sc-cap">
           <span className={cx('sc-dot', st)} />
           {t('screen.computer')}
-          {st === 'on' && using.length > 0 && <span className="sc-state"> · {t('screen.usedBy', { names: using.join('、') })}</span>}
+          {st === 'on' && mine && <span className="sc-state"> · {t('screen.itsTab')}</span>}
+          {st === 'on' && !mine && using.length > 0 && <span className="sc-state"> · {t('screen.usedBy', { names: using.join('、') })}</span>}
           {st === 'off' && <span className="sc-state">{t('screen.idle')}</span>}
           {st === 'starting' && <span className="sc-state">{t('screen.waking')}</span>}
           {st === 'error' && <span className="sc-state err">{t('screen.noResponse')}</span>}
@@ -71,16 +78,20 @@ export function ScreenCard() {
   );
 }
 
-/** The still the server keeps: live, refreshed every couple of seconds; asleep, the frame it fell asleep on. */
-function stillUrl(tick: number, width = 640) {
-  return withToken(`${httpBase || window.location.origin}/screen.jpg?w=${width}&t=${tick}`);
+/**
+ * The still the server keeps: live, refreshed every couple of seconds; asleep, the frame it fell asleep on.
+ * With `bot`, it is that bot's own tab — and the machine itself whenever that bot is not on the computer.
+ */
+function stillUrl(tick: number, width = 640, bot?: string) {
+  const who = bot ? `&bot=${encodeURIComponent(bot)}` : '';
+  return withToken(`${httpBase || window.location.origin}/screen.jpg?w=${width}&t=${tick}${who}`);
 }
 
 /**
  * A JPEG of the screen. An <img>, so a slow link just keeps the last frame. While live it polls; asleep it loads
  * once (the frame does not change), and again when the computer has been up since (`epoch`).
  */
-function Still({ live, epoch }: { live: boolean; epoch: number }) {
+function Still({ live, epoch, bot }: { live: boolean; epoch: number; bot?: string }) {
   const t = useT();
   const [tick, setTick] = useState(() => Date.now());
   const [dead, setDead] = useState(false);
@@ -94,7 +105,7 @@ function Still({ live, epoch }: { live: boolean; epoch: number }) {
   }, [live, epoch]);
   return (
     <>
-      <img className={cx('sc-still', dead && 'hidden')} src={stillUrl(tick)} alt="" draggable={false} onError={() => setDead(true)} onLoad={() => setDead(false)} />
+      <img className={cx('sc-still', dead && 'hidden')} src={stillUrl(tick, 640, bot)} alt="" draggable={false} onError={() => setDead(true)} onLoad={() => setDead(false)} />
       {dead && live && <span className="sc-msg sc-still-msg">{t('screen.noFrame')}</span>}
     </>
   );

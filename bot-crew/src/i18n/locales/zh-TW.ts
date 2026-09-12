@@ -245,6 +245,7 @@ export const zhTW: Record<string, string> = {
   'screen.install': '架設雲端電腦',
   'screen.computer': '電腦',
   'screen.usedBy': '{names} 在用',
+  'screen.itsTab': '它在看的頁面',
   'screen.idle': ' · 閒著',
   'screen.waking': ' · 正在醒來',
   'screen.noResponse': ' · 沒回應',

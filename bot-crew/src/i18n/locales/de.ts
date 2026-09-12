@@ -245,6 +245,7 @@ export const de: Record<string, string> = {
   'screen.install': 'Cloud-Rechner einrichten',
   'screen.computer': 'Rechner',
   'screen.usedBy': '{names} benutzt ihn',
+  'screen.itsTab': 'der Tab, auf dem er ist',
   'screen.idle': ' · im Leerlauf',
   'screen.waking': ' · wacht auf',
   'screen.noResponse': ' · reagiert nicht',

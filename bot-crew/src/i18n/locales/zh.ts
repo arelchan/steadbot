@@ -275,6 +275,7 @@ export const zh: Record<string, string> = {
   'screen.install': '装配云电脑',
   'screen.computer': '电脑',
   'screen.usedBy': '{names} 在用',
+  'screen.itsTab': '它在看的页面',
   'screen.idle': ' · 闲着',
   'screen.waking': ' · 正在醒来',
   'screen.noResponse': ' · 没响应',

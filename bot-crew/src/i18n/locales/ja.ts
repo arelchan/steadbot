@@ -245,6 +245,7 @@ export const ja: Record<string, string> = {
   'screen.install': 'クラウドのパソコンを用意',
   'screen.computer': 'パソコン',
   'screen.usedBy': '{names} が使用中',
+  'screen.itsTab': 'このボットが見ているタブ',
   'screen.idle': ' · 待機中',
   'screen.waking': ' · 起動中',
   'screen.noResponse': ' · 応答なし',

@@ -55,7 +55,7 @@ export function TasksFloat({ bot, matter }: { bot?: Bot; matter?: Matter }) {
       <div className="workspace">
         {bot && (
           <Section title={t('ws.computer')} hint={using.length ? t('screen.usedBy', { names: using.join('、') }) : undefined} startOpen>
-            <ScreenCard />
+            <ScreenCard botId={bot.id} />
           </Section>
         )}
         <Section

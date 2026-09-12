@@ -39,6 +39,8 @@ const H = 900;
 const IDLE_MS = 30 * 60 * 1000;
 /** A bot counts as "using it" for this long after its last browser call. */
 const USING_MS = 2 * 60 * 1000;
+/** How long a bot's own answer about which tab it is on is taken at face value before asking again. */
+const TAB_FRESH_MS = 8000;
 /**
  * What keeps the shared computer from growing without limit. Left alone it does: every bot that touches it opens a
  * tab and leaves a node process behind, and neither was ever cleaned up — 23 pages and a browser near two gigabytes
@@ -296,6 +298,16 @@ export class DesktopManager {
   private sweep: ReturnType<typeof setInterval> | undefined;
   private booting: Promise<void> | undefined;
   private attaching = new Map<string, Promise<void>>();
+  /**
+   * Which tab belongs to which bot.
+   *
+   * Nothing in the browser says so on its own: CDP knows tabs, each bot's Playwright process knows its own current
+   * page, and the two never meet. So it is learned where it is knowable — the tab this server opens for a bot when
+   * it attaches — and re-asked of that bot's own process once the answer has aged, which is the only place the
+   * truth lives after the model starts opening tabs itself.
+   */
+  private tabOf = new Map<string, { page: import('playwright-core').Page; at: number }>();
+  private botShots = new Map<string, { at: number; jpeg: Promise<Buffer> }>();
 
   constructor(
     private store: CrewStore,
@@ -475,7 +487,11 @@ export class DesktopManager {
     try {
       const integ = await this.mcp.connect(id);
       if (integ?.status !== 'ok') throw new Error(`浏览器工具没起来：${integ?.note ?? '未知原因'}`);
+      const before = new Set(await this.pages().catch(() => []));
       await this.mcp.callTool(id, 'browser_tabs', { action: 'new' });
+      // The tab we just made for it is the one it is on; from here its own process is what knows (botPage).
+      const mine = (await this.pages().catch(() => [])).find((p) => !before.has(p));
+      if (mine) this.tabOf.set(botId, { page: mine, at: Date.now() });
       l.bots.set(botId, Date.now());
       await this.refreshTools(botId).catch(() => undefined);
       this.patch({ lastUsed: Date.now(), users: this.users() });
@@ -497,6 +513,8 @@ export class DesktopManager {
     const l = this.live;
     if (l) await this.keepLastFrame();
     this.live = undefined;
+    this.tabOf.clear();
+    this.botShots.clear();
     if (this.cdp) void this.cdp.then((b) => b.close()).catch(() => undefined);
     this.cdp = undefined;
     const attached = l ? [...l.bots.keys()] : [];
@@ -624,6 +642,8 @@ export class DesktopManager {
     await this.mcp.disconnect(id).catch(() => undefined);
     this.store.patchIntegration(id, { status: 'off', note: '闲着，用的时候会自己接回来', tools: undefined });
     this.live?.bots.delete(botId);
+    this.tabOf.delete(botId);
+    this.botShots.delete(botId);
     await this.refreshTools(botId).catch(() => undefined);
     console.log(`[crew] computer: ${this.store.bot(botId)?.name ?? botId} 十五分钟没用浏览器，先放开了`);
   }
@@ -675,6 +695,49 @@ export class DesktopManager {
     return !!this.live?.bots.has(botId);
   }
 
+  private async pages(): Promise<import('playwright-core').Page[]> {
+    const browser = await this.browser();
+    return browser.contexts().flatMap((c) => c.pages()).filter((p) => !p.isClosed());
+  }
+
+  /** Ask a bot's own Playwright process where it is: its tab list marks one of them `(current)`. */
+  private async askTab(botId: string): Promise<import('playwright-core').Page | undefined> {
+    const out = await this.mcp.callTool(this.integrationId(botId), 'browser_tabs', { action: 'list' });
+    const text = ((out.content ?? []) as { type?: string; text?: string }[]).map((c) => c.text ?? '').join('\n');
+    const url = /^-\s*\d+:\s*\(current\)\s*\[[^\]]*\]\(([^)]+)\)/m.exec(text)?.[1];
+    if (!url) return undefined;
+    return (await this.pages()).find((p) => p.url() === url);
+  }
+
+  /** The tab this bot is on, or nothing when it is not on the computer at all. */
+  private async botPage(botId: string): Promise<import('playwright-core').Page | undefined> {
+    if (!this.live?.bots.has(botId)) return undefined;
+    const known = this.tabOf.get(botId);
+    const usable = known && !known.page.isClosed() ? known.page : undefined;
+    if (usable && Date.now() - known!.at < TAB_FRESH_MS) return usable;
+    const asked = await this.askTab(botId).catch(() => undefined);
+    if (asked) this.tabOf.set(botId, { page: asked, at: Date.now() });
+    else if (usable) this.tabOf.set(botId, { page: usable, at: Date.now() });
+    else this.tabOf.delete(botId);
+    return asked ?? usable;
+  }
+
+  /**
+   * What one bot is looking at: its own tab, scaled for the card. Chrome renders a tab that is not in front when
+   * it is asked for a picture of it, so watching one bot never pulls another bot's tab out from under it.
+   */
+  async botShot(botId: string, width = 640): Promise<Buffer | undefined> {
+    if (!this.live) return undefined;
+    const hit = this.botShots.get(botId);
+    if (hit && Date.now() - hit.at < 1500) return hit.jpeg;
+    const page = await this.botPage(botId).catch(() => undefined);
+    if (!page) return undefined;
+    const jpeg = this.shotOf(page, width);
+    this.botShots.set(botId, { at: Date.now(), jpeg });
+    jpeg.catch(() => this.botShots.delete(botId));
+    return jpeg;
+  }
+
   private lastFramePath() {
     return join(config.computerDir, 'last.jpg');
   }
@@ -689,14 +752,14 @@ export class DesktopManager {
     return page;
   }
 
-  /** A picture of the computer: the whole screen where there is one of ours, otherwise the page in front in the browser. */
-  private async frame(width: number): Promise<Buffer> {
-    const whole = this.screen.shot(width);
-    if (whole) return whole;
-    const page = await this.frontPage();
-    // Straight to CDP: Playwright's screenshot cannot scale, and a full-size frame every couple of seconds is
-    // twenty times the bytes the card needs.
-    // `scale` is on top of the device pixel ratio, so a Retina screen needs half of it for the same width.
+  /**
+   * One tab, as a JPEG no wider than asked for.
+   *
+   * Straight to CDP: Playwright's screenshot cannot scale, and a full-size frame every couple of seconds is twenty
+   * times the bytes a card needs. `scale` is on top of the device pixel ratio, so a Retina screen needs half of it
+   * for the same width.
+   */
+  private async shotOf(page: import('playwright-core').Page, width: number): Promise<Buffer> {
     const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio }));
     const cdp = await page.context().newCDPSession(page);
     try {
@@ -705,6 +768,13 @@ export class DesktopManager {
     } finally {
       await cdp.detach().catch(() => undefined);
     }
+  }
+
+  /** A picture of the computer: the whole screen where there is one of ours, otherwise the page in front in the browser. */
+  private async frame(width: number): Promise<Buffer> {
+    const whole = this.screen.shot(width);
+    if (whole) return whole;
+    return this.shotOf(await this.frontPage(), width);
   }
 
   private async keepLastFrame() {

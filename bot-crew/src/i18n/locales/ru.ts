@@ -277,6 +277,7 @@ export const ru: Record<string, string> = {
   'screen.install': 'Поднять облачный компьютер',
   'screen.computer': 'Компьютер',
   'screen.usedBy': '{names} использует',
+  'screen.itsTab': 'вкладка, на которой он сейчас',
   'screen.idle': ' · простаивает',
   'screen.waking': ' · просыпается',
   'screen.noResponse': ' · не отвечает',

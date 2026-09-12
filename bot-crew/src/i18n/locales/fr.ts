@@ -245,6 +245,7 @@ export const fr: Record<string, string> = {
   'screen.install': 'Mettre en place un ordinateur cloud',
   'screen.computer': 'Ordinateur',
   'screen.usedBy': '{names} l’utilise',
+  'screen.itsTab': 'l’onglet qu’il regarde',
   'screen.idle': ' · au repos',
   'screen.waking': ' · réveil en cours',
   'screen.noResponse': ' · ne répond pas',
