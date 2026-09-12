@@ -5,6 +5,7 @@ import { join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { machineMemMb } from './desktop.ts';
 import { config, configPath, readFileConfig, writeConfigKeys } from './config.ts';
 import type { RuntimeInfo } from './types.ts';
 
@@ -101,6 +102,7 @@ export class Runtime {
       local: !config.authToken,
       build: RUNNING_BUILD,
       desktop: platform() === 'darwin' || platform() === 'win32' || !!process.env.DISPLAY,
+      memMb: machineMemMb(),
       mode: this.mode,
       movedTo: this.movedTo,
       version: pkgVersion(),

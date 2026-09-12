@@ -527,6 +527,8 @@ export interface RuntimeInfo {
   publicUrl: string;
   local: boolean;
   desktop: boolean;
+  /** How much memory this machine (or its container) has, in MB — what the computer's own budgets come from. */
+  memMb?: number;
   mode: 'active' | 'standby' | 'moved';
   movedTo?: string;
   version: string;

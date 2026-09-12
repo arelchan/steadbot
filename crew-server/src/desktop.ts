@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import type { IncomingMessage } from 'node:http';
 import { createRequire } from 'node:module';
 import { connect as tcpConnect } from 'node:net';
-import { homedir, platform } from 'node:os';
+import { homedir, platform, totalmem } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { Duplex } from 'node:stream';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -35,8 +35,8 @@ import type { Computer } from './types.ts';
 // carries more pixels than it needs (a screenshot is ~1300 prompt tokens at this size).
 const W = 1440;
 const H = 900;
-/** Idle this long with nobody watching and no tool call → the computer sleeps (its browser is ~1.4 GB of RAM). Waking takes ~10 s. */
-const IDLE_MS = 30 * 60 * 1000;
+/** Idle this long with nobody watching and no tool call → the computer sleeps. Waking it again takes about 3 s. */
+const IDLE_MS = 10 * 60 * 1000;
 /** A bot counts as "using it" for this long after its last browser call. */
 const USING_MS = 2 * 60 * 1000;
 /** How long a bot's own answer about which tab it is on is taken at face value before asking again. */
@@ -45,12 +45,33 @@ const TAB_FRESH_MS = 8000;
  * What keeps the shared computer from growing without limit. Left alone it does: every bot that touches it opens a
  * tab and leaves a node process behind, and neither was ever cleaned up — 23 pages and a browser near two gigabytes
  * on a two-core box, which is what made a Playwright client's handshake time out. So the machine holds a shape:
- * at most this many tabs, a bot's browser tools let go when it stops using them, and a browser that has grown too
- * heavy is restarted while nobody is watching (the profile — every login — is on disk and survives).
+ * a tab budget, a bot's browser tools let go when it stops using them, and a browser that has grown too heavy is
+ * restarted while nobody is watching (the profile — every login — is on disk and survives).
+ *
+ * The shape is the machine's, not a number someone picked: the same browser that is comfortable on a 16 GB laptop
+ * is what kills a 2 GB cloud box. So both budgets come from how much memory this machine actually has — and in a
+ * container that is the limit it was given, not the host's total, which is what `os.totalmem()` reports there.
  */
-const TAB_CAP = 8;
+export function machineMemMb(): number {
+  const total = Math.round(totalmem() / 1048576);
+  for (const p of ['/sys/fs/cgroup/memory.max', '/sys/fs/cgroup/memory/memory.limit_in_bytes']) {
+    try {
+      const mb = Math.round(Number(readFileSync(p, 'utf8').trim()) / 1048576);
+      if (Number.isFinite(mb) && mb > 64 && mb < total) return mb;
+    } catch {
+      /* not in a container, or a cgroup layout we do not know */
+    }
+  }
+  return total;
+}
+
+const MEM_MB = machineMemMb();
+/** The browser may hold about this much before it is trimmed: a share of the machine, never absurd either way. */
+const CHROME_RSS_MB = Math.max(700, Math.min(6000, Math.round(MEM_MB * 0.4)));
+/** How many tabs may sit around while nobody is using the computer, and what it is trimmed to when it is over. */
+const TAB_CAP = MEM_MB < 3000 ? 4 : MEM_MB < 6000 ? 8 : 16;
+const TAB_FLOOR = Math.max(2, Math.round(TAB_CAP / 2));
 const BOT_IDLE_MS = 15 * 60 * 1000;
-const CHROME_RSS_MB = 2000;
 const DISPLAY = 100;
 const VNC_PORT = 5900 + DISPLAY;
 const CDP_PORT = 9222;
@@ -403,6 +424,7 @@ export class DesktopManager {
     mkdirSync(profile, { recursive: true });
     inheritProfile(profile);
     this.patch({ state: 'starting', note: undefined, users: [] });
+    console.log(`[crew] computer: 这台机器 ${MEM_MB}MB 内存 → 浏览器上限 ${CHROME_RSS_MB}MB，闲时最多 ${TAB_CAP} 个标签页`);
     const procs: ChildProcess[] = [];
     const env = this.screen.env();
     const run: Run = (cmd, args) => {
@@ -854,9 +876,9 @@ export class DesktopManager {
     await this.tidyTabs(busy ? Infinity : TAB_CAP);
     const mb = await this.chromeRssMb().catch(() => 0);
     if (mb <= CHROME_RSS_MB) return;
-    if (busy) return void console.warn(`[crew] computer: 浏览器占了 ${mb}MB，有人在用，等它闲下来再收`);
-    console.warn(`[crew] computer: 浏览器占了 ${mb}MB，收紧到 4 个标签页`);
-    await this.tidyTabs(4);
+    if (busy) return void console.warn(`[crew] computer: 浏览器占了 ${mb}MB（上限 ${CHROME_RSS_MB}MB），有人在用，等它闲下来再收`);
+    console.warn(`[crew] computer: 浏览器占了 ${mb}MB（上限 ${CHROME_RSS_MB}MB），收紧到 ${TAB_FLOOR} 个标签页`);
+    await this.tidyTabs(TAB_FLOOR);
     // Still heavy with nobody on it: start it over. The profile is on disk, so every login comes back.
     if ((await this.chromeRssMb().catch(() => 0)) > CHROME_RSS_MB && !l.bots.size && !l.viewers) {
       console.warn('[crew] computer: 还是太重，趁没人用重开一次浏览器');
