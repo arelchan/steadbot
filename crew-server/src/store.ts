@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { CHANNEL_LABEL } from './types.ts';
 import type { Channel, Computer, CrewEvent, CrewSettings, Action, Bot, Integration, Matter, Message, Pending, Snapshot, ThreadId, Toast, Todo, GrowthEvent, GrowthKind } from './types.ts';
 import { uid } from './util.ts';
@@ -34,6 +34,30 @@ export type StoreEvent =
  * 断电、磁盘写满卡在 rename 之前，都会留下半截文件。坏了就把它挪到一边留证据，再从种子起，
  * 这样服务起得来、用户看得见出了事，而原文件还在（run.sh 里是 while 循环，崩就是每 2 秒崩一次）。
  */
+/**
+ * 消息单独一个追加文件。以前它们躺在 crew.json 里，于是**每来一条消息就把整份历史重写一遍**
+ * （还是 pretty-print 的）——写入成本随历史线性增长，而且没有上限、没有归档、没有告警。
+ * 现在热路径是 appendFileSync 一行；改一条、删一条这种少见操作才整份重写这个文件。
+ * crew.json 从此是常数大小。
+ */
+const msgFile = (file: string) => file.replace(/\.json$/, '') + '.messages.jsonl';
+
+function readMessages(file: string): Message[] {
+  const f = msgFile(file);
+  if (!existsSync(f)) return [];
+  const out: Message[] = [];
+  for (const line of readFileSync(f, 'utf8').split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      out.push(JSON.parse(line) as Message);
+    } catch {
+      // 追加写被断电截断的那一行。丢它，不要丢整个文件。
+      console.warn('[crew] 跳过一行读不出来的消息记录');
+    }
+  }
+  return out;
+}
+
 function readOrRescue(file: string, seed: () => Snapshot): Snapshot {
   try {
     return JSON.parse(readFileSync(file, 'utf8')) as Snapshot;
@@ -58,6 +82,18 @@ export class CrewStore extends EventEmitter {
     super();
     this.file = file;
     this.data = existsSync(file) ? readOrRescue(file, seed) : seed();
+    // 老装机：消息还在 crew.json 里。搬进追加文件，原件改名留着（不删——它是唯一的回滚素材）。
+    if (this.data.messages?.length && !existsSync(msgFile(file))) {
+      writeFileSync(msgFile(file), this.data.messages.map((m) => JSON.stringify(m)).join('\n') + '\n');
+      try {
+        renameSync(file, file + '.pre-split');
+      } catch {
+        /* 挪不动就算了，下面照样会写一份新的 */
+      }
+      console.log(`[crew] ${this.data.messages.length} 条消息搬进 ${msgFile(file)}；原 crew.json 留在 .pre-split`);
+    } else {
+      this.data.messages = readMessages(file);
+    }
     this.data.integrations ??= [];
     this.data.events ??= [];
     // 五态并成四态：接下了就是在做，卡住了也是等你。
@@ -91,9 +127,24 @@ export class CrewStore extends EventEmitter {
   }
 
   flush() {
+    if (this.msgsDirty) {
+      const t = msgFile(this.file) + '.tmp';
+      writeFileSync(t, this.data.messages.map((m) => JSON.stringify(m)).join('\n') + '\n');
+      renameSync(t, msgFile(this.file));
+      this.msgsDirty = false;
+    }
     const tmp = this.file + '.tmp';
-    writeFileSync(tmp, JSON.stringify(this.data, null, 2));
+    // 消息不进 crew.json——它们在旁边那个追加文件里。
+    const { messages: _m, ...rest } = this.data;
+    writeFileSync(tmp, JSON.stringify(rest, null, 2));
     renameSync(tmp, this.file);
+  }
+
+  /** 改过或删过消息：下次 flush 整份重写那个追加文件。新增走 append，不经过这里。 */
+  private msgsDirty = false;
+  private rewriteMessages() {
+    this.msgsDirty = true;
+    this.save();
   }
 
   /* ---- bots ---- */
@@ -172,6 +223,7 @@ export class CrewStore extends EventEmitter {
     const thread = `bot:${id}`;
     this.data.bots = this.data.bots.filter((b) => b.id !== id);
     this.data.messages = this.data.messages.filter((m) => m.threadId !== thread && !(m.botId === id && m.threadId.startsWith('bot:')));
+    this.msgsDirty = true;
     this.data.todos = this.data.todos.filter((t) => t.botId !== id);
     this.data.pendings = this.data.pendings.filter((p) => p.botId !== id);
     this.data.actions = this.data.actions.filter((a) => a.botId !== id);
@@ -191,6 +243,7 @@ export class CrewStore extends EventEmitter {
     const thread = `matter:${id}`;
     this.data.matters = this.data.matters.filter((m) => m.id !== id);
     this.data.messages = this.data.messages.filter((m) => m.threadId !== thread);
+    this.msgsDirty = true;
     this.data.todos = this.data.todos.filter((t) => t.matterId !== id);
     this.data.pendings = this.data.pendings.filter((p) => p.threadId !== thread);
     this.save();
@@ -202,6 +255,7 @@ export class CrewStore extends EventEmitter {
   /** Wipe one thread's transcript and its open cards. Todos, actions and memory stay. */
   clearThread(threadId: ThreadId) {
     this.data.messages = this.data.messages.filter((m) => m.threadId !== threadId);
+    this.msgsDirty = true;
     this.data.pendings = this.data.pendings.filter((p) => p.threadId !== threadId);
     this.save();
     this.emitChange({ type: 'thread_cleared', threadId });
@@ -367,6 +421,15 @@ export class CrewStore extends EventEmitter {
     // otherwise overwrite the generated one, leaving the message unaddressable.
     const message: Message = { ...m, id: m.id ?? uid() } as Message;
     this.data.messages.push(message);
+    // 热路径：追加一行。以前这里是"把整份历史重写一遍"。
+    if (!this.msgsDirty) {
+      try {
+        appendFileSync(msgFile(this.file), JSON.stringify(message) + '\n');
+      } catch (e) {
+        console.warn('[crew] 消息追加失败，改走整份重写：', (e as Error).message);
+        this.msgsDirty = true;
+      }
+    }
     this.save();
     this.emitChange({ type: 'message', message });
     return message;
@@ -375,7 +438,7 @@ export class CrewStore extends EventEmitter {
     const m = this.message(id);
     if (!m) return undefined;
     Object.assign(m, patch);
-    this.save();
+    this.rewriteMessages();
     this.emitChange({ type: 'message_patch', id, patch });
     return m;
   }
