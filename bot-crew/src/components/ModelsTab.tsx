@@ -247,8 +247,16 @@ function SlotView({
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           />
         ) : (
-          <Pick value={chosen} onChange={(v) => (v === MANUAL ? setManual(true) : onPatch({ slots: { [slot.id]: v ? spec(v) : null } }))}>
-            <option value="">{empty}</option>
+          <Pick
+            value={chosen}
+            // What runs when this row has not been given a model of its own — inherited, shipped, or picked per
+            // call. It is the row's state, not something to choose, so it reads in the field and the ✕ is how
+            // you go back to it.
+            placeholder={empty}
+            onClear={slot.value ? () => onPatch({ slots: { [slot.id]: null } }) : undefined}
+            clearTitle={empty}
+            onChange={(v) => (v === MANUAL ? setManual(true) : onPatch({ slots: { [slot.id]: v ? spec(v) : null } }))}
+          >
             {/* First, not buried under three hundred models: an id this catalog has never heard of is the one
                 thing the list itself cannot offer, and whoever wants it already knows it. */}
             {list.length > 0 && <option value={MANUAL}>{t('models.manual')}</option>}

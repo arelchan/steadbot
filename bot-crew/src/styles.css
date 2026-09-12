@@ -1510,6 +1510,9 @@ li.md-task.done { color: var(--text-2); }
 .pick .pf-t.ph { color: var(--muted); }
 .pick::after { content: '⌄'; position: absolute; right: 12px; top: 0; bottom: 5px; display: flex; align-items: center; font-size: 12px; color: var(--muted); pointer-events: none; }
 .pick.wide .pick-face { min-width: 270px; }
+.pick.clearable .pick-face { padding-right: 48px; }
+.pick-x { position: absolute; right: 27px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 9px; color: var(--muted); transition: background 0.12s var(--ease), color 0.12s var(--ease); }
+.pick-x:hover { background: var(--hair-2); color: var(--text); }
 .pick-pop { position: fixed; z-index: 90; display: flex; flex-direction: column; min-width: 180px; background: var(--panel); border: 1px solid var(--hair-2); border-radius: var(--r); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14); overflow: hidden; }
 .pick-pop .pp-q { font: inherit; font-size: 12.5px; color: var(--text); background: transparent; border: 0; border-bottom: 1px solid var(--hair-2); padding: 9px 12px; }
 .pick-pop .pp-q:focus { outline: 0; }

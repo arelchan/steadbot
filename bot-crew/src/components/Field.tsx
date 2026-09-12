@@ -62,6 +62,8 @@ export function Pick({
   children,
   wide,
   placeholder,
+  onClear,
+  clearTitle,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -69,6 +71,9 @@ export function Pick({
   wide?: boolean;
   /** What the field reads before anything is chosen. It is a state, not a choice, so it is never in the list. */
   placeholder?: string;
+  /** Given when there is something to undo: an ✕ in the field that puts it back to that state. */
+  onClear?: () => void;
+  clearTitle?: string;
 }) {
   const t = useT();
   const items = useMemo(() => itemsOf(children), [children]);
@@ -153,7 +158,7 @@ export function Pick({
   };
 
   return (
-    <span className={cx('pick', wide && 'wide', open && 'open')}>
+    <span className={cx('pick', wide && 'wide', open && 'open', onClear && 'clearable')}>
       <button
         type="button"
         ref={btn}
@@ -165,6 +170,20 @@ export function Pick({
       >
         <span className={cx('pf-t', !current && 'ph')}>{current?.label ?? placeholder ?? items[0]?.label ?? ''}</span>
       </button>
+      {onClear && (
+        <button
+          type="button"
+          className="pick-x"
+          title={clearTitle}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen(false);
+            onClear();
+          }}
+        >
+          ✕
+        </button>
+      )}
       {open &&
         createPortal(
           <div className="pick-pop" ref={pop} style={{ left: at.left, top: at.top, width: at.width, maxHeight: at.maxH }} onKeyDown={keys}>
