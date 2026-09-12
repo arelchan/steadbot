@@ -18,9 +18,9 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
 
 ## 配置
 
-模型和它们的钥匙在 App 里配：**设置 › 模型**，一行一件事（对话 / 轻模型 / 看图 / 操作屏幕 / 画图 / 联网搜索 / 向量 / 重排），每行自己选 provider 和 model id。provider 目录、每家要什么凭据、每个模型的价格和上下文，都来自 pi 的 `ModelRuntime`，不是我们维护的清单。改完不用重启：写回 config.json → 重新挑模型 → 各 bot 下一轮生效（`models.ts`、`config.ts` 的 getter）。
+模型和它们的钥匙在 App 里配：**设置 › 模型**，一行一件事（对话 / 轻模型 / 看图 / 操作屏幕 / 画图 / 联网搜索 / 向量 / 重排），每行是一个完整的答案：哪一家、谁的钥匙、哪个模型。provider 目录、每家要什么凭据、每个模型的价格和上下文，都来自 pi 的 `ModelRuntime`，不是我们维护的清单。改完不用重启：写回 config.json → 重新挑模型 → 各 bot 下一轮生效（`models.ts`、`config.ts` 的 getter）。
 
-画图和联网搜索只能选 OpenRouter：pi 的图像 api 只有 `openrouter-images`，搜索是 OpenRouter 自己的 `web` 插件。向量和重排是我们自己发的 HTTP，用哪家都行——provider 的 baseUrl 从 pi 读，key 从 `providerKeys` 读（`models.ts` 的 `endpointOf`）。
+画图和联网搜索只能选 OpenRouter：pi 的图像 api 只有 `openrouter-images`，搜索是 OpenRouter 自己的 `web` 插件。向量和重排是我们自己发的 HTTP，用哪家都行——provider 的 baseUrl 从 pi 读，key 从这一行自己的那把读（`models.ts` 的 `endpointOf`）。
 
 `$CREW_HOME/config.json`（默认 `~/.crew/config.json`，600 权限）：
 
@@ -33,7 +33,7 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
   "guiModel": "openrouter/openai/gpt-6-astra",
   "embeddingModel": "openrouter/baai/bge-m3",
   "rerankModel": "openrouter/cohere/rerank-v3.5",
-  "providerKeys": { "openrouter": "...", "anthropic": "..." },
+  "slotKeys": { "model": "...", "visionModel": "..." },
   "composioApiKey": "...",
   "modelMeta": { "openrouter/deepseek/deepseek-v4-flash": { "contextWindow": 1048576, "maxTokens": 32000, "vision": false, "costIn": 0.084, "costOut": 0.168 } },
   "port": 5200,
@@ -47,7 +47,7 @@ npm run dev            # tsx watch，默认 ws://localhost:5200/ws
 }
 ```
 
-`providerKeys` 按 provider id 存，启动时交给 pi 的 `setRuntimeApiKey`；OpenRouter 那把同时导出到环境变量，供画图、搜索、向量和记忆引擎那四条不走 pi 的调用使用。老的 `keys`（按环境变量名）仍然读，只在 `providerKeys` 没有时补位。`modelMeta` 按 `provider/model-id` 记 pi 目录里还没有的新模型的上下文和价格——页面上填了模型 id 之后会就地问；老的全局 `modelInfo` 仍然作为兜底。`composioApiKey` 和 `googleClientId/Secret` 是产品级的（连接器走 Composio 托管 OAuth），不在页面上。当前产品配置：LLM 走 OpenRouter 的 `deepseek/deepseek-v4-flash`，头像走 `google/gemini-3.1-flash-image`。环境变量 `CREW_HOME / CREW_PORT / CREW_MODEL / CREW_FAKE=1` 可覆盖。
+`slotKeys` **按行存**：一行一把钥匙。某一行没有自己的，就借同一家里第一把填了的（`keyOf`），所以一把 OpenRouter key 只用填一次，而需要单独账号的那一行仍然能有自己的。pi 每家 provider 只放得下一把凭据，所以有自己钥匙的行会落到一个克隆出来的 provider 上（`openrouter#visionModel`，同样的 baseUrl 和模型表、自己的 key，见 `bots.ts` 的 `providerForSlot`）；记账时会把 `#` 后面切掉，账上仍然是 openrouter。老的 `keys`（按环境变量名）和 `providerKeys`（按 provider）仍然读，作为谁都没填时的兜底。`modelMeta` 按 `provider/model-id` 记 pi 目录里还没有的新模型的上下文和价格——页面上填了模型 id 之后会就地问；老的全局 `modelInfo` 仍然作为兜底。`composioApiKey` 和 `googleClientId/Secret` 是产品级的（连接器走 Composio 托管 OAuth），不在页面上。当前产品配置：LLM 走 OpenRouter 的 `deepseek/deepseek-v4-flash`，头像走 `google/gemini-3.1-flash-image`。环境变量 `CREW_HOME / CREW_PORT / CREW_MODEL / CREW_FAKE=1` 可覆盖。
 
 需要的模型：
 

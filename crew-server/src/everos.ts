@@ -19,7 +19,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { config } from './config.ts';
 import { endpointOf, runtimeReady } from './models.ts';
-import { DEFAULT_VISION_MODEL } from './vision.ts';
+import type { SlotId } from './models.ts';
 import { PLACEHOLDER, startMeterProxy } from './meter-proxy.ts';
 import type { CrewStore } from './store.ts';
 import { redactSecrets } from './secrets.ts';
@@ -42,7 +42,7 @@ const SPACE = 'shared';
  * refuses every `/knowledge/search` method without one, and the agent track's hybrid lane too.
  */
 const rerankModel = () => config.rerankModel;
-const hasRerank = () => rerankModel() !== 'off' && !!endpointOf(rerankModel());
+const hasRerank = () => rerankModel() !== 'off' && !!endpointOf('rerankModel');
 
 const PORT = Number(process.env.CREW_MEMORY_PORT ?? 5211);
 const BASE = process.env.EVEROS_URL ?? `http://127.0.0.1:${PORT}`;
@@ -224,15 +224,16 @@ function childEnv(root: string): Record<string, string> {
    * provider now, so each is resolved on its own — through the meter proxy when it is up (the sidecar then holds a
    * placeholder rather than a credential), straight at the provider when it is not.
    */
-  const leg = (spec: string | undefined, fallback: string) => {
-    const at = endpointOf(spec) ?? endpointOf(fallback);
+  const leg = (slot: SlotId) => {
+    const at = endpointOf(slot);
     if (!at) return undefined;
-    return { model: at.model, base: proxyBase ? `${proxyBase}/${at.provider}` : at.baseUrl, key: proxyBase ? PLACEHOLDER : at.key };
+    // Through the meter proxy the path says which row this is, so the forwarder can look the row's key up again.
+    return { model: at.model, base: proxyBase ? `${proxyBase}/${slot}` : at.baseUrl, key: proxyBase ? PLACEHOLDER : at.key };
   };
-  const llm = leg(config.lightModel ?? config.model, 'openrouter/deepseek/deepseek-v4-flash')!;
-  const eyes = leg(config.visionModel, DEFAULT_VISION_MODEL)!;
-  const vec = leg(config.embeddingModel, 'openrouter/baai/bge-m3')!;
-  const re = hasRerank() ? leg(rerankModel(), 'openrouter/cohere/rerank-v3.5') : undefined;
+  const llm = leg(config.lightModel ? 'lightModel' : 'model')!;
+  const eyes = leg('visionModel')!;
+  const vec = leg('embeddingModel')!;
+  const re = hasRerank() ? leg('rerankModel') : undefined;
   return {
     ...process.env,
     EVEROS_ROOT: root,
@@ -289,7 +290,7 @@ export function startMemory(): Promise<boolean> {
     }
     // Started before the models are resolved (index.ts): wait for them, or every leg below reads as unkeyed.
     await runtimeReady;
-    if (!endpointOf(config.lightModel ?? config.model)) {
+    if (!endpointOf(config.lightModel ? 'lightModel' : 'model')) {
       console.log('[crew] 记忆：对话模型还没配钥匙，先不开');
       return false;
     }

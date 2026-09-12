@@ -10,7 +10,8 @@ import { recordImages } from './meter.ts';
  */
 import type { ImageContent, ImagesInputContent, Usage } from '@earendil-works/pi-ai';
 import { builtinImagesModels } from '@earendil-works/pi-ai/providers/all';
-import { config, orKey } from './config.ts';
+import { config } from './config.ts';
+import { endpointOf } from './models.ts';
 
 const images = builtinImagesModels();
 
@@ -76,6 +77,9 @@ export const TIER_HINT: Record<DrawTier, string> = {
  * Which model draws. The table above is the answer unless the user pinned one in 设置 › 模型 — pinning is the
  * escape hatch for "I want everything drawn by this", and leaving it empty is what every install should do.
  */
+/** Whose key pays for a picture: the 画图 row's own, else whatever it borrows (models.ts). */
+export const drawKey = () => endpointOf('imageModel')?.key;
+
 export const modelIdFor = (style?: string, tier?: DrawTier) =>
   config.imageModel ?? DRAW_STYLES[style ?? '插画']?.models[tier ?? DEFAULT_TIER] ?? DRAW_STYLES.插画.models[tier ?? DEFAULT_TIER];
 
@@ -195,8 +199,8 @@ async function once(m: NonNullable<ReturnType<typeof model>>, input: ImagesInput
 
 /** OpenRouter's dedicated image endpoint, for the models pi's chat-shaped path cannot reach. */
 async function viaImagesApi(m: NonNullable<ReturnType<typeof model>>, input: ImagesInputContent[]): Promise<Drawn[]> {
-  const key = orKey();
-  if (!key) throw new Error('没有 OPENROUTER_API_KEY，画不了。');
+  const key = drawKey();
+  if (!key) throw new Error('画图这一行还没有钥匙，画不了。');
   const prompt = input
     .filter((b): b is Extract<ImagesInputContent, { type: 'text' }> => b.type === 'text')
     .map((b) => b.text)
@@ -226,7 +230,7 @@ let lastUsage: Usage | undefined;
 
 async function viaPi(m: NonNullable<ReturnType<typeof model>>, input: ImagesInputContent[]): Promise<Drawn[]> {
   lastUsage = undefined;
-  const result = await images.generateImages(m, { input });
+  const result = await images.generateImages(m, { input }, { apiKey: drawKey() });
   lastUsage = result.usage;
   if (result.stopReason === 'error') throw new Error(result.errorMessage ?? '画图失败');
   const out = result.output.filter((b): b is ImageContent => b.type === 'image');

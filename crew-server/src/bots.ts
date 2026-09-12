@@ -13,7 +13,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import type { Model, Api } from '@earendil-works/pi-ai';
 import { config, metaOf } from './config.ts';
-import { applyProviderKeys, migrateSlots, useRuntime } from './models.ts';
+import { applyProviderKeys, migrateSlots, useRuntime, type SlotId } from './models.ts';
 
 /** One entry of pi's extension `models` array — what registerProvider takes, not the resolved Model it returns. */
 type RegisteredModel = { id: string; name: string; api?: Api; baseUrl?: string; reasoning: boolean; input: ('text' | 'image')[]; cost: Model<Api>['cost']; contextWindow: number; maxTokens: number };
@@ -196,13 +196,19 @@ export class BotManager extends EventEmitter {
    * is saved — a key or a model changed on the page has to be true on the next turn, not the next restart.
    */
   pickModels(fakeFactory: () => FakeBrain) {
-    const pick = (spec?: string) => {
+    // Each row resolves on the provider that carries *its* key — its own when it has one, the shared provider
+    // when it borrows (models.ts). Everything below therefore goes through `resolve(slot, …)`, never a bare id.
+    const pick = (slot: SlotId, spec?: string, as?: { vision?: boolean }) => {
       if (!spec) return undefined;
       const i = spec.indexOf('/');
-      return i > 0 ? this.modelRuntime.getModel(spec.slice(0, i), spec.slice(i + 1)) : undefined;
+      if (i <= 0) return undefined;
+      const providerId = this.providerForSlot(slot, spec.slice(0, i));
+      if (!providerId) return undefined;
+      const id = spec.slice(i + 1);
+      return this.modelRuntime.getModel(providerId, id) ?? this.registerConfiguredModel(providerId, id, spec, as);
     };
-    this.model = pick(config.model) ?? this.registerConfiguredModel(config.model);
-    this.lightModel = pick(config.lightModel) ?? this.registerConfiguredModel(config.lightModel) ?? this.model;
+    this.model = pick('model', config.model);
+    this.lightModel = pick('lightModel', config.lightModel) ?? this.model;
     const anyAuth = this.modelRuntime.getProviders().some((p) => this.modelRuntime.hasConfiguredAuth(p.id));
     if (config.fake || (!this.model && !anyAuth)) {
       this.fake ??= fakeFactory();
@@ -217,13 +223,13 @@ export class BotManager extends EventEmitter {
     // Eyes for the `see` tool: the model set for it (registered on the fly when pi's catalog does not know it),
     // otherwise whichever of the bots' own models can already take images.
     const visionSpec = config.visionModel ?? DEFAULT_VISION_MODEL;
-    const vision = pick(visionSpec) ?? this.registerConfiguredModel(visionSpec, { vision: true });
+    const vision = pick('visionModel', visionSpec, { vision: true });
     this.eyes = resolveEyes(this.modelRuntime, vision, this.model, this.lightModel);
     if (this.eyes) console.log(`[crew] vision: ${this.eyes.model.provider}/${this.eyes.model.id}`);
     else console.warn('[crew] no vision model: bots can read documents but not pictures (set visionModel in config.json)');
     // Hands for the `operate` tool: the model set for it (a computer-use model), else whatever the eyes are.
     if (config.guiModel && this.modelRuntime) {
-      const gui = pick(config.guiModel) ?? this.registerConfiguredModel(config.guiModel, { vision: true });
+      const gui = pick('guiModel', config.guiModel, { vision: true });
       this.hands = gui ? { runtime: this.modelRuntime, model: gui } : this.eyes;
     } else this.hands = this.eyes;
     if (this.hands) console.log(`[crew] hands: ${this.hands.model.provider}/${this.hands.model.id}${config.guiModel ? '' : ' (no guiModel; using the eyes)'}`);
@@ -234,12 +240,7 @@ export class BotManager extends EventEmitter {
    * OpenRouter). Register it on top of the built-in provider so auth, base URL and API come from
    * the provider and only the model entry is ours.
    */
-  private registerConfiguredModel(spec?: string, as?: { vision?: boolean }): Model<Api> | undefined {
-    if (!spec) return undefined;
-    const i = spec.indexOf('/');
-    if (i <= 0) return undefined;
-    const provider = spec.slice(0, i);
-    const id = spec.slice(i + 1);
+  private registerConfiguredModel(provider: string, id: string, spec: string, as?: { vision?: boolean }): Model<Api> | undefined {
     if (!this.modelRuntime.getProvider(provider)) return undefined;
     const info = as ? { ...metaOf(spec), ...as } : metaOf(spec);
     const models = this.catalogOf(provider);
@@ -254,8 +255,27 @@ export class BotManager extends EventEmitter {
     });
     this.modelRuntime.registerProvider(provider, { models: [...models.values()] });
     const m = this.modelRuntime.getModel(provider, id);
-    if (m) console.log(`[crew] registered ${spec} on top of the built-in ${provider} provider`);
+    if (m) console.log(`[crew] registered ${spec} on top of the ${provider} provider`);
     return m;
+  }
+
+  /**
+   * Which pi provider serves one row.
+   *
+   * pi holds one credential per provider, so a row that carries its own key cannot share the provider with a row
+   * that carries another. It gets a clone instead — same base URL, same api, same model list, its own key — under
+   * `<provider>#<row>`. Re-registered on every pick so a key changed on the page is live on the next turn. Rows
+   * that borrow stay on the plain provider, which `applyProviderKeys` has already keyed.
+   */
+  private providerForSlot(slot: SlotId, base: string): string | undefined {
+    if (!this.modelRuntime.getProvider(base)) return undefined;
+    const own = config.slotKeys[slot]?.trim();
+    if (!own) return base;
+    const id = `${base}#${slot}`;
+    const from = this.modelRuntime.getProvider(base)!;
+    const models = [...this.catalogOf(base).values()];
+    this.modelRuntime.registerProvider(id, { name: from.name, baseUrl: from.baseUrl, api: models[0]?.api, apiKey: own, models });
+    return id;
   }
 
   /**

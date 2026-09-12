@@ -7,13 +7,13 @@
  * the real key, passes the response through untouched, and files what the response says it cost. The sidecar now
  * holds a placeholder instead of a credential, which is the second reason to do it this way.
  *
- * Each leg can be on a different provider now (设置 › 模型 lets the embedding row pick its own), so the base URL
- * handed over carries the provider id — `http://127.0.0.1:<port>/<provider>` — and the first path segment is what
- * picks the upstream and the key.
+ * Each leg is its own row now (设置 › 模型 gives every row its own provider and its own key), so the base URL
+ * handed over carries the row — `http://127.0.0.1:<port>/<slot>` — and the first path segment is what picks the
+ * upstream and the key.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { recordRaw } from './meter.ts';
-import { endpointOf } from './models.ts';
+import { endpointOf, type SlotId } from './models.ts';
 
 export const PLACEHOLDER = 'metered-by-crew';
 
@@ -55,16 +55,16 @@ function usageOf(body: string, stream: boolean): { model?: string; input: number
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const raw = (req.url ?? '/').replace(/^\/+/, '');
   const slash = raw.indexOf('/');
-  const provider = slash > 0 ? raw.slice(0, slash) : raw;
+  const slot = (slash > 0 ? raw.slice(0, slash) : raw) as SlotId;
   const path = slash > 0 ? raw.slice(slash + 1) : '';
-  // `<provider>/x` is enough to resolve both ends: pi knows the base URL, we know the key.
-  const at = endpointOf(`${provider}/x`);
+  const at = endpointOf(slot);
   if (!at) {
     res.writeHead(502, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ error: { message: `记忆引擎要用的 ${provider} 没有钥匙` } }));
+    res.end(JSON.stringify({ error: { message: `记忆引擎要用的「${slot}」这一行没有钥匙` } }));
     return;
   }
   const key = at.key;
+  const provider = at.provider;
   const chunks: Buffer[] = [];
   for await (const c of req) chunks.push(c as Buffer);
   let body: Buffer | undefined = chunks.length ? Buffer.concat(chunks) : undefined;

@@ -2,10 +2,10 @@ import { recordImages } from './meter.ts';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { builtinImagesModels } from '@earendil-works/pi-ai/providers/all';
-import { config, orKey } from './config.ts';
+import { config } from './config.ts';
 import type { Bot } from './types.ts';
 import { proceduralAvatar } from './util.ts';
-import { model as drawModel, type DrawTier } from './draw.ts';
+import { drawKey, model as drawModel, type DrawTier } from './draw.ts';
 
 /** Which tier a face is drawn at: see the note at AvatarService.generate. */
 const AVATAR_TIER: DrawTier = '标准';
@@ -19,7 +19,7 @@ export class AvatarService {
   private images = builtinImagesModels();
 
   available(): boolean {
-    return !!drawModel('插画', AVATAR_TIER) && !!orKey();
+    return !!drawModel('插画', AVATAR_TIER) && !!drawKey();
   }
 
   prompt(bot: Bot) {
@@ -49,7 +49,7 @@ export class AvatarService {
     const model = drawModel('插画', AVATAR_TIER);
     if (!model) return proceduralAvatar(seed);
     try {
-      const result = await this.images.generateImages(model, { input: [{ type: 'text', text: this.prompt(bot) }] });
+      const result = await this.images.generateImages(model, { input: [{ type: 'text', text: this.prompt(bot) }] }, { apiKey: drawKey() });
       recordImages('draw', bot.id, `${model.provider}/${model.id}`, 1, result.usage);
       const img = result.output.find((b) => b.type === 'image');
       if (result.stopReason === 'error' || !img || img.type !== 'image') return proceduralAvatar(seed);

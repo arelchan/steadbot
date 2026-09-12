@@ -172,7 +172,9 @@ const fromUsage = (u: Usage | undefined) => ({
  * closure to be counted.
  */
 export function noteUsage(kind: UsageKind, who: string | undefined, res: { usage?: Usage; model?: string; provider?: string }): void {
-  const model = res.model ? `${res.provider ?? ""}/${res.model}`.replace(/^\//, "") : "未知模型";
+  // `openrouter#visionModel` is one row's private copy of a provider (bots.ts); the ledger only cares who it is.
+  const provider = (res.provider ?? '').split('#')[0];
+  const model = res.model ? `${provider}/${res.model}`.replace(/^\//, "") : "未知模型";
   record({ ts: Date.now(), who, kind, model, ...fromUsage(res.usage), ok: true });
 }
 /**

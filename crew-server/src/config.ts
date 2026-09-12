@@ -5,10 +5,10 @@ import { join, resolve } from 'node:path';
 /**
  * Product configuration, in `$CREW_HOME/config.json` (mode 600).
  *
- * Model keys are the user's: they are typed in 设置 › 模型 and land in `providerKeys`, one per pi provider
- * (models.ts). A deployment can still put them in the environment or in the older `keys` map; what the user typed
- * wins, because it is the more recent thing they said. Everything model-shaped is read through a getter so a
- * change on the page takes effect on the next turn instead of the next restart.
+ * Model keys are the user's: they are typed in 设置 › 模型 and land in `slotKeys`, one per row (models.ts). A
+ * deployment can still put one in the environment or in the older `keys` / `providerKeys` maps; a key typed on a
+ * row wins, because it is the more recent thing the user said. Everything model-shaped is read through a getter
+ * so a change on the page takes effect on the next turn instead of the next restart.
  */
 /** What pi needs to know about a model it has never heard of. */
 export interface ModelInfo {
@@ -31,7 +31,12 @@ interface FileConfig {
   /** @deprecated one blob for every hand-written model; `modelMeta` keys the same thing by model. */
   modelInfo?: ModelInfo;
   keys?: Record<string, string>; // e.g. { ANTHROPIC_API_KEY: "...", OPENROUTER_API_KEY: "..." }
-  /** 模型 › 钥匙: one API key per pi provider id ("anthropic", "openrouter", …), written from the App. */
+  /**
+   * 设置 › 模型: one key per row ("model", "visionModel", …). A row left empty borrows the first key set on the
+   * same provider, so nobody pastes the same key eight times — but every row can hold its own.
+   */
+  slotKeys?: Record<string, string>;
+  /** @deprecated keys by provider, from the first version of that page; read as a last resort. */
   providerKeys?: Record<string, string>;
   /** What turns text into vectors (the skill library and the memory engine both search with it). OpenRouter only. */
   embeddingModel?: string;
@@ -96,8 +101,6 @@ let file: FileConfig = loadFile();
  */
 function applyEnv() {
   for (const [k, v] of Object.entries(file.keys ?? {})) if (v && !process.env[k]) process.env[k] = v;
-  const or = file.providerKeys?.openrouter?.trim();
-  if (or) process.env.OPENROUTER_API_KEY = or;
 }
 applyEnv();
 
@@ -168,6 +171,9 @@ export const config = {
   get modelInfo() {
     return file.modelInfo;
   },
+  get slotKeys(): Record<string, string> {
+    return file.slotKeys ?? {};
+  },
   get providerKeys(): Record<string, string> {
     return file.providerKeys ?? {};
   },
@@ -222,8 +228,15 @@ export function metaOf(spec: string | undefined): ModelInfo | undefined {
   return (spec ? file.modelMeta?.[spec] : undefined) ?? file.modelInfo;
 }
 
-/** The key the four direct-to-OpenRouter calls use (drawing, web search, embeddings, the memory engine). */
-export const orKey = () => file.providerKeys?.openrouter?.trim() || process.env.OPENROUTER_API_KEY || undefined;
+/**
+ * A key nobody typed on a row: what the deployment put in the environment, or what an older version of the page
+ * wrote by provider. models.ts falls back to this when a row and its neighbours have nothing.
+ */
+export function ambientKey(provider: string): string | undefined {
+  const byProvider = file.providerKeys?.[provider]?.trim();
+  if (byProvider) return byProvider;
+  return provider === 'openrouter' ? process.env.OPENROUTER_API_KEY || undefined : undefined;
+}
 
 /** The config file as it is right now (not the startup snapshot): used for values that may change while running, e.g. IM credentials. */
 export function readFileConfig(): FileConfig {

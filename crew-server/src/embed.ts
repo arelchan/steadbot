@@ -13,7 +13,7 @@ const BATCH = 64;
 
 /** Read per call, not once at import: 设置 › 模型 can change the provider or the model while the server is up. */
 export const embedModel = () => config.embeddingModel;
-const endpoint = () => endpointOf(config.embeddingModel);
+const endpoint = () => endpointOf('embeddingModel');
 export const canEmbed = () => !!endpoint();
 
 function normalize(v: number[]): Float32Array {

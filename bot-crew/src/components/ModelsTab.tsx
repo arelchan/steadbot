@@ -3,21 +3,21 @@ import { Row, Pick } from './Field';
 import { cx } from '../utils';
 import { useT } from '../i18n';
 import { fetchModels, refreshModels, saveModels } from '../services/models';
-import type { ModelChoice, ModelMeta, ModelSlot, ModelsPage, ModelsPatch } from '../types';
+import type { ModelChoice, ModelMeta, ModelSlot, ModelsPage, ModelsPatch, SlotId } from '../types';
 
 /**
  * 设置 › 模型.
  *
  * One row per job a model does here — talking, thinking cheap, looking at pictures, working a screen, drawing,
- * searching, vectorising, re-ranking — and each row picks its own provider and model. Providers are what the rows
- * are made of, not a step to walk through first: nobody sits down wanting to "add Anthropic", they want the eyes
- * to be better. A row whose provider has no key says so and asks for one right there, and the key it is given is
- * shared with every other row that picks the same provider.
+ * searching, vectorising, re-ranking — and every row is a whole answer on its own: which provider, whose key,
+ * which model. Providers are what the rows are made of, not a step to walk through first; nobody sits down
+ * wanting to "add Anthropic", they want the eyes to be better.
+ *
+ * A row with no key of its own borrows the first key set on the same provider, and says whose it is borrowing —
+ * so one OpenRouter key is typed once, and a row that needs its own account can still have one.
  */
 
 const MANUAL = '__manual__';
-/** the key field opened from the 钥匙 list rather than from a row */
-const KEYS_ROW = '__keys__';
 
 const short = (spec: string) => spec.replace(/^[a-z0-9-]+\//, '');
 const providerOf = (spec?: string) => (spec && spec.includes('/') ? spec.slice(0, spec.indexOf('/')) : undefined);
@@ -28,8 +28,8 @@ export function ModelsTab() {
   const [page, setPage] = useState<ModelsPage>();
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  /** where a key is being typed right now: which row asked, and for whom */
-  const [asking, setAsking] = useState<{ slot: string; provider: string }>();
+  /** the row whose key field is open right now */
+  const [asking, setAsking] = useState<SlotId>();
 
   useEffect(() => {
     let alive = true;
@@ -67,53 +67,28 @@ export function ModelsTab() {
   if (err && !page) return <div className="quiet">{err}</div>;
   if (!page) return <div className="quiet">{t('common.loading')}</div>;
 
-  const keyed = page.providers.filter((p) => p.keyed);
-  const giveKey = (id: string, v?: string) => {
-    setAsking(undefined);
-    if (v !== undefined) void apply({ keys: { [id]: v } });
-  };
-  const asker = asking ? page.providers.find((p) => p.id === asking.provider) : undefined;
-
-
   return (
     <div className={cx('models', busy && 'busy')}>
       <div className="set-rows">
         {page.slots.map((s) => (
-          <SlotView key={s.id} slot={s} page={page} asking={asking} onAsk={setAsking} onKey={giveKey} onPatch={(p) => void apply(p)} />
+          <SlotView
+            key={s.id}
+            slot={s}
+            page={page}
+            open={asking === s.id}
+            onAsk={setAsking}
+            onKey={(v) => {
+              setAsking(undefined);
+              if (v !== undefined) void apply({ keys: { [s.id]: v || null } });
+            }}
+            onPatch={(p) => void apply(p)}
+          />
         ))}
       </div>
-
-      <h4>
-        {t('models.keys')}
-        <span className="h4-aside">
-          <button className="link" onClick={() => void refresh()} disabled={busy}>{t('models.refresh')}</button>
-        </span>
-      </h4>
-      {keyed.length === 0 ? (
-        <div className="quiet">{t('models.noKeys')}</div>
-      ) : (
-        <ul className="usage-list">
-          {keyed.map((p) => (
-            <li key={p.id}>
-              <span className="ul-n">{p.name}</span>
-              <span className="ul-v">{t(`models.source.${p.keyed}`)}</span>
-              <span className="ul-c">
-                {p.keyed === 'app' ? (
-                  <>
-                    <button className="link" onClick={() => setAsking({ slot: KEYS_ROW, provider: p.id })}>{t('models.replace')}</button>
-                    <span className="sep">·</span>
-                    <button className="link" onClick={() => void apply({ keys: { [p.id]: null } })}>{t('models.remove')}</button>
-                  </>
-                ) : (
-                  t('models.notHere')
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {asking?.slot === KEYS_ROW && asker && <KeyAsk provider={asker} onDone={(v) => giveKey(asker.id, v)} />}
-      {err && <div className="quiet">{err}</div>}
+      <div className="models-foot">
+        <button className="link" onClick={() => void refresh()} disabled={busy}>{t('models.refresh')}</button>
+        {err && <span className="quiet">{err}</span>}
+      </div>
     </div>
   );
 }
@@ -121,16 +96,16 @@ export function ModelsTab() {
 function SlotView({
   slot,
   page,
-  asking,
+  open,
   onAsk,
   onKey,
   onPatch,
 }: {
   slot: ModelSlot;
   page: ModelsPage;
-  asking?: { slot: string; provider: string };
-  onAsk: (at: { slot: string; provider: string } | undefined) => void;
-  onKey: (providerId: string, key?: string) => void;
+  open: boolean;
+  onAsk: (id: SlotId | undefined) => void;
+  onKey: (key?: string) => void;
   onPatch: (p: ModelsPatch) => void;
 }) {
   const t = useT();
@@ -139,7 +114,6 @@ function SlotView({
   const settled = providerOf(slot.value) ?? providerOf(slot.effective) ?? (slot.only?.length === 1 ? slot.only[0] : '');
   const [picking, setPicking] = useState<{ from: string; to: string }>();
   const prov = picking?.from === settled ? picking.to : settled;
-  const setProv = (to: string) => setPicking({ from: settled, to });
   const [manual, setManual] = useState(false);
 
   // Chat and vision rows read the provider's own catalog; drawing, vectors and re-ranking have no catalog to read,
@@ -150,11 +124,9 @@ function SlotView({
   const chosen = providerOf(slot.value) === prov ? idOf(slot.value) : '';
   const spec = (id: string) => `${prov}/${id}`;
   const provider = page.providers.find((p) => p.id === prov);
-  // Nothing to choose from: the row is a text field rather than a select with one apologetic option.
   const typeIt = manual || (!!prov && list.length === 0);
   // Drawing and web search are OpenRouter's alone — pi's image api is its, and web search is its own plugin.
   const choices = slot.only ? page.providers.filter((p) => slot.only!.includes(p.id)) : page.providers;
-  const open = !!provider && asking?.slot === slot.id;
   // A hand-written id: the catalog cannot price it, so the row asks for the numbers itself.
   const unknown = !!slot.effective && slot.effective !== 'off' && !!slot.value && !list.some((x) => x.id === idOf(slot.value));
 
@@ -171,33 +143,34 @@ function SlotView({
           ? t('models.default', { model: short(slot.fallback) })
           : t('models.none');
 
-  // Three things the row can say about itself, in the order they matter: what it is for, who is the only one who
-  // can do it, and — the only one that asks for anything — that whoever it is set to has no key.
-  const aside = slot.pinned ? t('models.pinned') : '';
-  const note = (
-    <>
-      {t(`models.what.${slot.id}`)}
-      {aside && ` · ${aside}`}
-      {slot.blocked && provider && !open && (
-        <>
-          {' · '}
-          <button className="link warn" onClick={() => onAsk({ slot: slot.id, provider: provider.id })}>{t('models.needKey', { who: provider.name })}</button>
-        </>
-      )}
-    </>
-  );
+  // One word about the key, and clicking it opens the field. Anything more — whose key this row is borrowing,
+  // how to stop using its own — belongs in the field itself, not in eight repeated lines of note text.
+  const keyWord = slot.blocked ? t('models.needKey') : slot.keyFrom?.kind === 'own' ? t('models.ownKey') : t('models.sharedKey');
 
   return (
     <>
-      <Row label={t(`models.slot.${slot.id}`)} note={note}>
+      <Row
+        label={t(`models.slot.${slot.id}`)}
+        note={
+          <>
+            {t(`models.what.${slot.id}`)}
+            <span className="sep">·</span>
+            {slot.pinned ? (
+              t('models.pinned')
+            ) : (
+              <button className={cx('link', slot.blocked && 'warn')} onClick={() => onAsk(slot.id)}>{keyWord}</button>
+            )}
+          </>
+        }
+      >
         <Pick
           value={prov}
           onChange={(v) => {
             setManual(false);
-            setProv(v);
-            onAsk(v && !page.providers.find((p) => p.id === v)?.keyed ? { slot: slot.id, provider: v } : undefined);
+            setPicking({ from: settled, to: v });
             // A row cannot be half-changed: picking a new provider drops the old provider's model.
             if (slot.value && providerOf(slot.value) !== v) onPatch({ slots: { [slot.id]: null } });
+            if (v && !page.providers.find((p) => p.id === v)?.keyed) onAsk(slot.id);
           }}
         >
           <option value="">{t('models.pickProvider')}</option>
@@ -223,10 +196,7 @@ function SlotView({
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           />
         ) : (
-          <Pick
-            value={chosen}
-            onChange={(v) => (v === MANUAL ? setManual(true) : onPatch({ slots: { [slot.id]: v ? spec(v) : null } }))}
-          >
+          <Pick value={chosen} onChange={(v) => (v === MANUAL ? setManual(true) : onPatch({ slots: { [slot.id]: v ? spec(v) : null } }))}>
             <option value="">{empty}</option>
             {slot.offable && <option value="off">{t('models.off')}</option>}
             {/* A model typed by hand, or one the catalog has since dropped, still shows as the row's answer. */}
@@ -241,9 +211,39 @@ function SlotView({
           </Pick>
         )}
       </Row>
-      {open && provider && <KeyAsk provider={provider} onDone={(v) => onKey(provider.id, v)} />}
+      {open && (
+        <KeyAsk
+          label={provider?.apiKey ?? t('models.keyOf', { who: provider?.name ?? '' })}
+          has={!!slot.key}
+          borrowed={slot.keyFrom?.kind === 'borrowed' ? t(`models.slot.${slot.keyFrom.from}`) : undefined}
+          onDone={onKey}
+        />
+      )}
       {unknown && <MetaAsk key={slot.effective} meta={slot.meta} onSave={(m) => onPatch({ meta: { [slot.effective!]: m } })} />}
     </>
+  );
+}
+
+/** The one place a key is typed. It never comes back: the server only ever says which row has one, and whose. */
+function KeyAsk({ label, has, borrowed, onDone }: { label: string; has: boolean; borrowed?: string; onDone: (v?: string) => void }) {
+  const t = useT();
+  const [v, setV] = useState('');
+  return (
+    <div className="key-ask">
+      <span className="ka-l">{borrowed ? t('models.borrowed', { from: borrowed }) : label}</span>
+      <input
+        className="in mono"
+        type="password"
+        autoFocus
+        value={v}
+        placeholder={has ? t('models.keyReplace') : t('models.keyPlaceholder')}
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && v.trim() && onDone(v.trim())}
+      />
+      <button className="btn sm" disabled={!v.trim()} onClick={() => onDone(v.trim())}>{t('models.save')}</button>
+      {has && <button className="link" onClick={() => onDone('')}>{t('models.dropKey')}</button>}
+      <button className="link" onClick={() => onDone(undefined)}>{t('common.cancel')}</button>
+    </div>
   );
 }
 
@@ -277,28 +277,6 @@ function MetaAsk({ meta, onSave }: { meta?: ModelMeta; onSave: (m: ModelMeta) =>
       {num('maxTokens', t('models.maxOut'))}
       {num('costIn', t('models.priceIn'))}
       {num('costOut', t('models.priceOut'))}
-    </div>
-  );
-}
-
-/** The one place a key is typed. It never comes back: the server only ever says which provider has one and whence. */
-function KeyAsk({ provider, onDone }: { provider: { id: string; name: string; apiKey?: string }; onDone: (v?: string) => void }) {
-  const t = useT();
-  const [v, setV] = useState('');
-  return (
-    <div className="key-ask">
-      <span className="ka-l">{provider.apiKey ?? t('models.keyOf', { who: provider.name })}</span>
-      <input
-        className="in mono"
-        type="password"
-        autoFocus
-        value={v}
-        placeholder={t('models.keyPlaceholder')}
-        onChange={(e) => setV(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && v.trim() && onDone(v.trim())}
-      />
-      <button className="btn sm" disabled={!v.trim()} onClick={() => onDone(v.trim())}>{t('models.save')}</button>
-      <button className="link" onClick={() => onDone(undefined)}>{t('common.cancel')}</button>
     </div>
   );
 }

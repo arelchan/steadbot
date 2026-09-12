@@ -264,6 +264,10 @@ export interface ModelSlot {
   blocked?: boolean;
   /** 部署时用环境变量钉死的：能看不能改 */
   pinned?: boolean;
+  /** 这一行自己的钥匙（永远是 ••••） */
+  key?: string;
+  /** 实际用的那把从哪来 */
+  keyFrom?: KeySource;
   meta?: ModelMeta;
 }
 
@@ -284,9 +288,12 @@ export interface ModelProvider {
   /** 这家的 key 叫什么（「OpenRouter API key」） */
   apiKey?: string;
   oauth?: { label: string; subscription: boolean };
-  /** 钥匙从哪来的 */
-  keyed?: 'app' | 'env' | 'login';
+  /** 已经有行给它配了钥匙 */
+  keyed?: boolean;
 }
+
+/** 这一行用的钥匙是谁的：自己的 / 跟别的行借的 / 环境里本来就有的 */
+export type KeySource = { kind: 'own' } | { kind: 'borrowed'; from: SlotId } | { kind: 'ambient' };
 
 export interface ModelChoice {
   id: string;
@@ -307,7 +314,7 @@ export interface ModelsPage {
 
 export interface ModelsPatch {
   slots?: Partial<Record<SlotId, string | null>>;
-  keys?: Record<string, string | null>;
+  keys?: Partial<Record<SlotId, string | null>>;
   meta?: Record<string, ModelMeta | null>;
 }
 

@@ -1,7 +1,7 @@
 import type { Api, Model } from '@earendil-works/pi-ai';
 import { builtinImagesModels } from '@earendil-works/pi-ai/providers/all';
 import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
-import { DEFAULT_EMBEDDING_MODEL, DEFAULT_RERANK_MODEL, config, orKey, readFileConfig, updateConfigFile, type ModelInfo } from './config.ts';
+import { DEFAULT_EMBEDDING_MODEL, DEFAULT_RERANK_MODEL, ambientKey, config, readFileConfig, updateConfigFile, type ModelInfo } from './config.ts';
 import { DRAW_STYLES } from './draw.ts';
 import { DEFAULT_VISION_MODEL } from './vision.ts';
 
@@ -52,11 +52,12 @@ export interface ProviderRow {
   name: string;
   /** false when this provider cannot be picked for anything (no models pi can talk to) */
   chat: boolean;
+  /** what this provider calls its key ("OpenRouter API key"), for the field's label */
   apiKey?: string;
   /** the provider offers a sign-in instead of a key; `subscription` means an existing plan counts */
   oauth?: { label: string; subscription: boolean };
-  /** where the key it is using came from, in the user's words */
-  keyed?: 'app' | 'env' | 'login';
+  /** true when at least one row already has a key for it — the App sorts these to the top */
+  keyed?: boolean;
 }
 
 export interface ModelRow {
@@ -76,6 +77,10 @@ export interface SlotRow extends SlotDef {
   effective?: string;
   /** true when `effective` has no key behind it */
   blocked?: boolean;
+  /** this row's own key, as ••••, when it has one */
+  key?: string;
+  /** where the key it actually uses comes from */
+  keyFrom?: KeySource;
   /** set from the environment by whoever deployed this: shown, not editable */
   pinned?: boolean;
   meta?: ModelInfo;
@@ -143,15 +148,46 @@ export const useRuntime = (rt: ModelRuntime) => {
 };
 
 /**
- * Where to send one of our own HTTP calls — embeddings and reranking, which pi has no concept of. The provider's
- * base URL comes from pi, the key from what the user typed (or, for OpenRouter, the environment).
+ * Whose key a row uses.
+ *
+ * One row, one key — that is the rule the page is built on. But nobody should paste the same OpenRouter key eight
+ * times, so a row with nothing of its own borrows the first key set on the same provider, and failing that
+ * whatever the deployment left in the environment. `own` is the row's own, `borrowed` names the row it is
+ * borrowing from, `ambient` is the environment.
  */
-export function endpointOf(spec: string | undefined): { provider: string; model: string; baseUrl: string; key: string } | undefined {
+export type KeySource = { kind: 'own' } | { kind: 'borrowed'; from: SlotId } | { kind: 'ambient' };
+
+/** Which provider a row goes to, even before it has a model: a row pinned to one provider is on it either way. */
+export function providerOfSlot(slot: SlotId): string | undefined {
+  const def = SLOTS.find((s) => s.id === slot);
+  return splitSpec(effectiveOf(slot))?.provider ?? (def?.only?.length === 1 ? def.only[0] : undefined);
+}
+
+export function keyOf(slot: SlotId): { key: string; source: KeySource } | undefined {
+  const own = config.slotKeys[slot]?.trim();
+  if (own) return { key: own, source: { kind: 'own' } };
+  const provider = providerOfSlot(slot);
+  if (!provider) return undefined;
+  for (const other of SLOTS) {
+    if (other.id === slot) continue;
+    const k = config.slotKeys[other.id]?.trim();
+    if (k && providerOfSlot(other.id) === provider) return { key: k, source: { kind: 'borrowed', from: other.id } };
+  }
+  const ambient = ambientKey(provider);
+  return ambient ? { key: ambient, source: { kind: 'ambient' } } : undefined;
+}
+
+/**
+ * Where to send one of our own HTTP calls — web search, embeddings, reranking, drawing's direct door — which pi
+ * either has no concept of or cannot reach. The provider's base URL comes from pi, the key from the row.
+ */
+export function endpointOf(slot: SlotId): { provider: string; model: string; baseUrl: string; key: string } | undefined {
+  const spec = effectiveOf(slot);
   const s = splitSpec(spec);
-  if (!s || s.id === 'off') return undefined;
+  if (!s || spec === 'off') return undefined;
   const baseUrl = runtime?.getProvider(s.provider)?.baseUrl;
-  const key = s.provider === 'openrouter' ? orKey() : config.providerKeys[s.provider]?.trim();
-  return baseUrl && key ? { provider: s.provider, model: s.id, baseUrl: baseUrl.replace(/\/$/, ''), key } : undefined;
+  const got = keyOf(slot);
+  return baseUrl && got ? { provider: s.provider, model: s.id, baseUrl: baseUrl.replace(/\/$/, ''), key: got.key } : undefined;
 }
 
 const sees = (m: Model<Api>) => (m.input ?? []).includes('image');
@@ -199,12 +235,10 @@ export function effectiveOf(id: SlotId, seen = new Set<SlotId>()): string | unde
   return def.fallback;
 }
 
-/** Whether a provider has a key behind it right now, and where that key came from. */
-function keyedFrom(rt: ModelRuntime, id: string): ProviderRow['keyed'] {
-  if (config.providerKeys[id]?.trim()) return 'app';
-  const st = rt.getProviderAuthStatus(id);
-  if (!st.configured) return undefined;
-  return st.source === 'stored' || st.source === 'runtime' ? 'login' : 'env';
+/** Whether anything at all can pay for this provider right now: a row's key, an older one, or the environment. */
+function anyKeyFor(rt: ModelRuntime, id: string): boolean {
+  for (const s of SLOTS) if (config.slotKeys[s.id]?.trim() && providerOfSlot(s.id) === id) return true;
+  return !!ambientKey(id) || rt.getProviderAuthStatus(id).configured;
 }
 
 /** Everything 设置 › 模型 draws, in one answer. */
@@ -223,7 +257,7 @@ export function modelsPage(rt: ModelRuntime | undefined): ModelsPage {
         chat: true,
         apiKey: auth?.apiKey?.name,
         oauth: auth?.oauth ? { label: auth.oauth.loginLabel || auth.oauth.name || p.name, subscription: auth.oauth.isSubscription === true } : undefined,
-        keyed: keyedFrom(rt, p.id),
+        keyed: anyKeyFor(rt, p.id),
       });
       models[p.id] = list.map(modelRow).sort((a, b) => a.id.localeCompare(b.id));
     }
@@ -237,12 +271,21 @@ export function modelsPage(rt: ModelRuntime | undefined): ModelsPage {
   const slots: SlotRow[] = SLOTS.map((def) => {
     const value = slotValue(def.id)?.trim() || undefined;
     const effective = effectiveOf(def.id);
-    // A row is blocked when the model it would use has nobody paying for it. The pinned rows are blocked by the
-    // same rule even when they are on automatic: drawing with no OpenRouter key is still drawing with no key.
-    const providerId = splitSpec(effective)?.provider ?? (def.only?.length === 1 ? def.only[0] : undefined);
-    const keyed = !providerId || !!providers.find((p) => p.id === providerId)?.keyed;
-    const blocked = effective !== 'off' && (!!effective || !!def.auto) && !keyed;
-    return { ...def, value, effective, blocked, pinned: slotPinned(def.id) || undefined, meta: effective ? config.modelMeta[effective] : undefined };
+    const got = keyOf(def.id);
+    const own = config.slotKeys[def.id]?.trim();
+    // A row is blocked when the model it would use has nobody paying for it. A row on automatic counts too:
+    // drawing with no key is still drawing with no key.
+    const blocked = effective !== 'off' && (!!effective || !!def.auto) && !got;
+    return {
+      ...def,
+      value,
+      effective,
+      blocked,
+      key: own ? '••••' : undefined,
+      keyFrom: got?.source,
+      pinned: slotPinned(def.id) || undefined,
+      meta: effective ? config.modelMeta[effective] : undefined,
+    };
   });
   return { slots, providers, models };
 }
@@ -275,19 +318,35 @@ export function migrateSlots(rt: ModelRuntime | undefined): void {
   }
 }
 
-/** Hand pi every key the user typed. Runtime keys are an in-memory overlay; config.json is where they live. */
+/**
+ * Give pi a key per provider, for the rows that do not carry one of their own.
+ *
+ * pi holds one credential per provider, so this is only the shared floor: a row with its own key is resolved onto
+ * a provider of its own instead (bots.ts `slotProvider`). Runtime keys are an in-memory overlay; config.json is
+ * where they live.
+ */
 export async function applyProviderKeys(rt: ModelRuntime | undefined): Promise<void> {
   if (!rt) return;
-  for (const [id, key] of Object.entries(config.providerKeys)) {
-    if (!key?.trim() || !rt.getProvider(id)) continue;
-    await rt.setRuntimeApiKey(id, key.trim()).catch((e: Error) => console.warn(`[crew] ${id} 的钥匙没被接受：`, e.message));
+  const floor = new Map<string, string>();
+  for (const def of SLOTS) {
+    const key = config.slotKeys[def.id]?.trim();
+    const provider = providerOfSlot(def.id);
+    if (key && provider && !floor.has(provider)) floor.set(provider, key);
+  }
+  for (const [id, key] of Object.entries(config.providerKeys)) if (key?.trim() && !floor.has(id)) floor.set(id, key.trim());
+  for (const [id, key] of floor) {
+    if (!rt.getProvider(id)) continue;
+    await rt.setRuntimeApiKey(id, key).catch((e: Error) => console.warn(`[crew] ${id} 的钥匙没被接受：`, e.message));
   }
 }
 
+/** The four rows the memory engine reads out of the environment it was started with (everos.ts). */
+export const MEMORY_SLOTS: SlotId[] = ['model', 'lightModel', 'visionModel', 'embeddingModel', 'rerankModel'];
+
 export interface ModelsPatch {
   slots?: Partial<Record<SlotId, string | null>>;
-  /** provider id → key; null removes it */
-  keys?: Record<string, string | null>;
+  /** row → the key that row uses; null takes the row's own key away and lets it borrow again */
+  keys?: Partial<Record<SlotId, string | null>>;
   /** metadata for a model id the user typed by hand */
   meta?: Record<string, ModelInfo | null>;
 }
@@ -299,19 +358,21 @@ export function saveModels(patch: ModelsPatch): { models: boolean; keys: boolean
     for (const [k, v] of Object.entries(patch.slots ?? {})) {
       if (!SLOTS.some((s) => s.id === k)) continue;
       touched.models = true;
-      if (k === 'embeddingModel' || k === 'rerankModel' || k === 'visionModel' || k === 'lightModel') touched.memory = true;
+      if (MEMORY_SLOTS.includes(k as SlotId)) touched.memory = true;
       if (v === null || v === '') delete cur[k];
       else cur[k] = v;
     }
     if (patch.keys) {
-      const keys = { ...((cur.providerKeys as Record<string, string>) ?? {}) };
+      const keys = { ...((cur.slotKeys as Record<string, string>) ?? {}) };
       for (const [id, v] of Object.entries(patch.keys)) {
+        if (!SLOTS.some((s) => s.id === id)) continue;
         touched.keys = true;
-        if (id === 'openrouter') touched.memory = true;
+        // The engine holds four of these in the environment it was spawned with.
+        if (MEMORY_SLOTS.includes(id as SlotId)) touched.memory = true;
         if (v === null || v === '') delete keys[id];
         else keys[id] = v.trim();
       }
-      cur.providerKeys = keys;
+      cur.slotKeys = keys;
     }
     if (patch.meta) {
       const meta = { ...((cur.modelMeta as Record<string, ModelInfo>) ?? {}) };
