@@ -145,7 +145,7 @@ export function startServer(store: CrewStore, port: number, avatarsDir: string, 
     handlers.onHost?.(socket);
   });
 
-  store.on('change', (e: StoreEvent) => broadcast(e as ServerMessage));
+  store.on('change', (e: StoreEvent) => broadcast(e));
 
   wss.on('connection', (socket) => {
     alive.add(socket);

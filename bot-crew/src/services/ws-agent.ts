@@ -378,6 +378,11 @@ export class WsAgentService implements AgentService {
           console.warn('[crew]', m.error);
           break;
         }
+        default: {
+          // 协议对不上就是编译错误，不是运行时的沉默：服务端加了一种消息，这里没接，这一行会红。
+          const unhandled: never = m;
+          console.warn('[crew] 收到不认识的消息', unhandled);
+        }
       }
     });
   }

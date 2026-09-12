@@ -28,6 +28,26 @@ export type StoreEvent =
  * Product-facing state: bots, matters, todos, pendings, actions and the IM-style transcript.
  * pi keeps the LLM-facing history in its own JSONL session per bot; this is what the UI shows.
  */
+/**
+ * 读 crew.json。它是一个用户全部的 bot，读不出来不能当成"没有"：那会用一份空 crew 覆盖掉一切。
+ * 断电、磁盘写满卡在 rename 之前，都会留下半截文件。坏了就把它挪到一边留证据，再从种子起，
+ * 这样服务起得来、用户看得见出了事，而原文件还在（run.sh 里是 while 循环，崩就是每 2 秒崩一次）。
+ */
+function readOrRescue(file: string, seed: () => Snapshot): Snapshot {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8')) as Snapshot;
+  } catch (e) {
+    const kept = `${file}.corrupt-${Date.now()}`;
+    try {
+      renameSync(file, kept);
+    } catch {
+      /* 连挪都挪不动就算了，种子照样起得来 */
+    }
+    console.error(`[crew] ${file} 读不出来（${(e as Error).message}），已挪到 ${kept}，这次从空的起`);
+    return seed();
+  }
+}
+
 export class CrewStore extends EventEmitter {
   data: Snapshot;
   private file: string;
@@ -36,7 +56,7 @@ export class CrewStore extends EventEmitter {
   constructor(file: string, seed: () => Snapshot) {
     super();
     this.file = file;
-    this.data = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Snapshot) : seed();
+    this.data = existsSync(file) ? readOrRescue(file, seed) : seed();
     this.data.integrations ??= [];
     this.data.events ??= [];
     // 五态并成四态：接下了就是在做，卡住了也是等你。

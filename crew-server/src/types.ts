@@ -570,6 +570,9 @@ export type ServerMessage =
   | { type: 'message_patch'; id: string; patch: Partial<Message> }
   | { type: 'typing'; threadId: ThreadId; botId: string; on: boolean }
   | { type: 'todo'; todo: Todo }
+  | { type: 'event'; event: CrewEvent }
+  | { type: 'event_deleted'; id: string }
+  | { type: 'computer'; computer: Computer }
   | { type: 'pending'; pending: Pending }
   | { type: 'action'; action: Action }
   | { type: 'bot'; bot: Bot }
