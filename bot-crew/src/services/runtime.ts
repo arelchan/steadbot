@@ -34,7 +34,51 @@ export function getRuntime(): RuntimeTarget {
   return { kind: 'local' };
 }
 
+/**
+ * The cloud machines this user has set up, whether or not the bots are on one right now.
+ *
+ * A machine is a thing you own: you configure it once, and from then on you move the bots to it or bring them
+ * home as often as you like. Before this, a machine existed only while the bots were on it — move them back and
+ * the App forgot the address, so going out again meant the whole install wizard. Kept in this browser, next to
+ * the current target, which is where the same address and code already live.
+ */
+export type KnownMachine = { url: string; token: string; name?: string; provider?: 'byo' | 'hosted'; at: number };
+const MACHINES = 'bot-crew:machines';
+
+export function knownMachines(): KnownMachine[] {
+  try {
+    const raw = localStorage.getItem(MACHINES);
+    const list = raw ? (JSON.parse(raw) as KnownMachine[]) : [];
+    return Array.isArray(list) ? list.filter((m) => m?.url && m?.token) : [];
+  } catch {
+    return [];
+  }
+}
+
+const writeMachines = (list: KnownMachine[]) => {
+  try {
+    localStorage.setItem(MACHINES, JSON.stringify(list));
+  } catch {
+    /* private window: the list is a convenience, not a source of truth */
+  }
+};
+
+/** Remember a machine, or refresh what we know about one we already have (a re-install changes the code). */
+export function rememberMachine(m: { url: string; token: string; name?: string; provider?: 'byo' | 'hosted' }) {
+  const url = m.url.replace(/\/$/, '');
+  const rest = knownMachines().filter((x) => x.url !== url);
+  const was = knownMachines().find((x) => x.url === url);
+  writeMachines([...rest, { url, token: m.token, name: m.name ?? was?.name, provider: m.provider ?? was?.provider, at: was?.at ?? Date.now() }]);
+}
+
+/** Forget one here. Nothing is touched on the machine itself — it keeps running whatever it was running. */
+export function forgetMachine(url: string) {
+  writeMachines(knownMachines().filter((m) => m.url !== url.replace(/\/$/, '')));
+}
+
 export function setRuntime(t: RuntimeTarget) {
+  // Going home does not forget the machine: it is still there, still the user's, still one click away.
+  if (t.kind === 'remote') rememberMachine(t);
   try {
     if (t.kind === 'local') localStorage.removeItem(KEY);
     else localStorage.setItem(KEY, JSON.stringify(t));

@@ -459,6 +459,16 @@ export const zh = {
 
   /* ---- bot 在哪台机器 ---- */
   'rt.title': 'bot 们在哪台机器上干活',
+  'rt.machines': '云机器',
+  'rt.addMachine': '再配一台',
+  'rt.addFirst': '配一台',
+  'rt.noMachines': '还没有。bot 现在跑在这台电脑上，电脑关了就停。',
+  'rt.hereNow': 'bot 在这台',
+  'rt.idleMachine': '空着',
+  'rt.moveHere': '把 bot 搬过去',
+  'rt.forget': '删掉',
+  'rt.forgetAskTitle': '删掉 {name}？',
+  'rt.forgetAskMsg': '只是这里不再记它：地址和连接码从这台设备上清掉。那台机器上的服务还在跑，要彻底停掉得去机器上停。',
   'rt.myServer': '我的服务器',
   'rt.thisComputer': '这台电脑',
   'rt.offline': '没连上',
