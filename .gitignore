@@ -5,6 +5,8 @@
 !/crew-server/
 !/bot-crew/
 !/DESIGN.md
+!/ARCHITECTURE.md
+!/.github/
 
 # never the build output, dependencies, or local data
 node_modules
