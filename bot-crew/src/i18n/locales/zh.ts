@@ -1,5 +1,6 @@
-/** 简体中文 —— 界面文案的源语言，其他语言缺哪条就回落到这里。 */
-export const zh = {
+/** 简体中文。 */
+import type { Dict } from '../index';
+export const zh: Dict = {
   /* ---- 通用 ---- */
   'common.cancel': '取消',
   'common.confirm': '确认',

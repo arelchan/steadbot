@@ -1,8 +1,8 @@
 /**
- * 界面语言. One catalog per language, keyed by short ids; `zh` is the source and the last fallback, `en` the one
- * in between (a missing Japanese line reads better in English than in Chinese). The choice is a per-browser
- * preference like the theme — it lives in localStorage, is applied before React renders, and re-renders the whole
- * app when it changes (`useT`).
+ * UI language. One catalog per language, keyed by short ids; `en` is the source and the last fallback — a missing
+ * Japanese line reads better in English than in Chinese, and this is an open project whose contributors read
+ * English. The choice is a per-browser preference like the theme: it lives in localStorage, is applied before
+ * React renders, and re-renders the whole app when it changes (`useT`).
  */
 import { useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
@@ -33,36 +33,30 @@ export const LOCALES: { id: Locale; label: string }[] = [
   { id: 'ru', label: 'Русский' },
 ];
 
-/** 界面上的每一条文案。`zh` 是源语言，所以它的键就是全集——打错一个键现在是编译错误，不是把键名渲染给用户。 */
-export type MsgKey = keyof typeof zh;
+/** Every line of UI copy. `en` is the source, so its keys are the whole set — a typo is a compile error now,
+ * rather than a key name rendered at the user. */
+export type MsgKey = keyof typeof en;
 /** 会数数的那些键（catalog 里带 `.other` 的），tn / tx 收的是这个前缀，不是完整键。 */
 export type PluralKey = { [K in MsgKey]: K extends `${infer P}.other` ? P : never }[MsgKey];
 /**
- * 非源语言的 catalog：缺条是允许的（lookup 有回退链，缺的日语行读英文比读中文好），
- * 但键名必须是 zh 里有的。复数前缀额外放行任意后缀，因为各语言的复数类别不一样
- * ——俄语要 one / few / many，中文一种都不要。
+ * A non-source catalog: missing lines are allowed (lookup falls back), but every key it does carry must be one
+ * `en` has. Plural prefixes additionally allow any suffix, because languages disagree about plural categories —
+ * Russian wants one / few / many, Chinese wants none of them.
  */
 export type Dict = Partial<Record<MsgKey | `${PluralKey}.${string}`, string>>;
 const DICTS: Record<Locale, Dict> = { zh, 'zh-TW': zhTW, en, ja, ko, es, fr, de, pt, ru };
 const IDS = LOCALES.map((l) => l.id);
 
-const chain = (l: Locale): Locale[] => (l === 'zh' ? ['zh'] : l === 'zh-TW' ? ['zh-TW', 'zh'] : l === 'en' ? ['en', 'zh'] : [l, 'en', 'zh']);
+const chain = (l: Locale): Locale[] => (l === 'en' ? ['en'] : l === 'zh-TW' ? ['zh-TW', 'zh', 'en'] : [l, 'en']);
 
 const KEY = 'bot-crew:locale';
 
-/** No stored choice: take the browser's own list, so the app opens in the user's language the first time. */
-function detect(): Locale {
-  const wanted = typeof navigator !== 'undefined' ? [...(navigator.languages ?? []), navigator.language].filter(Boolean) : [];
-  for (const raw of wanted) {
-    const tag = String(raw);
-    const low = tag.toLowerCase();
-    if (low.startsWith('zh')) return /hant|tw|hk|mo/.test(low) ? 'zh-TW' : 'zh';
-    const base = low.split('-')[0] as Locale;
-    if (IDS.includes(base)) return base;
-  }
-  return 'en';
-}
-
+/**
+ * No stored choice means English. Not the browser's language: this is a product people meet in English first —
+ * on GitHub, in a README, in someone else's screenshot — and an app that opens in a language the reader did not
+ * pick is harder to share than one that opens in the language the project is written in. The switcher in
+ * Settings › General is one click away and remembers.
+ */
 function read(): Locale {
   try {
     const v = localStorage.getItem(KEY) as Locale | null;
@@ -70,7 +64,7 @@ function read(): Locale {
   } catch {
     /* private window */
   }
-  return detect();
+  return 'en';
 }
 
 let current: Locale = read();

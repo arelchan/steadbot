@@ -1,6 +1,5 @@
-/** English. */
-import type { Dict } from '../index';
-export const en: Dict = {
+/** English — the source language for UI copy. Every other catalog falls back to this one. */
+export const en = {
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',
   'common.save': 'Save',
