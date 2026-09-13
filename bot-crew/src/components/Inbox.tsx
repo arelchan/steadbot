@@ -2,7 +2,7 @@ import { useStore, openPendings, select } from '../store';
 import type { ThreadId } from '../types';
 import { Avatar } from './Avatar';
 import { PendingActions } from './Cards';
-import { cx, fmtTime, shortDay } from '../utils';
+import { cx, fmtTime, shortDay, money } from '../utils';
 import { useT, tx } from '../i18n';
 
 export function Inbox() {
@@ -56,7 +56,7 @@ export function Inbox() {
                       <div className="ib-m">{bot?.name} · {shortDay(p.createdAt) === fmtTime(p.createdAt) ? fmtTime(p.createdAt) : `${shortDay(p.createdAt)} ${fmtTime(p.createdAt)}`}</div>
                       <div className="ib-a"><PendingActions p={p} /></div>
                     </div>
-                    {p.amount ? <div className="ib-amt">¥{p.amount}</div> : <span />}
+                    {p.amount ? <div className="ib-amt">{money(p.amount, p.currency)}</div> : <span />}
                   </div>
                 );
               })}

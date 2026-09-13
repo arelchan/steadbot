@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Steadbot · 本地一键启动
+# Steadbot · one command, on your own computer
 #
-#   steadbot            # 启动后端 + App，并打开浏览器（已在跑就只打开浏览器）
-#   steadbot stop       # 停掉两者
-#   steadbot status     # 看状态
-#   steadbot logs       # 跟后端日志
+#   steadbot            # start the server + the App and open a browser (already up: just open it)
+#   steadbot stop       # stop both
+#   steadbot status     # what is running
+#   steadbot logs      # follow the server log
 #
-# 第一次用先装上命令（在仓库根目录跑一次）：bash steadbot install
+# First time, put the command on your PATH (run once from the repo root): bash steadbot install
 #
-# 可选环境变量：STEADBOT_PORT（后端端口，默认 5200）、STEADBOT_APP_PORT（App 端口，默认 5199）、
-#              STEADBOT_NO_BROWSER=1（不自动开浏览器）、CREW_HOME（数据目录，默认 ~/.crew）
+# Optional env: STEADBOT_PORT (server, default 5200), STEADBOT_APP_PORT (App, default 5199),
+#              STEADBOT_NO_BROWSER=1 (do not open a browser), CREW_HOME (data dir, default ~/.crew)
 set -euo pipefail
 
 # Resolve through symlinks: `steadbot` is normally invoked via a link on PATH, and the repo is where the
@@ -62,17 +62,17 @@ do_stop() {
   # Anything this script's own paths left behind (a stale pid file, a crash).
   pkill -f "$server/node_modules/.bin/tsx src/index.ts" 2>/dev/null && any=1 || true
   pkill -f "vite --port $app_port --strictPort" 2>/dev/null && any=1 || true
-  [ "$any" = 1 ] && ok "已停止" || say "本来就没在跑"
+  [ "$any" = 1 ] && ok "stopped" || say "nothing was running"
 }
 
 do_status() {
-  if healthy; then ok "后端 在跑  http://127.0.0.1:$port  （数据目录 ${home}）"; else warn "后端 没在跑"; fi
-  if app_up; then ok "App  在跑  http://localhost:$app_port"; else warn "App  没在跑"; fi
+  if healthy; then ok "server  up    http://127.0.0.1:$port  (data in ${home})"; else warn "server  down"; fi
+  if app_up; then ok "App     up    http://localhost:$app_port"; else warn "App     down"; fi
   local mode
   mode="$(curl -fsS -m 2 "http://127.0.0.1:$port/runtime/info" 2>/dev/null | sed -n 's/.*"mode":"\([a-z]*\)".*/\1/p' || true)"
   case "$mode" in
-    moved) warn "注意：bot 们已搬到另一台机器，这里只是路牌（App 会自动连过去；想搬回来在 App 的运行位置页面点「搬回来」）" ;;
-    standby) warn "注意：另一台机器正在运行这份数据，这里待命" ;;
+    moved) warn "note: the bots moved to another machine; this is only a signpost (the App follows automatically — Settings › Cloud computer has the way back)" ;;
+    standby) warn "note: another machine is running this home; this one is on standby" ;;
   esac
 }
 
@@ -89,23 +89,23 @@ do_install() {
   if [ -z "$target" ]; then
     target="$HOME/.local/bin"
     mkdir -p "$target"
-    warn "$target 还不在 PATH 里，把下面这行加进 ~/.zshrc，然后开一个新终端："
+    warn "$target is not on your PATH yet. Add this line to ~/.zshrc, then open a new terminal:"
     printf '   export PATH="$HOME/.local/bin:$PATH"\n'
   fi
   ln -sf "$root/steadbot" "$target/steadbot"
-  ok "装好了：$target/steadbot　以后在任意目录直接敲 steadbot"
+  ok "installed: $target/steadbot — from now on just type steadbot, anywhere"
 }
 
 need_node() {
-  command -v node >/dev/null 2>&1 || die "需要 Node.js 22 以上：https://nodejs.org/ 装好后重试"
+  command -v node >/dev/null 2>&1 || die "needs Node.js 22 or newer: https://nodejs.org/ — install it and try again"
   local major; major="$(node -p 'process.versions.node.split(".")[0]')"
-  [ "$major" -ge 22 ] 2>/dev/null || die "Node.js 版本太低（$(node -v)），需要 22 以上"
+  [ "$major" -ge 22 ] 2>/dev/null || die "Node.js is too old ($(node -v)); 22 or newer is required"
 }
 
 need_deps() {
   for d in "$server" "$app"; do
     if [ ! -d "$d/node_modules" ]; then
-      say "第一次运行，安装依赖：$(basename "$d")（一两分钟）"
+      say "first run, installing dependencies: $(basename "$d") (a minute or two)"
       (cd "$d" && (npm ci --silent 2>/dev/null || npm install --silent))
     fi
   done
@@ -114,14 +114,14 @@ need_deps() {
 check_config() {
   local cfg="$home/config.json"
   if [ ! -f "$cfg" ] || ! grep -q '"keys"' "$cfg" 2>/dev/null; then
-    warn "还没配模型密钥：bot 需要一个模型才能干活。"
+    warn "no model key yet: a bot needs a model to do anything."
     cat <<TIP
-   在 $cfg 里写（文件权限 600，不要提交到任何仓库）：
+   Put this in $cfg (mode 600, never commit it):
    {
      "model": "openrouter/deepseek/deepseek-v4-flash",
      "keys": { "OPENROUTER_API_KEY": "sk-or-..." }
    }
-   先起来看看界面也行，配好密钥后再跑一次 bash steadbot.sh 即可。
+   Starting without one is fine — you get the UI; add a key and run bash steadbot again.
 TIP
   fi
 }
@@ -132,36 +132,36 @@ do_start() {
   check_config
 
   if healthy; then
-    ok "后端已经在跑（${port}）"
+    ok "server already up (${port})"
   else
-    say "启动后端…（第一次要半分钟，同步技能库）"
+    say "starting the server… (first run takes ~30s: it syncs the skill library)"
     ( cd "$server" && CREW_PORT="$port" nohup sh scripts/run.sh >>"$logs/server.log" 2>&1 & echo $! >"$run/server.pid" )
     local i
     for i in $(seq 1 120); do healthy && break; sleep 1; done
-    healthy || { tail -n 20 "$logs/server.log"; die "后端没起来，看上面的日志（完整日志：$logs/server.log）"; }
-    ok "后端 http://127.0.0.1:$port"
+    healthy || { tail -n 20 "$logs/server.log"; die "the server did not come up; see above (full log: $logs/server.log)"; }
+    ok "server http://127.0.0.1:$port"
   fi
 
   if app_up; then
-    ok "App 已经在跑（${app_port}）"
+    ok "App already up (${app_port})"
   else
-    say "启动 App…"
+    say "starting the App…"
     ( cd "$app" && VITE_CREW_WS="ws://localhost:$port/ws" nohup npx vite --port "$app_port" --strictPort >>"$logs/app.log" 2>&1 & echo $! >"$run/app.pid" )
     # Vite answers only after its first dependency pre-bundle, which can take a minute on a cold cache.
     local i
     for i in $(seq 1 180); do app_up && break; sleep 0.5; done
-    app_up || { tail -n 20 "$logs/app.log"; die "App 没起来，看上面的日志（完整日志：${logs}/app.log）"; }
+    app_up || { tail -n 20 "$logs/app.log"; die "the App did not come up; see above (full log: ${logs}/app.log)"; }
     ok "App http://localhost:$app_port"
   fi
 
-  do_status | grep -E '^\S+ 注意' || true
+  do_status | grep -E '^\S+ note' || true
   local url="http://localhost:$app_port"
   if [ "${STEADBOT_NO_BROWSER:-}" != 1 ]; then
     if command -v open >/dev/null 2>&1; then open "$url"; elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$url" >/dev/null 2>&1 || true; fi
   fi
   echo
-  ok "Steadbot 起来了：$url"
-  echo "   停止：steadbot stop    日志：steadbot logs"
+  ok "Steadbot is up: $url"
+  echo "   stop: steadbot stop    logs: steadbot logs"
 }
 
 case "${1:-start}" in
@@ -171,5 +171,5 @@ case "${1:-start}" in
   status) do_status ;;
   logs) do_logs ;;
   install) do_install ;;
-  *) echo "用法：steadbot [start|stop|restart|status|logs|install]"; exit 1 ;;
+  *) echo "usage: steadbot [start|stop|restart|status|logs|install]"; exit 1 ;;
 esac

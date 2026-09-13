@@ -298,6 +298,9 @@ export interface Pending {
   title: string;
   detail?: string;
   amount?: number;
+  /** ISO 4217 for `amount`. Absent means the runtime did not say; the UI then shows the number with the
+   *  product's historical default rather than inventing a currency from the interface language. */
+  currency?: string;
   options: PendingOption[];
   messageId: string;
   createdAt: number;
@@ -339,7 +342,7 @@ export interface ImLink {
 }
 
 export type Card =
-  | { type: 'confirm'; pendingId: string; title: string; sub: string; amount: number }
+  | { type: 'confirm'; pendingId: string; title: string; sub: string; amount: number; currency?: string }
   | { type: 'options'; pendingId: string; options: { id: string; label: string; hint: string; price?: string }[] }
   | { type: 'blocked'; pendingId: string; title: string; sub: string }
   /** 登录卡：bot 在电脑上撞到登录墙，把它搬到对话里。qr = 实时二维码，用户手机扫；password = 用户填，服务端直接打进页面，不存、不给模型看。 */

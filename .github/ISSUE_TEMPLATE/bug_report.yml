@@ -1,0 +1,36 @@
+name: Bug report
+description: Something behaved differently from what you expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Settings › About shows it (for example v0.1.0+98), or `git rev-parse --short HEAD`.
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where are the bots running
+      options: [This computer, A server I installed it on, Not sure]
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS and Node version
+      placeholder: macOS 15.3, Node 22.19
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: "`steadbot logs`, or the server log at ~/.crew/logs/server.log. Redact any keys before pasting."
+      render: shell

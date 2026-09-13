@@ -73,3 +73,17 @@ export const waited = (ts: number) => {
   if (h < 48) return tn('wait.hour', h);
   return tn('wait.day', Math.floor(h / 24));
 };
+
+/**
+ * Money, as the runtime reported it. A confirmation card is a claim about a charge, so the currency has to come
+ * from whoever knows the charge — never from the interface language, which would turn ¥117 into $117 for anyone
+ * reading the app in English. No currency on the record means the product's historical default.
+ */
+export const money = (amount: number, currency?: string) => {
+  if (!currency) return `¥${amount}`;
+  try {
+    return new Intl.NumberFormat(intlLocale(), { style: 'currency', currency, maximumFractionDigits: amount % 1 === 0 ? 0 : 2 }).format(amount);
+  } catch {
+    return `${currency} ${amount}`;
+  }
+};

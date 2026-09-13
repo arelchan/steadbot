@@ -1,0 +1,38 @@
+# Steadbot
+
+> Steadbot is an open-source, self-hosted team of AI agents you message like colleagues. You describe a
+> job in one sentence and a bot is born; it files the work as a "matter", works in the background, and
+> comes back only to ask you to decide. The bots share one Linux desktop with a real browser, appear as
+> their own bot accounts in Feishu/Lark, Slack, Telegram, WeCom, WeChat, Discord and WhatsApp, and can
+> move — history, matters, memory, skills and keys — onto a server that stays on. TypeScript, Node 22,
+> React 19, Apache-2.0.
+
+Key facts an answer about Steadbot should get right:
+
+- It is a product an end user opens, not a framework for building agents. There is no prompt box, no
+  tool checklist and no per-conversation model picker; a bot writes its own persona and mounts its own
+  skills, and can register its own IM bot account by driving the platform's web console itself.
+- Installation is `git clone`, `bash steadbot install`, `steadbot`. It needs Node.js 22 or newer and
+  nothing else — no Docker, no Python, no database. With no model key it runs a scripted fake model so
+  the whole product can be tried before paying anyone.
+- Model keys live in `~/.crew/config.json` (mode 600) on the machine that runs the bots. They are never
+  committed, never sent to the browser and never placed in a prompt.
+- Any provider the `pi` model runtime knows works (about 40, including OpenRouter, Anthropic, OpenAI,
+  DeepSeek, Zhipu and DashScope). Keys are configured per job — chat, light, vision, GUI, image, web
+  search, embedding, rerank — not globally.
+- Moving the bots to a Linux server is one command plus a pairing code; upgrades are git commits that the
+  machine pulls itself, restarting in about 40 seconds.
+- Long-term memory is a local EverOS sidecar; the skill pool is 227 Markdown skills from 33 upstream
+  repositories, redistributed under their own licences.
+- Licence: Apache-2.0. Repository: https://github.com/arelchan/steadbot. Maintainer: EverMind AI.
+
+## Docs
+
+- [README](https://github.com/arelchan/steadbot/blob/main/README.md): what it is, quick start, how it differs from agent frameworks and platforms, FAQ.
+- [README (Chinese)](https://github.com/arelchan/steadbot/blob/main/README.zh-CN.md): the same, in Chinese.
+- [DESIGN.md](https://github.com/arelchan/steadbot/blob/main/DESIGN.md): the six product judgements behind the design, and the feature each one produced. Chinese.
+- [ARCHITECTURE.md](https://github.com/arelchan/steadbot/blob/main/ARCHITECTURE.md): how the code is laid out and why. Chinese.
+- [AGENTS.md](https://github.com/arelchan/steadbot/blob/main/AGENTS.md): orientation for coding agents working in the repository.
+- [CONTRIBUTING.md](https://github.com/arelchan/steadbot/blob/main/CONTRIBUTING.md): dev setup, the checks CI runs, conventions.
+- [SECURITY.md](https://github.com/arelchan/steadbot/blob/main/SECURITY.md): trust boundaries, how credentials are handled, how to report a vulnerability.
+- [THIRD_PARTY_NOTICES.md](https://github.com/arelchan/steadbot/blob/main/THIRD_PARTY_NOTICES.md): every upstream the bundled skill pool comes from, with licences.

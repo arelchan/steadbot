@@ -12,7 +12,7 @@ import { avatarService, fileToAvatar } from '../services/avatar';
 import { PendingActions } from './Cards';
 import { BotConfigModal, sayWhen } from './BotConfigModal';
 import { ScreenCard } from './Screen';
-import { cx, fmtTime, shortDay } from '../utils';
+import { cx, fmtTime, shortDay, money } from '../utils';
 import { useT, tn, t as tr } from '../i18n';
 import { statusLabel } from '../services/agent';
 
@@ -594,7 +594,7 @@ function TaskDetail({ todoId, onBack }: { todoId: string; onBack: () => void }) 
         <div className={cx('d-now', openPending.kind)}>
           <div className="d-now-t">
             {openPending.kind === 'blocked' ? t('task.stuckNeedYou') : openPending.kind === 'confirm' ? t('task.waitConfirm') : t('task.needPick')}
-            {openPending.amount ? <span className="amt">¥{openPending.amount}</span> : null}
+            {openPending.amount ? <span className="amt">{money(openPending.amount, openPending.currency)}</span> : null}
           </div>
           <div>{openPending.title}{openPending.detail ? ` · ${openPending.detail}` : ''}</div>
           <div className="w-a" style={{ marginTop: 8 }}><PendingActions p={openPending} small /></div>

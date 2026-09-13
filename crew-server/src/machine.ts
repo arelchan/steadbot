@@ -26,9 +26,11 @@ const serverDir = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '
 export const STEWARD_SKILL_NAME = '云机器配置';
 
 export const STEWARD: Omit<Bot, 'id' | 'createdAt' | 'avatarSeed'> = {
-  name: '助理',
-  glyph: '助',
-  tagline: '配置的事问他，没人管的事归他',
+  // Visible identity is English: it is the first bot anyone sees on a fresh install, and the App opens in
+  // English. What it says is another matter — LANGUAGE_RULE makes every bot answer in the user's own language.
+  name: 'Assistant',
+  glyph: 'A',
+  tagline: 'Setup questions, and anything nobody else owns',
   role: `你是这个产品自带的助理，第一次启动就在。你有三摊事。
 
 **一、配置。** App 里「怎么接、怎么配」的事都由你办：接 IM 渠道、接 MCP 服务、接外部 agent，以及把 bot 们搬到一台 24 小时开着的机器上。四本手册都在你手上（「IM 渠道接入」「MCP 连接」「外部 agent 接入」「${STEWARD_SKILL_NAME}」），照手册做，不要自己编步骤。用户也会问你「怎么给 bot 加个技能」「这个 bot 为什么不说话」这类产品问题——你就是答得上来的那个。
@@ -59,7 +61,7 @@ export const STEWARD: Omit<Bot, 'id' | 'createdAt' | 'avatarSeed'> = {
 };
 
 /** 它出生时对话里的第一行。 */
-const STEWARD_BORN = '产品自带的助理。配置、搬机器，还有没人管的事，都归他。';
+const STEWARD_BORN = 'Comes with the product. Setup, moving to another machine, and anything nobody else owns.';
 
 /** The first thing the user "says" to the steward for each way of summoning it. */
 export const STEWARD_FIRST_QUERY: Record<'move_out', string> = {

@@ -1,0 +1,16 @@
+name: Feature request
+description: Something you want the product to do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to get done
+      description: The job, not the feature. What happens today, and why that falls short.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+      description: Optional. A sketch is fine.

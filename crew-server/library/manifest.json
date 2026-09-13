@@ -1,5 +1,5 @@
 {
-  "$comment": "Curated skill library. `npm run library:sync` pulls each skill's original directory (SKILL.md + supporting files) from GitHub, verbatim, into library/<category>/<slug>/. Titles are the upstream skill names; tags are only for search. Optional `exclude`: paths inside the copied skill to drop (upstream test fixtures). Optional `extras`: extra upstream paths copied into the skill dir under _upstream/ (agents, READMEs the skill refers to).",
+  "$comment": "Curated skill library. `npm run library:sync` pulls each skill's original directory (SKILL.md + supporting files) from GitHub, verbatim, into library/<category>/<slug>/. Titles are the upstream skill names; tags are only for search. Optional `exclude`: paths inside the copied skill to drop (upstream test fixtures). Optional `extras`: extra upstream paths copied into the skill dir under _upstream/ (agents, READMEs the skill refers to). Four entries (docs/docx, docs/pdf, docs/pptx, docs/xlsx) are NOT shipped in this repository: their upstream LICENSE.txt forbids reproducing or distributing them outside Anthropic's own services. `npm run library:sync` still fetches them onto your own machine from the upstream public repo, and .gitignore keeps them out of git.",
   "categories": {
     "dev": "开发",
     "docs": "文档办公",

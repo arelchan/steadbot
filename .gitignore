@@ -6,6 +6,17 @@
 !/bot-crew/
 !/DESIGN.md
 !/ARCHITECTURE.md
+!/README.md
+!/README.zh-CN.md
+!/LICENSE
+!/NOTICE
+!/THIRD_PARTY_NOTICES.md
+!/CONTRIBUTING.md
+!/CODE_OF_CONDUCT.md
+!/SECURITY.md
+!/AGENTS.md
+!/llms.txt
+!/docs/
 !/.github/
 
 # never the build output, dependencies, or local data
@@ -18,3 +29,11 @@ crew-server/deploy/.env
 crew-server/deploy/.mtu
 crew-server/.upload-sha
 crew-server/.library-sha
+
+# Four skills in library/manifest.json are pulled from anthropics/skills, whose LICENSE.txt forbids reproducing
+# or distributing them outside Anthropic's own services. `npm run library:sync` still fetches them onto your own
+# machine from the upstream public repo; this repository must not carry copies.
+crew-server/library/docs/docx/
+crew-server/library/docs/pdf/
+crew-server/library/docs/pptx/
+crew-server/library/docs/xlsx/

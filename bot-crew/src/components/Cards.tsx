@@ -2,7 +2,7 @@ import type { Card, Pending, ThreadId } from '../types';
 import { useEffect, useRef, useState } from 'react';
 import { useStore, getState } from '../store';
 import { agent } from '../services/agent';
-import { cx } from '../utils';
+import { cx, money } from '../utils';
 import { useT, tn } from '../i18n';
 import { httpBase, withToken } from '../services/runtime';
 
@@ -67,7 +67,7 @@ export function CardView({ card, messageId }: { card: Card; messageId?: string }
             <div className="c-title">{card.title}</div>
             <div className="c-sub">{card.sub}</div>
           </div>
-          <div className="c-amt">¥{card.amount}</div>
+          <div className="c-amt">{money(card.amount, card.currency)}</div>
         </div>
         <div className="c-actions">
           {(pending?.options ?? []).map((o) => (
@@ -77,7 +77,7 @@ export function CardView({ card, messageId }: { card: Card; messageId?: string }
               disabled={!!resolved}
               onClick={() => choose(o.id)}
             >
-              {picked(o.label) ? '✓ ' : ''}{o.label}{o.primary && card.amount ? ` ¥${card.amount}` : ''}
+              {picked(o.label) ? '✓ ' : ''}{o.label}{o.primary && card.amount ? ` ${money(card.amount, card.currency)}` : ''}
             </button>
           ))}
         </div>
@@ -292,7 +292,7 @@ export function PendingActions({ p, small }: { p: Pending; small?: boolean }) {
           disabled={!!done}
           onClick={() => agent.onPendingChoice(p.id, o.id)}
         >
-          {picked(o.label) ? '✓ ' : ''}{o.label}{o.primary && p.kind === 'confirm' && p.amount ? ` ¥${p.amount}` : ''}
+          {picked(o.label) ? '✓ ' : ''}{o.label}{o.primary && p.kind === 'confirm' && p.amount ? ` ${money(p.amount, p.currency)}` : ''}
         </button>
       ))}
     </>
