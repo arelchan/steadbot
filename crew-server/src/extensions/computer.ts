@@ -15,17 +15,17 @@ export function computerExtension(c: BotCtx, desktops: () => DesktopManager | un
     factory: (pi) => {
       pi.registerTool({
         name: 'computer',
-        label: '电脑',
+        label: 'Computer',
         description:
-          'bot 们共用的一台电脑：bot 所在机器上的一个浏览器，所有 bot 共用它和它的登录态。在云机器上它有自己的桌面，用户在 App 里能实时看到屏幕、也能直接在上面操作；在用户自己的电脑上它就是用户桌面上的一个浏览器窗口，用户直接看得见。open = 接上它（睡着会先唤醒），接好后你会多出一组 computer__browser_* 工具（打开网址、把页面读成文字快照、点击、输入、切标签、截图…），用它们上网、登录网站、填表、下载文件；谁登录过的网站大家都能用。每个 bot 在自己的标签页里干活，互不影响。off = 让整台电脑休眠（登录态保留）。status = 看现在的状态。这台机器上开不了电脑时工具会告诉你，那就用 fetch_url / web_search。',
-        promptSnippet: '接上 bot 们共用的电脑（一个共用浏览器，用户看得见）：computer(open) 后用 computer__browser_* 工具上网、登录、填表，只动自己的标签',
+          'The computer the bots share: one browser on the machine they run on, with one set of logins shared by all of them. On a cloud machine it has a desktop of its own, and the user watches the screen live in the App and can work on it directly; on the user\'s own computer it is simply a browser window on their desktop. open connects you to it (waking it if asleep), after which you gain a set of computer__browser_* tools — open a URL, read the page as a text snapshot, click, type, switch tabs, screenshot — for browsing, signing in, filling forms and downloading. Whatever anyone signed into, everyone can use. Each bot works in its own tab and does not disturb the others. off puts the whole computer to sleep (logins are kept). status shows where things stand. When a computer cannot run on this machine the tool says so, and you use fetch_url / web_search instead.',
+        promptSnippet: 'connect to the shared computer (one browser, visible to the user): computer(open), then the computer__browser_* tools — and only touch your own tab',
         promptGuidelines: [
-          '只读一个公开网页用 fetch_url 就够；要登录、要点来点去、要填表、要下载、要在网站里操作，才接电脑：computer(open)，然后用 computer__browser_* 工具。',
-          '浏览器是大家共用的，标签页是你自己的：接上时系统已经给你开了一个，只在自己开的标签里操作，不要 close / select 别人的标签；要多开就 browser_tabs(new)。自己的标签被关了就再开一个。',
-          '接上后先 browser_navigate 到目标网址。每个动作（navigate / click / type）的结果里已经带着动作后的页面快照（文字版的页面结构，带可点的元素 ref），直接按 ref 继续，不用再单独 browser_snapshot。只想找某个按钮 / 输入框时用 browser_find(text) 比整页快照省得多；页面很大被截断了才 browser_snapshot。',
-          '需要用户登录或点一下时：先 browser_tabs(list) 看哪条标着 current，browser_tabs(select, 那个 index) 把自己的标签拉到前台，再告诉用户「屏幕在你那边能看到，直接在上面登录一下，登好告诉我」，然后停下等他。密码永远不经过你。用户随时可能在屏幕上直接操作（和你同时），动手前 snapshot 一下看清当前页面。',
-          '你看不见截图本身：browser_take_screenshot 存的是文件，路径在工作区的 _browser/ 下。要看清页面长什么样（版式、配色、有没有错位），对那个路径用 see；只是想知道页面上有什么字、能点什么，用 browser_snapshot 更快。',
-          '用户看得见屏幕，不用复述每一步点了什么；说结果。做完一件事不用 off，半小时没人用它会自己休眠，下次 open 十秒左右就醒。',
+          'Reading one public page needs nothing more than fetch_url. Signing in, clicking through, filling a form, downloading, doing anything inside a site — that is when you connect: computer(open), then the computer__browser_* tools.',
+          'The browser is shared; the tab is yours. One was opened for you when you connected. Work only in tabs you opened, never close or select someone else\'s, and open more with browser_tabs(new). If yours gets closed, open another.',
+          'Once connected, browser_navigate to the address. Every action (navigate / click / type) already returns the page snapshot that follows it — the page as text, with refs for what can be clicked — so carry on from those refs rather than calling browser_snapshot separately. To find one button or field, browser_find(text) is far cheaper than a whole snapshot; reach for browser_snapshot only when a large page came back truncated.',
+          'When the user has to sign in or click something: browser_tabs(list) to see which is current, browser_tabs(select, that index) to bring your tab to the front, then tell them the screen is on their side and to sign in on it and say when they are done — and stop and wait. Passwords never pass through you. The user may work on the screen at the same time as you, so snapshot before acting to see what is actually there.',
+          'You cannot see a screenshot itself: browser_take_screenshot writes a file under _browser/ in your workspace. To see what a page actually looks like (layout, colour, anything misaligned), see that path. To know what the page says and what can be clicked, browser_snapshot is faster.',
+          'The user can see the screen, so do not narrate each click — give the result. There is no need to call off when you finish: it sleeps by itself after half an hour unused, and the next open wakes it in about ten seconds.',
         ],
         parameters: Type.Object({
           action: StringEnum(['open', 'off', 'status'] as const),
@@ -33,32 +33,32 @@ export function computerExtension(c: BotCtx, desktops: () => DesktopManager | un
         async execute(_id, p) {
           const res = (text: string, details: { state: string; tools?: string[] }) => ({ content: [{ type: 'text' as const, text }], details });
           const d = desktops();
-          if (!d) throw new Error('这台机器没有桌面能力');
+          if (!d) throw new Error('this machine has no desktop');
           const cur = c.store.data.computer;
           if (p.action === 'status') {
-            if (!d.capable) return res(`现在没有电脑可用：${d.capableNote}。上网读页面用 fetch_url / web_search。`, { state: 'unavailable' });
+            if (!d.capable) return res(`no computer available right now: ${d.capableNote}. Use fetch_url / web_search to read pages.`, { state: 'unavailable' });
             const st = cur?.state ?? 'off';
             const mine = d.attached(c.botId);
             const who = (cur?.users ?? []).filter((id) => id !== c.botId).map((id) => c.store.bot(id)?.name).filter(Boolean);
             const text =
               st === 'on'
-                ? `电脑开着（自 ${new Date(cur!.since ?? 0).toLocaleTimeString('zh-CN')}）${who.length ? `，${who.join('、')}也在用` : ''}。${mine ? '你的浏览器工具可用。' : '你还没接上：computer(open)。'}`
+                ? `The computer is on (since ${new Date(cur!.since ?? 0).toLocaleTimeString('en-GB')})${who.length ? `, also in use by ${who.join(', ')}` : ''}. ${mine ? 'Your browser tools are available.' : 'You are not connected yet: computer(open).'}`
                 : st === 'starting'
-                  ? '电脑正在醒来。'
+                  ? 'The computer is waking up.'
                   : st === 'error'
-                    ? `上次没开起来：${cur?.note ?? ''}。可以再 open 试一次。`
-                    : `电脑在休眠${cur?.note ? `（${cur.note}）` : ''}。computer(open) 唤醒并接上。`;
+                    ? `It did not come up last time: ${cur?.note ?? ''}. You can open again.`
+                    : `The computer is asleep${cur?.note ? ` (${cur.note})` : ''}. computer(open) wakes it and connects you.`;
             return res(text, { state: st });
           }
           if (p.action === 'off') {
             const others = (cur?.users ?? []).filter((id) => id !== c.botId);
-            if (others.length) return res(`${others.map((id) => c.store.bot(id)?.name ?? id).join('、')}正在用这台电脑，先不休眠。不用管它，闲半小时会自己睡。`, { state: cur?.state ?? 'on' });
+            if (others.length) return res(`${others.map((id) => c.store.bot(id)?.name ?? id).join(', ')} ${others.length > 1 ? 'are' : 'is'} using the computer, so it stays awake. Leave it — it sleeps on its own after half an hour idle.`, { state: cur?.state ?? 'on' });
             await d.off();
-            return res('电脑休眠了。登录态还在，下次 open 接着用。', { state: 'off' });
+            return res('The computer is asleep. The logins are kept, and the next open picks up where this left off.', { state: 'off' });
           }
-          if (!d.capable) throw new Error(`现在没有电脑可用：${d.capableNote}。上网读页面改用 fetch_url / web_search。`);
+          if (!d.capable) throw new Error(`no computer available right now: ${d.capableNote}. Use fetch_url / web_search to read pages instead.`);
           const { tools } = await d.on(c.botId);
-          return res(`接上了，用户那边能看到屏幕。你有自己的标签页，只在里面操作。你现在多了这些工具：${tools.map((t) => `computer__${t}`).join('、')}。先 browser_navigate 到网址，再 browser_snapshot 读页面。`, { state: 'on', tools });
+          return res(`Connected, and the user can see the screen. You have a tab of your own; work only in it. You now have these tools: ${tools.map((t) => `computer__${t}`).join(', ')}. browser_navigate to the address first, then browser_snapshot to read the page.`, { state: 'on', tools });
         },
       });
     },

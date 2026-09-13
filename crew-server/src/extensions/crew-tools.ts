@@ -41,7 +41,7 @@ export interface CrewOps {
     threadId: ThreadId | undefined,
     spec: { kind: 'qr' | 'password'; url?: string; title?: string; selector?: string; accountSelector?: string; passwordSelector?: string; submitSelector?: string; note?: string },
   ): Promise<string>;
-  /** the vigil manager, for the vigil (值守) tool */
+  /** the vigil manager, for the vigil tool */
   vigil(): import('../vigil.ts').VigilManager;
   /** change a bot's avatar: 'regen' | 'reset' | a look description | an image file the bot produced */
   avatar(botId: string, value: string): Promise<string>;
@@ -62,14 +62,14 @@ export interface BuildSpec {
 const ConfigureParams = Type.Object({
   target: StringEnum(['bot', 'matter', 'profile'] as const),
   action: StringEnum(['get', 'set', 'add', 'remove'] as const),
-  id: Type.Optional(Type.String({ description: 'bot 或群聊的 id 或名字；缺省为你自己' })),
+  id: Type.Optional(Type.String({ description: 'the id or name of a bot or a group; defaults to you' })),
   field: Type.Optional(
     Type.String({
       description:
-        'bot（只有产品层设置）: autonomy(tell|prepare|do) | notify | pinned | avatar(regen 重画 / reset 用默认 / 一句外观描述 / 你生成的图片文件绝对路径)；matter: title | summary | members | lead | notify | pinned；profile: 只读',
+        'bot (product-level settings only): autonomy(tell|prepare|do) | notify | pinned | avatar (regen to redraw, reset for the default, a sentence describing a look, or the absolute path of an image you generated). matter: title | summary | members | lead | notify | pinned. profile: read-only',
     }),
   ),
-  value: Type.Optional(Type.Any({ description: 'set 的新值；add/remove 的条目' })),
+  value: Type.Optional(Type.Any({ description: 'the new value for set; the entry for add / remove' })),
 });
 
 /**
@@ -91,20 +91,20 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
     const integ = c.store.data.integrations.filter((i) => (b.integrationIds ?? []).includes(i.id)).map((i) => `${i.name}(${i.kind})`);
     return [
       `id: ${b.id}`,
-      `名字: ${b.name}`,
-      `简介: ${b.tagline}`,
-      `工作方式(role，build 改): ${b.role}`,
-      `人设(soul，build 改): ${b.soul || '（未写）'}`,
-      `自主度: ${b.autonomy}；通知: ${b.notify}；置顶: ${b.pinned}`,
-      `技能: ${b.skills.join('、') || '（无）'}`,
-      `例行任务: ${b.routines.map((r) => `${r.title}（${r.schedule}${r.channels?.length ? `，发到 ${r.channels.map((ch) => CHANNEL_LABEL[ch] ?? ch).join('、')}` : ''}${r.enabled ? '' : '，已停用'}）`).join('；') || '（无）'}`,
-      `集成: ${integ.join('、') || '（无）'}`,
+      `name: ${b.name}`,
+      `tagline: ${b.tagline}`,
+      `way of working (role, changed with build): ${b.role}`,
+      `character (soul, changed with build): ${b.soul || '(not written)'}`,
+      `autonomy: ${b.autonomy}; notify: ${b.notify}; pinned: ${b.pinned}`,
+      `skills: ${b.skills.join(', ') || '(none)'}`,
+      `recurring: ${b.routines.map((r) => `${r.title} (${r.schedule}${r.channels?.length ? `, to ${r.channels.map((ch) => CHANNEL_LABEL[ch] ?? ch).join(', ')}` : ''}${r.enabled ? '' : ', disabled'})`).join('; ') || '(none)'}`,
+      `integrations: ${integ.join(', ') || '(none)'}`,
       `IM: ${
         Object.entries(b.im ?? {})
-          .map(([ch, l]) => `${CHANNEL_LABEL[ch as Channel] ?? ch}（${l?.status === 'ok' ? `已接${l.account ? `，那边叫「${l.account}」` : ''}` : l?.status === 'connecting' ? '连接中' : `没接上：${l?.note ?? ''}`}）`)
-          .join('；') || '（没接任何 IM；用 build(aspect=channel, action=add, value="飞书") 接）'
+          .map(([ch, l]) => `${CHANNEL_LABEL[ch as Channel] ?? ch} (${l?.status === 'ok' ? `connected${l.account ? `, known there as "${l.account}"` : ''}` : l?.status === 'connecting' ? 'connecting' : `not connected: ${l?.note ?? ''}`})`)
+          .join('; ') || '(no messenger connected; connect one with build(aspect=channel, action=add, value="Feishu"))'
       }`,
-      `关于用户（全员共用的画像）: ${(everos.profileDoc()?.explicit ?? []).map((e) => e.description).join('；') || '（还没聚出来）'}`,
+      `about the user (the shared profile): ${(everos.profileDoc()?.explicit ?? []).map((e) => e.description).join('; ') || '(nothing has settled yet)'}`,
     ].join('\n');
   };
 
@@ -113,54 +113,54 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
     factory: (pi) => {
       pi.registerTool({
         name: 'create_bot',
-        label: '新建 bot',
+        label: 'Create a bot',
         description:
-          '为用户新建一个长期服务的 bot（团队里多一个专职同事）。给一句用户口吻的话说明它管什么，系统会生成名字、职责、技能和头像，几秒后它就能接活。可以顺手把第一个任务交给它。',
-        promptSnippet: '新建一个长期专职的 bot（可附首个任务）',
+          'Create a new long-lived bot for the user — one more dedicated colleague on the team. Give one sentence in the user\'s own voice saying what it looks after, and the system generates its name, remit, skills and avatar; seconds later it can take work. You can hand it a first task at the same time.',
+        promptSnippet: 'create a new dedicated bot (optionally with its first task)',
         promptGuidelines: [
-          '只有两种情况用 create_bot：用户明确要一个新的专职 bot；或某件事明显不属于你的职责、以后还会反复出现，而团队里没有合适的 bot（先用 configure(target=bot, action=get) 看一眼）。',
-          '一次性的事不要建 bot；能 @ 现有 bot 转交的不要建。建之前不必问用户确认，但建完要告诉他 bot 叫什么、管什么。',
+          'Two situations only: the user explicitly wants a new dedicated bot, or something clearly outside your remit will keep coming back and no existing bot fits (check with configure(target=bot, action=get) first).',
+          'Never create one for a one-off, and never when an existing bot can take it by @-mention. You do not need to ask before creating, but once it exists say what it is called and what it looks after.',
         ],
         parameters: Type.Object({
-          brief: Type.String({ description: '它管什么，用用户口吻的一句话，如「帮我盯竞品动态，每周五给我一页纸」' }),
-          name: Type.Optional(Type.String({ description: '指定名字（可不填，系统会起）' })),
-          task: Type.Optional(Type.String({ description: '要顺手交给它的第一个任务' })),
+          brief: Type.String({ description: 'what it looks after, in the user\'s voice — "watch what our competitors ship and give me one page every Friday"' }),
+          name: Type.Optional(Type.String({ description: 'a name, if you want one; the system picks otherwise' })),
+          task: Type.Optional(Type.String({ description: 'a first task to hand it at the same time' })),
         }),
         executionMode: 'sequential',
         async execute(_id, p) {
           const bot = await ops().createBot(p.brief, { name: p.name, byBotId: c.botId, task: p.task });
-          return { content: [{ type: 'text', text: `已新建 bot「${bot.name}」（id ${bot.id}）：${bot.role}${p.task ? ' 首个任务已转交。' : ''} 在回复里用 @${bot.name} 可以提到它。` }], details: { botId: bot.id } };
+          return { content: [{ type: 'text', text: `Created "${bot.name}" (id ${bot.id}): ${bot.role}${p.task ? ' The first task was handed over.' : ''} You can reach it with @${bot.name} in a reply.` }], details: { botId: bot.id } };
         },
       });
 
       pi.registerTool({
         name: 'create_group',
-        label: '拉群',
+        label: 'Open a group',
         description:
-          '为一件要几个人一起才办得成的事拉一个群聊，用户也在群里。指定成员（名字或 id），可选牵头人（默认你），可以把任务一起丢进群里，也可以只拉群。群里的发言所有成员都看得到，但只有被 @ 的人会被叫醒回答；牵头人负责推进和汇总。结果留在群里这条线上，你和用户都看得到。',
-        promptSnippet: '一件事要别人一起才办得成：拉个群，大家和用户在同一条线上（可附任务）',
+          'Open a group for something that takes several people, with the user in it. Name the members (by name or id), optionally a lead (you by default), and either drop the task in at the same time or just open the group. Everything said there is visible to every member, but only the bot that is @-mentioned wakes up to answer; the lead pushes it along and pulls it together. The result stays on that thread, where you and the user can both see it.',
+        promptSnippet: 'work that takes several people: open a group so everyone and the user share one thread (optionally with a task)',
         promptGuidelines: [
-          '一件事里有你办不了、或者办不好的部分，就把人拉进来，别自己硬扛：跨了别人职责的活交给对的人，比你现学一遍更快也更准。',
-          '@ 和拉群按「结果要不要回到你手上」选：只是把一件事整个交出去、之后归它跟用户对接，用 @提及；你要拿它的结果接着做、或者这件事得几个人凑齐才交付得了，用 create_group。',
-          '拉群不用先问用户，建完在回复里一句话说清拉了谁、各管哪段。summary 写清这件事是什么、做到什么算完，成员才知道怎么配合。',
+          'When part of a job is outside what you do, or outside what you do well, bring someone in rather than muscling through: handing it to the right colleague is faster and more accurate than learning it on the spot.',
+          'Choose between @ and a group by whether the result has to come back to you: handing the whole thing over, with them dealing with the user afterwards, is an @-mention; needing their result to continue, or needing several people to deliver at all, is create_group.',
+          'You do not need to ask before opening a group. Once it exists, say in one line who is in it and which part each has. summary states what this is and what counts as finished, so the members know how to fit together.',
         ],
         parameters: Type.Object({
-          title: Type.String({ description: '群聊名，如「杭州出差」' }),
-          members: Type.Array(Type.String(), { description: '成员 bot 的名字或 id（不含你自己也可以，你会自动加入）', minItems: 1 }),
-          lead: Type.Optional(Type.String({ description: '牵头 bot 的名字或 id，默认你' })),
-          summary: Type.Optional(Type.String({ description: '这件事的一句话描述' })),
-          task: Type.Optional(Type.String({ description: '要丢进群里的任务；不填则只拉群' })),
+          title: Type.String({ description: 'the group name, like "Seattle trip"' }),
+          members: Type.Array(Type.String(), { description: 'member bots by name or id (you do not need to list yourself; you are added)', minItems: 1 }),
+          lead: Type.Optional(Type.String({ description: 'the lead bot by name or id; you by default' })),
+          summary: Type.Optional(Type.String({ description: 'one line describing what this is' })),
+          task: Type.Optional(Type.String({ description: 'a task to drop in; without it, the group is simply opened' })),
         }),
         executionMode: 'sequential',
         async execute(_id, p) {
           const members = p.members.map((m) => findBot(m)).filter((b): b is Bot => !!b);
           const missing = p.members.filter((m) => !findBot(m));
-          if (!members.length) throw new Error(`找不到这些 bot：${missing.join('、')}。用 configure(target=bot, action=get) 看看有哪些。`);
+          if (!members.length) throw new Error(`no such bots: ${missing.join(', ')}. configure(target=bot, action=get) lists them.`);
           const lead = (p.lead ? findBot(p.lead) : undefined) ?? c.bot();
           const ids = Array.from(new Set([lead.id, c.botId, ...members.map((b) => b.id)]));
           const matter = await ops().createGroup({ title: p.title, summary: p.summary, memberIds: ids.filter((x) => x !== lead.id), leadId: lead.id, task: p.task, byBotId: c.botId });
           return {
-            content: [{ type: 'text', text: `群聊「${matter.title}」已建（id ${matter.id}），成员：${ids.map((x) => c.store.bot(x)?.name).join('、')}，牵头：${lead.name}。${p.task ? '任务已丢进群里。' : ''}${missing.length ? ` 未找到：${missing.join('、')}。` : ''}` }],
+            content: [{ type: 'text', text: `Group "${matter.title}" created (id ${matter.id}), members: ${ids.map((x) => c.store.bot(x)?.name).join(', ')}, lead: ${lead.name}.${p.task ? ' The task is in the group.' : ''}${missing.length ? ` Not found: ${missing.join(', ')}.` : ''}` }],
             details: { matterId: matter.id },
           };
         },
@@ -168,14 +168,14 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
 
       pi.registerTool({
         name: 'configure',
-        label: '改配置',
+        label: 'Change settings',
         description:
-          '读取或修改产品层面的设置——bot 之外、围绕 bot 的东西。target=bot：autonomy(tell|prepare|do 自主度) / notify(消息通知，用户的静音开关；什么时候该找用户是你自己判断，不是这里设的) / pinned(置顶) / avatar(头像：value=regen 重画一张、reset 换回默认、一句外观描述按描述画、或你在工作区生成的 png/jpg 绝对路径直接用作头像)。target=matter：title / summary / members(add|remove bot) / lead / notify / pinned；target=profile：get 查看共享记忆（改动用 remember）。action=get 不带 field 返回完整配置；不带 id 列出全部。\n不收的：你自己的一切——名字、简介、人设、职责与工作方式、技能、例行任务、外部工具、服务、外部 agent、IM 渠道、素材——全用 build；关于用户的记忆用 remember。',
-        promptSnippet: '产品设置：通知、置顶、自主度、打扰策略、授权、群聊、连接（bot 自身用 build，记忆用 remember）',
+          'Read or change product-level settings — the things around a bot rather than the bot itself. target=bot: autonomy (tell|prepare|do), notify (the user\'s mute switch; when to reach out is your judgement, not this setting), pinned, avatar (value=regen to redraw, reset for the default, a sentence describing a look, or the absolute path of a png/jpg you generated). target=matter: title / summary / members (add|remove a bot) / lead / notify / pinned. target=profile: get reads the shared memory (changes go through remember). action=get without a field returns everything; without an id it lists everything.\nNot here: anything about yourself — name, tagline, character, remit and way of working, skills, recurring tasks, external tools, services, agents, messengers, asset packs — all of that is build; memory about the user is remember.',
+        promptSnippet: 'product settings: notifications, pinning, autonomy, groups, connections (the bot itself is build; memory is remember)',
         promptGuidelines: [
-          '用户要改产品设置（通知、置顶、自主度、打扰策略、群成员、群名）用 configure 直接改，改完一句话确认，不要只是口头答应。你自己是谁、会什么、能连什么是 build 的事；关于用户的记忆是 remember 的事。',
-          '改别的 bot 之前先 configure(action=get) 看清现状；remove 类操作先用 ask_user 确认。',
-          '用户想接 IM 渠道、外部工具或外部 agent 时，用 build(aspect=channel/mcp/agent, action=add) 自己接，别让他改配置文件。',
+          'When the user wants a product setting changed (notifications, pinning, autonomy, group members, a group name), change it with configure and confirm in one line — never merely agree to it. Who you are, what you can do and what you can reach is build; memory about the user is remember.',
+          'Before changing another bot, configure(action=get) to see where it stands. Anything that removes something goes through ask_user first.',
+          'When the user wants a messenger, an external tool or an agent connected, connect it yourself with build(aspect=channel/mcp/agent, action=add). Never send them to a config file.',
         ],
         parameters: ConfigureParams,
         executionMode: 'sequential',
@@ -186,41 +186,41 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
 
           if (p.target === 'profile') {
             const doc = everos.profileDoc();
-            const lines = [...(doc?.explicit ?? []).map((e) => e.description), ...(doc?.traits ?? []).map((e) => `（推断）${e.description}`)];
-            if (p.action === 'get') return ok(lines.length ? lines.map((l, i) => `${i + 1}. ${l}`).join('\n') : '（画像还没聚出来）');
-            throw new Error('画像是引擎从对话里合成的，configure 只读；要记一条事实用 remember');
+            const lines = [...(doc?.explicit ?? []).map((e) => e.description), ...(doc?.traits ?? []).map((e) => `(inferred) ${e.description}`)];
+            if (p.action === 'get') return ok(lines.length ? lines.map((l, i) => `${i + 1}. ${l}`).join('\n') : '(nothing has settled into a profile yet)');
+            throw new Error('the profile is synthesised by the engine from conversation, so configure only reads it; to record a fact, use remember');
           }
 
           if (p.target === 'matter') {
             const m = findMatter(p.id);
-            if (p.action === 'get' && !m) return ok(c.store.data.matters.map((x) => `- [${x.id}] ${x.title}：${[x.ownerBotId, ...x.participantBotIds].map((b) => c.store.bot(b)?.name).join('、')}`).join('\n') || '（没有群聊）');
-            if (!m) throw new Error('找不到这个群聊');
-            if (p.action === 'get') return ok(`id: ${m.id}\n名字: ${m.title}\n描述: ${m.summary}\n牵头: ${c.store.bot(m.ownerBotId)?.name}\n成员: ${m.participantBotIds.map((b) => c.store.bot(b)?.name).join('、')}\n通知: ${m.notify}；置顶: ${m.pinned}`);
+            if (p.action === 'get' && !m) return ok(c.store.data.matters.map((x) => `- [${x.id}] ${x.title}: ${[x.ownerBotId, ...x.participantBotIds].map((b) => c.store.bot(b)?.name).join(', ')}`).join('\n') || '(no groups)');
+            if (!m) throw new Error('no such group');
+            if (p.action === 'get') return ok(`id: ${m.id}\nname: ${m.title}\ndescription: ${m.summary}\nlead: ${c.store.bot(m.ownerBotId)?.name}\nmembers: ${m.participantBotIds.map((b) => c.store.bot(b)?.name).join(', ')}\nnotify: ${m.notify}; pinned: ${m.pinned}`);
             const f = p.field ?? '';
             if (f === 'members') {
               const b = findBot(str(val));
-              if (!b) throw new Error('找不到这个 bot');
+              if (!b) throw new Error('no such bot');
               const next = p.action === 'remove' ? m.participantBotIds.filter((x) => x !== b.id) : Array.from(new Set([...m.participantBotIds, b.id]));
               c.store.patchMatter(m.id, { participantBotIds: next.filter((x) => x !== m.ownerBotId) });
-              return ok(`群「${m.title}」成员已${p.action === 'remove' ? '移除' : '加入'} ${b.name}。`);
+              return ok(`${b.name} was ${p.action === 'remove' ? 'removed from' : 'added to'} the group "${m.title}".`);
             }
             if (f === 'lead') {
               const b = findBot(str(val));
-              if (!b) throw new Error('找不到这个 bot');
+              if (!b) throw new Error('no such bot');
               c.store.patchMatter(m.id, { ownerBotId: b.id, participantBotIds: Array.from(new Set([m.ownerBotId, ...m.participantBotIds])).filter((x) => x !== b.id) });
-              return ok(`「${m.title}」现在由 ${b.name} 牵头。`);
+              return ok(`${b.name} now leads "${m.title}".`);
             }
             if (['title', 'summary', 'notify', 'pinned'].includes(f)) {
               c.store.patchMatter(m.id, { [f]: f === 'notify' || f === 'pinned' ? val === true || val === 'true' : str(val) } as Partial<Matter>);
-              return ok(`群「${m.title}」的 ${f} 已更新。`);
+              return ok(`${f} updated for the group "${m.title}".`);
             }
-            throw new Error(`matter 不支持字段 ${f}`);
+            throw new Error(`a matter has no field ${f}`);
           }
 
           // target === 'bot'
           const b = findBot(p.id);
           if (p.action === 'get' && !b) return ok(c.store.data.bots.map((x) => `- [${x.id}] ${x.name}：${x.tagline}`).join('\n'));
-          if (!b) throw new Error('找不到这个 bot');
+          if (!b) throw new Error('no such bot');
           if (p.action === 'get') return ok(describeBot(b));
           const f = p.field ?? '';
           const patch: Partial<Bot> = {};
@@ -231,9 +231,9 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
             case 'tagline':
             case 'skills':
             case 'routines':
-              throw new Error(`${f} 是 bot 自己的事，用 build 改（set 直接写入，rewrite 自己重写）`);
+              throw new Error(`${f} belongs to the bot itself; change it with build (set writes it verbatim, rewrite has it rewrite itself)`);
             case 'autonomy':
-              if (!['tell', 'prepare', 'do'].includes(str(val))) throw new Error('autonomy 只能是 tell/prepare/do');
+              if (!['tell', 'prepare', 'do'].includes(str(val))) throw new Error('autonomy has to be tell, prepare or do');
               patch.autonomy = str(val) as Bot['autonomy'];
               break;
             case 'notify':
@@ -246,11 +246,11 @@ export function crewToolsExtension(c: BotCtx, ops: () => CrewOps): InlineExtensi
               return ok(msg, { botId: b.id, avatar: str(val) });
             }
             default:
-              throw new Error(`bot 不支持字段「${f}」`);
+              throw new Error(`a bot has no field "${f}"`);
           }
           c.store.patchBot(b.id, patch);
           c.events.emit('crew:bot-configured', { botId: b.id, fields: Object.keys(patch) });
-          return ok(`已更新 ${b.name} 的 ${f}。\n\n${describeBot(c.store.bot(b.id)!)}`, { botId: b.id, patch });
+          return ok(`Updated ${f} for ${b.name}.\n\n${describeBot(c.store.bot(b.id)!)}`, { botId: b.id, patch });
         },
       });
     },
