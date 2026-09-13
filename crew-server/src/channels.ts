@@ -15,15 +15,15 @@ import { WhatsappBridge } from './bridges/whatsapp.ts';
 import { botThread, matterThread, parseThread, CHANNELS, CHANNEL_LABEL, type Bot, type Card, type Channel, type ImLink, type Matter, type Message, type Pending, type ThreadId } from './types.ts';
 
 /*
- * IM model: every bot is its own bot on an IM. 邮件管家 on Feishu is a Feishu app of its own, with its own name,
+ * IM model: every bot is its own bot on an IM. A mail bot on Feishu is a Feishu app of its own, with its own name,
  * avatar and credentials; the user chats with it directly, and pulls several of them into one Feishu group to
- * have them work together — that group is mirrored as a 群聊 here. Credentials live only in config.json
+ * have them work together — that group is mirrored as a group here. Credentials live only in config.json
  * (`imAccounts[botId][channel]`), entered through a credentials card, never in the store or the model context.
  */
 
 export type Im = Exclude<Channel, 'app'>;
 export const IMS: Im[] = CHANNELS.filter((c): c is Im => c !== 'app');
-/** @deprecated 就是 CHANNEL_LABEL，留个别名让老调用点不用一次全改。 */
+/** @deprecated This is CHANNEL_LABEL; the alias exists so old call sites did not all have to change at once. */
 export const IM_NAME = CHANNEL_LABEL;
 
 /** Which credential fields each IM needs; the keys are what the credentials card submits. */
@@ -60,29 +60,29 @@ export const CHANNEL_PUBLIC_KEYS = new Set(['feishuAppId', 'wecomCorpId', 'wecom
 
 /** A bot's IM row in the App before it is connected. */
 export const CHANNEL_HOWTO: Record<Im, string> = {
-  feishu: '还没接。接上后它在飞书里是一个独立的机器人：可以私聊，也能和别的 bot 一起拉进一个群',
-  telegram: '还没接。接上后它在 Telegram 里是一个独立的机器人：可以私聊，也能拉进群',
-  slack: '还没接。接上后它在 Slack 里是一个独立的机器人：可以私聊，也能邀请进频道',
-  wechat: '还没接。接上后它在企业微信里是一个独立的应用，可以私聊（企业微信的应用进不了群）',
-  weixin: '还没接。用微信扫一个码就接上了，它在你的微信里是一个独立的机器人，只能私聊，而且只能回你发的消息',
-  discord: '还没接。接上后它在 Discord 里是一个独立的机器人：可以私聊，也能拉进服务器的频道',
-  whatsapp: '还没接。接上后它有自己的 WhatsApp 号码，可以私聊（WhatsApp 的商业接口没有群）',
+  feishu: 'Not connected. Once it is, it is a bot of its own in Feishu: message it directly, or put it in a group with other bots',
+  telegram: 'Not connected. Once it is, it is a bot of its own in Telegram: message it directly, or add it to a group',
+  slack: 'Not connected. Once it is, it is a bot of its own in Slack: message it directly, or invite it into a channel',
+  wechat: 'Not connected. Once it is, it is an app of its own in WeCom, for direct messages (a WeCom app cannot join groups)',
+  weixin: 'Not connected. One QR scan in WeChat connects it. It is a bot of its own in your WeChat, direct messages only, and it can only reply to you — never open',
+  discord: 'Not connected. Once it is, it is a bot of its own in Discord: message it directly, or add it to a channel on your server',
+  whatsapp: 'Not connected. Once it is, it has a WhatsApp number of its own, for direct messages (the business API has no groups)',
 };
 const CHANNEL_LIVE: Record<Im, string> = {
-  feishu: '已接入 · 私聊它，或把它和别的 bot 拉进同一个群',
-  telegram: '已接入 · 私聊它，或把它拉进群',
-  slack: '已接入 · 私聊它，或邀请它进频道',
-  wechat: '已接入 · 在企业微信里找到这个应用私聊',
-  weixin: '已接入 · 在微信里私聊它（它开不了口，得你先说）',
-  discord: '已接入 · 私聊它，或把它邀请进服务器',
-  whatsapp: '已接入 · 给它的号码发消息（对方先说话，24 小时内可以来回）',
+  feishu: 'Connected · message it, or put it in a group with other bots',
+  telegram: 'Connected · message it, or add it to a group',
+  slack: 'Connected · message it, or invite it into a channel',
+  wechat: 'Connected · find the app in WeCom and message it',
+  weixin: 'Connected · message it in WeChat (it cannot open a conversation, so you speak first)',
+  discord: 'Connected · message it, or invite it to your server',
+  whatsapp: 'Connected · message its number (they speak first, and the window is 24 hours)',
 };
 
 export const wecomCallback = (botId: string) => `${config.publicUrl}/wecom/callback/${botId}`;
 export const whatsappCallback = (botId: string) => `${config.publicUrl}/whatsapp/callback/${botId}`;
 
 /** The credentials card for connecting one bot to one IM: what to fill and where to get it. */
-/** The IMs whose connection is a form to fill; 微信 is not one of them (a QR is scanned instead). */
+/** The messengers connected by filling in a form; WeChat is not one of them (a QR is scanned instead). */
 export type CardIm = Exclude<Im, 'weixin'>;
 
 export function connectCard(bot: Bot, channel: CardIm): Extract<Card, { type: 'secrets' }> {
@@ -92,19 +92,19 @@ export function connectCard(bot: Bot, channel: CardIm): Extract<Card, { type: 's
       return {
         type: 'secrets',
         integrationId: 'ch-feishu',
-        title: `把「${n}」接到飞书`,
+        title: `Connect "${n}" to Feishu`,
         fields: [
-          { key: 'feishuAppId', label: 'App ID', hint: 'cli_ 开头', secret: false },
+          { key: 'feishuAppId', label: 'App ID', hint: 'starts with cli_', secret: false },
           { key: 'feishuAppSecret', label: 'App Secret' },
         ],
         help: {
           url: 'https://open.feishu.cn/app',
-          urlLabel: '打开飞书开放平台',
+          urlLabel: 'Open the Feishu console',
           steps: [
-            `创建企业自建应用，名字就叫「${n}」，头像用它的头像`,
-            '「添加应用能力」加上机器人；「权限管理」开通 im:message、im:message:send_as_bot、im:chat:readonly',
-            '「事件与回调」选「长连接」，添加事件：接收消息、机器人进群、机器人被移出群',
-            '「凭证与基础信息」里复制 App ID 和 App Secret 填到这里，然后「版本管理与发布」创建版本并发布',
+            `Create a custom in-house app called "${n}", using its avatar`,
+            'Add the bot capability; under permissions, enable im:message, im:message:send_as_bot and im:chat:readonly',
+            'Under events and callbacks choose long connection, and add: receive message, bot added to group, bot removed from group',
+            'Copy the App ID and App Secret from the credentials page into this card, then create and publish a version',
           ],
         },
       };
@@ -112,31 +112,31 @@ export function connectCard(bot: Bot, channel: CardIm): Extract<Card, { type: 's
       return {
         type: 'secrets',
         integrationId: 'ch-telegram',
-        title: `把「${n}」接到 Telegram`,
-        fields: [{ key: 'telegramToken', label: 'Bot Token', hint: '数字:字母 的形式' }],
+        title: `Connect "${n}" to Telegram`,
+        fields: [{ key: 'telegramToken', label: 'Bot Token', hint: 'digits:letters' }],
         help: {
           url: 'https://t.me/BotFather',
-          urlLabel: '打开 @BotFather',
-          steps: [`发 /newbot，显示名填「${n}」，用户名随意但要以 bot 结尾`, '把它回给你的 token 填到这里', '想让几个 bot 一起干活，就建个群把它们都拉进去，@谁谁回'],
+          urlLabel: 'Open @BotFather',
+          steps: [`Send /newbot, with "${n}" as the display name and any username ending in bot`, 'Paste the token it gives you into this card', 'To have several bots work together, make a group and add them all — @ whoever you need'],
         },
       };
     case 'slack':
       return {
         type: 'secrets',
         integrationId: 'ch-slack',
-        title: `把「${n}」接到 Slack`,
+        title: `Connect "${n}" to Slack`,
         fields: [
-          { key: 'slackBotToken', label: 'Bot Token', hint: 'xoxb- 开头' },
-          { key: 'slackAppToken', label: 'App-Level Token', hint: 'xapp- 开头' },
+          { key: 'slackBotToken', label: 'Bot Token', hint: 'starts with xoxb-' },
+          { key: 'slackAppToken', label: 'App-Level Token', hint: 'starts with xapp-' },
         ],
         help: {
           url: 'https://api.slack.com/apps',
-          urlLabel: '打开 Slack 应用后台',
+          urlLabel: 'Open the Slack app console',
           steps: [
-            `Create New App → From scratch，名字「${n}」`,
-            'OAuth & Permissions 的 Bot Token Scopes 加上 chat:write、im:history、channels:history、groups:history、app_mentions:read、channels:read、groups:read、users:read',
-            'Socket Mode 开启并生成 App-Level Token（connections:write）；Event Subscriptions 订阅 message.im、message.channels、message.groups、app_mention、member_joined_channel、member_left_channel',
-            'Install to Workspace 拿到 Bot Token，两个 token 填到这里',
+            `Create New App → From scratch, named "${n}"`,
+            'Under OAuth & Permissions, add the Bot Token Scopes chat:write, im:history, channels:history, groups:history, app_mentions:read, channels:read, groups:read, users:read',
+            'Turn on Socket Mode and generate an App-Level Token (connections:write); under Event Subscriptions subscribe to message.im, message.channels, message.groups, app_mention, member_joined_channel, member_left_channel',
+            'Install to Workspace for the Bot Token, and put both tokens in this card',
           ],
         },
       };
@@ -144,15 +144,15 @@ export function connectCard(bot: Bot, channel: CardIm): Extract<Card, { type: 's
       return {
         type: 'secrets',
         integrationId: 'ch-discord',
-        title: `把「${n}」接到 Discord`,
+        title: `Connect "${n}" to Discord`,
         fields: [{ key: 'discordToken', label: 'Bot Token' }],
         help: {
           url: 'https://discord.com/developers/applications',
-          urlLabel: '打开 Discord 开发者后台',
+          urlLabel: 'Open the Discord developer console',
           steps: [
-            `New Application，名字「${n}」；Bot 页 Reset Token 拿到 Bot Token 填到这里`,
-            'Bot 页把 Message Content Intent 打开（不开就收不到消息内容）',
-            'OAuth2 → URL Generator：勾 bot，权限勾 Send Messages、Read Message History，用生成的链接把它邀请进你的服务器',
+            `New Application named "${n}"; on the Bot page, Reset Token and put the Bot Token in this card`,
+            'On the Bot page, turn on Message Content Intent (without it, message content never arrives)',
+            'OAuth2 → URL Generator: tick bot, then Send Messages and Read Message History, and use the link to invite it to your server',
           ],
         },
       };
@@ -160,20 +160,20 @@ export function connectCard(bot: Bot, channel: CardIm): Extract<Card, { type: 's
       return {
         type: 'secrets',
         integrationId: 'ch-whatsapp',
-        title: `把「${n}」接到 WhatsApp`,
+        title: `Connect "${n}" to WhatsApp`,
         fields: [
-          { key: 'waPhoneId', label: 'Phone number ID', hint: '一串数字', secret: false },
-          { key: 'waToken', label: '访问令牌', hint: 'EAA… 开头，用系统用户的永久令牌' },
-          { key: 'waVerifyToken', label: 'Webhook 校验串', hint: '自己起一个，两边填一样的', secret: false },
+          { key: 'waPhoneId', label: 'Phone number ID', hint: 'a string of digits', secret: false },
+          { key: 'waToken', label: 'Access token', hint: 'starts with EAA…; use a system user\'s permanent token' },
+          { key: 'waVerifyToken', label: 'Webhook verify token', hint: 'make one up; the same string goes on both sides', secret: false },
         ],
         help: {
           url: 'https://developers.facebook.com/apps',
-          urlLabel: '打开 Meta 开发者后台',
+          urlLabel: 'Open the Meta developer console',
           steps: [
-            '创建 Business 类型应用，加 WhatsApp 产品；API Setup 页有测试号码和 Phone number ID',
-            '业务管理后台建一个系统用户，给它 whatsapp_business_messaging 权限，生成永久访问令牌（页面上那个临时令牌 24 小时就过期）',
-            `Webhook 的回调地址填 ${whatsappCallback(bot.id)}，校验串填你在这张卡上填的那一个，订阅 messages 字段`,
-            '正式对外用还要在 Meta 完成商业验证并绑定自己的号码；测试号码只能发给白名单里的号码',
+            'Create a Business app and add the WhatsApp product; the API Setup page has a test number and the Phone number ID',
+            'In Business Manager create a system user with whatsapp_business_messaging and generate a permanent access token (the temporary one on the page expires in 24 hours)',
+            `Set the webhook callback to ${whatsappCallback(bot.id)}, use the verify token from this card, and subscribe to the messages field`,
+            'Going live also needs Meta business verification and your own number; the test number can only message allow-listed numbers',
           ],
         },
       };
@@ -181,9 +181,9 @@ export function connectCard(bot: Bot, channel: CardIm): Extract<Card, { type: 's
       return {
         type: 'secrets',
         integrationId: 'ch-wechat',
-        title: `把「${n}」接到企业微信`,
+        title: `Connect "${n}" to WeCom`,
         fields: [
-          { key: 'wecomCorpId', label: '企业 ID', secret: false },
+          { key: 'wecomCorpId', label: 'Corp ID', secret: false },
           { key: 'wecomAgentId', label: 'AgentId', secret: false },
           { key: 'wecomSecret', label: 'Secret' },
           { key: 'wecomToken', label: 'Token' },
@@ -191,11 +191,11 @@ export function connectCard(bot: Bot, channel: CardIm): Extract<Card, { type: 's
         ],
         help: {
           url: 'https://work.weixin.qq.com/wework_admin/frame#apps',
-          urlLabel: '打开企业微信管理后台',
+          urlLabel: 'Open the WeCom admin console',
           steps: [
-            `「我的企业」页复制企业 ID；「应用管理 → 自建应用」创建一个叫「${n}」的应用，拿到 AgentId 和 Secret`,
-            `应用详情「接收消息 → 设置 API 接收」：回调 URL 填 ${wecomCallback(bot.id)}，Token 和 EncodingAESKey 点随机生成`,
-            '把五项填到这里；接好后再回企业微信点「保存」让它验证 URL',
+            `Copy the Corp ID from My Company; under App management → custom app create one called "${n}" and take its AgentId and Secret`,
+            `On the app page, Receive messages → set up API receiving: callback URL ${wecomCallback(bot.id)}, and generate a random Token and EncodingAESKey`,
+            'Put all five in this card; once connected, go back to WeCom and press Save so it can verify the URL',
           ],
         },
       };
@@ -216,7 +216,7 @@ export function botChannelCreds(botId: string, channel: Im): Record<string, stri
   return out;
 }
 
-/** One stored value that is not one of the required credentials (微信's base url, handed out at pairing). */
+/** One stored value that is not a required credential (WeChat's base url, handed out at pairing). */
 export function channelExtra(botId: string, channel: Im, key: string): string | undefined {
   return readFileConfig().imAccounts?.[botId]?.[channel]?.[key]?.trim() || undefined;
 }
@@ -278,7 +278,7 @@ const key = (botId: string, channel: Channel) => `${botId}:${channel}`;
 /**
  * Owns every bot's IM accounts: starts what has credentials, restarts what changed (a filled card, a hand edit of
  * config.json), and is the Hub the bridges report to — private chats become the bot's thread, an IM group with
- * several of our bots becomes a 群聊.
+ * several of our bots becomes a group here.
  */
 export class ChannelManager implements Hub {
   private bridges = new Map<string, Bridge>();
@@ -320,7 +320,7 @@ export class ChannelManager implements Hub {
       }
       const [botId, ch] = k.split(':') as [string, Im];
       const bot = this.store.bot(botId);
-      if (bot?.im?.[ch]?.status === 'ok') this.setLink(botId, ch, { ...bot.im[ch]!, status: 'off', note: '这台机器上的 Steadbot 停了' });
+      if (bot?.im?.[ch]?.status === 'ok') this.setLink(botId, ch, { ...bot.im[ch]!, status: 'off', note: 'Steadbot stopped on this machine' });
     }
     this.bridges.clear();
     this.running.clear();
@@ -374,7 +374,7 @@ export class ChannelManager implements Hub {
   /** (Re)start one bot's account on one IM from its current credentials; the result lands on the bot for the App. */
   async start(botId: string, channel: Im): Promise<{ ok: boolean; note: string }> {
     const bot = this.store.bot(botId);
-    if (!bot) return { ok: false, note: 'bot 不存在' };
+    if (!bot) return { ok: false, note: 'no such bot' };
     this.stopOne(botId, channel);
     const c = botChannelCreds(botId, channel);
     if (!c) {
@@ -415,12 +415,12 @@ export class ChannelManager implements Hub {
       const fresh = !bot.channels.includes(channel);
       this.setLink(botId, channel, { status: 'ok', note: CHANNEL_LIVE[channel], account });
       if (fresh) {
-        this.store.grow(botId, 'channel', `接入${IM_NAME[channel]}${account ? `，那边叫「${account}」` : ''}`);
+        this.store.grow(botId, 'channel', `connected to ${IM_NAME[channel]}${account ? `, known there as "${account}"` : ''}`);
         // Connected is not the same as reachable, and the bot has no way to know the difference from here. Send it
         // to close the loop itself before it tells anyone it is on that IM.
         this.router.tellBot(
           botId,
-          `【系统】「${IM_NAME[channel]}」的凭据接上了，但还没验证用户那边找不找得到你。现在跑一次验收：channel_check(arm, channel="${IM_NAME[channel]}") 拿暗号 → 用电脑打开${IM_NAME[channel]}网页版（用户已登录），搜自己的名字，以用户身份把暗号发给自己 → channel_check(status)。通过了再对用户说接好了；没通过就按提示查发布状态、可用范围和事件订阅。`,
+          `[system] The credentials for ${IM_NAME[channel]} connected, but nobody has checked yet whether the user can find you over there. Verify now: channel_check(arm, channel="${IM_NAME[channel]}") for a passphrase → open the ${IM_NAME[channel]} web client on the computer (where the user is logged in), search for your own name and send yourself the passphrase as the user → channel_check(status). Only after it passes do you tell the user it is connected; if it fails, check the publish state, the availability and the event subscriptions as instructed.`,
         );
       }
       console.log(`[crew] ${bot.name} is on ${channel}${account ? ` as ${account}` : ''}`);
@@ -459,7 +459,7 @@ export class ChannelManager implements Hub {
     const p = this.probes.get(key(botId, channel as Im));
     if (!p || p.hitAt || !text.includes(p.code)) return false;
     p.hitAt = Date.now();
-    console.log(`[crew] ${this.store.bot(botId)?.name ?? botId}: ${channel} 回路验收通过（${p.code}）`);
+    console.log(`[crew] ${this.store.bot(botId)?.name ?? botId}: ${channel} round trip verified (${p.code})`);
     return true;
   }
 
@@ -475,11 +475,11 @@ export class ChannelManager implements Hub {
     clearBotChannelCreds(botId, channel);
     const bot = this.store.bot(botId);
     this.setLink(botId, channel, undefined);
-    if (bot?.channels.includes(channel)) this.store.grow(botId, 'channel', `断开了${IM_NAME[channel]}`);
+    if (bot?.channels.includes(channel)) this.store.grow(botId, 'channel', `disconnected from ${IM_NAME[channel]}`);
   }
 
   /**
-   * 微信 has no credentials to fill: the pairing desk posts a QR instead. Set by index.ts, because the desk needs
+   * WeChat has no credentials to fill: the pairing desk posts a QR instead. Set by index.ts, because the desk needs
    * this manager to bring the bridge up once the scan lands.
    */
   pairWeixin: ((botId: string, threadId?: ThreadId) => Promise<string>) | undefined;
@@ -487,17 +487,17 @@ export class ChannelManager implements Hub {
   /** Put the credentials card for one IM into the bot's thread; the bot's own words introduce it. */
   sendConnectCard(botId: string, channel: Im, threadId?: ThreadId) {
     const bot = this.store.bot(botId);
-    if (!bot) throw new Error('bot 不存在');
+    if (!bot) throw new Error('no such bot');
     if (channel === 'weixin') {
-      if (!this.pairWeixin) throw new Error('微信扫码接入没有启动');
+      if (!this.pairWeixin) throw new Error('the WeChat pairing desk is not running');
       void this.pairWeixin(botId, threadId);
       return undefined;
     }
     const card = connectCard(bot, channel);
     const text =
       channel === 'wechat'
-        ? `把我接到企业微信：按卡片上的步骤建一个自建应用，五项填到卡上。填的内容只进本机配置，我看不到。`
-        : `把我接到${IM_NAME[channel]}：按卡片上的步骤给我建一个机器人（那边就是我，名字头像都用我的），凭据填到卡上。填的内容只进本机配置，我看不到。`;
+        ? `Connect me to WeCom: follow the steps on the card to create a custom app and put all five values on it. What you type goes only into the local config; I cannot see it.`
+        : `Connect me to ${IM_NAME[channel]}: follow the steps on the card to create a bot for me (that is me over there — my name, my avatar) and put the credentials on the card. What you type goes only into the local config; I cannot see it.`;
     return this.store.addMessage({ threadId: threadId ?? botThread(botId), author: 'bot', botId, text, ts: Date.now(), card });
   }
 
@@ -519,7 +519,7 @@ export class ChannelManager implements Hub {
   }
 
   /**
-   * The two IMs that push instead of holding a connection: 企业微信 at <publicUrl>/wecom/callback/<botId> and
+   * The two messengers that push instead of holding a connection: WeCom at <publicUrl>/wecom/callback/<botId> and
    * WhatsApp at /whatsapp/callback/<botId>. The path without a bot id still works while only one bot is on it.
    */
   handleHttp(req: IncomingMessage, res: ServerResponse): Promise<boolean> | false {
@@ -544,7 +544,7 @@ export class ChannelManager implements Hub {
     if (message.author !== 'bot' || !message.botId) return;
     if (message.via === 'app') return;
     // A reply the user cut off mid-sentence goes out as far as it got, marked so.
-    const text = message.status === 'interrupted' ? `${message.text}…（被打断）` : message.text;
+    const text = message.status === 'interrupted' ? `${message.text}… (interrupted)` : message.text;
     const { kind, id } = parseThread(message.threadId);
     const warn = (e: unknown) => console.warn('[crew] IM delivery failed:', (e as Error).message);
     if (kind === 'matter') {
@@ -623,22 +623,22 @@ export class ChannelManager implements Hub {
       delete b[channel];
       this.store.patchMatter(m.id, { bindings: Object.keys(b).length ? b : undefined });
     } else if (m.ownerBotId === botId || m.participantBotIds.includes(botId)) this.store.patchMatter(m.id, { ownerBotId: rest[0], participantBotIds: rest.slice(1) });
-    this.store.addMessage({ threadId: matterThread(m.id), author: 'system', text: `${this.store.bot(botId)?.name ?? '一个 bot'} 被移出了${IM_NAME[channel]}群。`, ts: Date.now() });
+    this.store.addMessage({ threadId: matterThread(m.id), author: 'system', text: `${this.store.bot(botId)?.name ?? 'A bot'} was removed from the ${IM_NAME[channel]} group.`, ts: Date.now() });
   }
 
   choice(pendingId: string, optionId: string) {
     this.router.onPendingChoice(pendingId, optionId);
   }
 
-  /** The 群聊 mirroring an IM group: created on first contact with the bot as lead; later bots join as members. */
+  /** The group mirroring an IM group: created on first contact with the bot as lead; later bots join as members. */
   private async matterFor(botId: string, channel: Channel, chatId: string, title: () => Promise<string | undefined>): Promise<Matter> {
     const existing = this.store.data.matters.find((x) => x.bindings?.[channel] === chatId);
     if (!existing) {
-      const t = (await title().catch(() => undefined))?.trim() || `${IM_NAME[channel]}群`;
-      const m = this.router.createMatter({ title: t, summary: `${IM_NAME[channel]}里的群「${t}」，用户把 bot 拉进去一起干活；这里的消息都在那个群里。`, memberIds: [], leadId: botId });
+      const t = (await title().catch(() => undefined))?.trim() || `${IM_NAME[channel]} group`;
+      const m = this.router.createMatter({ title: t, summary: `The ${IM_NAME[channel]} group "${t}": the user added bots to it to work together, and everything said here is in that group.`, memberIds: [], leadId: botId });
       return this.store.patchMatter(m.id, { bindings: { [channel]: chatId } }) ?? m;
     }
-    if (existing.ownerBotId !== botId && !existing.participantBotIds.includes(botId)) this.router.addMember(existing.id, botId, `从${IM_NAME[channel]}群里拉进来的`);
+    if (existing.ownerBotId !== botId && !existing.participantBotIds.includes(botId)) this.router.addMember(existing.id, botId, `added from the ${IM_NAME[channel]} group`);
     return this.store.matter(existing.id) ?? existing;
   }
 }

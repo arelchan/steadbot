@@ -1,31 +1,33 @@
 /**
- * 领域类型。前后端**同一份**——以前是两份手写的，661 行对 665 行，已经漂过：
- * Card 服务端 9 种、前端 7 种，Snapshot 少过 events。加个字段要改两个包，忘了没人提醒。
+ * Domain types, **one copy** shared by both packages. There used to be two hand-written ones, 661 lines against
+ * 665, and they had already drifted: nine kinds of Card on the server against seven in the App, and a Snapshot
+ * missing events. Adding a field meant editing two packages, and forgetting was silent.
  *
- * 这里只放两边都成立的东西：不许出现 Buffer / NodeJS.* / DOM 类型（两边的 lib 不一样），
- * 也不许出现 enum / namespace / 构造器参数属性（前端开着 erasableSyntaxOnly）。
+ * Only what holds on both sides goes here: no Buffer, no NodeJS.*, no DOM types (the two libs differ), and no
+ * enum, namespace or parameter properties (the App runs with erasableSyntaxOnly).
  *
- * 凭据不靠类型挡：Integration.env 和 Bot.bindings 都在这里声明，是因为它们本来就在两边都有；
- * 真正拦住它们出门的是 ws.ts 里的 toWire / redact，那是运行时剥字段。用类型声明去修一个
- * 运行时泄露，只会让边界看起来被守住了。
+ * Types are not what keeps credentials in. Integration.env and Bot.bindings are declared here because they exist
+ * on both sides; what actually stops them leaving is toWire / redact in ws.ts, which strips fields at runtime.
+ * Fixing a runtime leak with a type declaration only makes the boundary look guarded.
  */
 /* Shared domain types. Mirrors bot-crew/src/types.ts; the wire protocol lives at the bottom. */
 
 export type Channel = 'app' | 'feishu' | 'wechat' | 'weixin' | 'slack' | 'telegram' | 'discord' | 'whatsapp';
 export type Autonomy = 'tell' | 'prepare' | 'do';
 /**
- * 渠道这一个概念，只有这三张表。它曾经在代码里被各写各的：两处内联的中文名漏了一半渠道
- * （成长动线写出「住进了【weixin】」，喂给模型的自我描述告诉一个接了微信的 bot 它在「weixin」上），
- * 两套互不相同的别名表，外加一份 IM_NAME。加一个渠道，改这里，别处跟着走。
+ * Channels are these three tables and nothing else. They used to be written out wherever they were needed: two
+ * inline name maps that between them missed half the channels (the growth log announced "moved into [weixin]",
+ * and the self-description fed to the model told a bot connected to WeChat that it lived on "weixin"), two
+ * different alias tables, and an IM_NAME on top. Add a channel here and the rest follows.
  */
 export const CHANNELS: Channel[] = ['app', 'telegram', 'discord', 'whatsapp', 'slack', 'feishu', 'wechat', 'weixin'];
-/** 通道的中文名，界面、提示词、给 bot 看的说明都用这一份。 */
-export const CHANNEL_LABEL: Record<Channel, string> = { app: '应用内', feishu: '飞书', wechat: '企业微信', weixin: '微信', slack: 'Slack', telegram: 'Telegram', discord: 'Discord', whatsapp: 'WhatsApp' };
-/** 用户和模型会用的各种叫法。小写比较，所以这里只写小写；中文没有大小写，照写。 */
+/** What a channel is called. One copy, used by the interface, the prompts and anything a bot reads. */
+export const CHANNEL_LABEL: Record<Channel, string> = { app: 'In-app', feishu: 'Feishu', wechat: 'WeCom', weixin: 'WeChat', slack: 'Slack', telegram: 'Telegram', discord: 'Discord', whatsapp: 'WhatsApp' };
+/** Every name a user or a model might use. Matching is lower-cased, so these are lower-case; Chinese has no case and is written as it is. */
 const CHANNEL_ALIASES: Record<Channel, string[]> = {
-  app: ['app', '应用', '应用内', '这里'],
+  app: ['app', 'in-app', 'here', '应用', '应用内', '这里'],
   feishu: ['feishu', 'lark', '飞书'],
-  wechat: ['wecom', 'wechat_work', '企业微信', '企微'],
+  wechat: ['wecom', 'wechat work', 'wechat_work', '企业微信', '企微'],
   weixin: ['weixin', 'wechat', '微信'],
   slack: ['slack'],
   telegram: ['telegram', 'tg', '电报'],
@@ -35,10 +37,10 @@ const CHANNEL_ALIASES: Record<Channel, string[]> = {
 const ALIAS_TO_CHANNEL = new Map<string, Channel>(
   CHANNELS.flatMap((c) => [[c, c] as [string, Channel], [CHANNEL_LABEL[c].toLowerCase(), c] as [string, Channel], ...CHANNEL_ALIASES[c].map((a) => [a, c] as [string, Channel])]),
 );
-// 「wechat」两边都想要：它是 wechat 这个渠道 id，也是微信的英文名。历来按微信解，写在这里
-// 是为了不依赖上面那个数组的顺序——企业微信要用 wecom。
+// Both sides want "wechat": it is the id of the wechat channel and the English name of WeChat. It has always
+// resolved to WeChat, and saying so here keeps it from depending on the order of the array above — WeCom is wecom.
 ALIAS_TO_CHANNEL.set('wechat', 'weixin');
-/** 「飞书」「lark」「Feishu」都认。认不出返回 undefined——别猜。 */
+/** "Feishu", "lark" and 「飞书」 all resolve. Unrecognised returns undefined — never guess. */
 export const channelFromName = (s: string): Channel | undefined => ALIAS_TO_CHANNEL.get(s.trim().toLowerCase());
 export type ConnectionKind = 'browser' | 'mcp' | 'api' | 'pay' | 'calendar' | 'mail';
 
@@ -53,15 +55,15 @@ export interface Connection {
 export interface Routine {
   id: string;
   title: string;
-  /** 到点了让它做什么；空着就照标题和职责办 */
+  /** What it should do when this fires; empty means go by the title and its remit. */
   prompt?: string;
   schedule: string;
   enabled: boolean;
-  /** 处理到哪个时间点了：新建或改了时间表时置为当下，所以一条下午建的「每天 09:00」等明天，不会立刻补跑 */
+  /** How far it has been processed. Set to now when created or rescheduled, so a "daily 09:00" made in the afternoon waits for tomorrow rather than firing immediately. */
   lastRun?: number;
-  /** 最近几次跑的时间，新的在前，最多十条 */
+  /** When it last ran, newest first, up to ten. */
   runs?: number[];
-  /** 结果发到哪几处：'app' 是应用内提醒，其余是这个 bot 在的 IM。不填 = 它在的地方都发。 */
+  /** Where the result goes: 'app' is an in-app notification, the rest are messengers this bot lives on. Absent = everywhere it lives. */
   channels?: Channel[];
 }
 
@@ -70,9 +72,9 @@ export interface Bot {
   name: string;
   glyph: string;
   tagline: string;
-  /** agent.md：它的职责与工作流程（做什么、怎么做、什么之前要问） */
+  /** agent.md: its remit and how the work goes — what it does, how, and what to ask about first. */
   role: string;
-  /** soul.md：人设——性格、说话风格、待人方式 */
+  /** soul.md: character — temperament, how it talks, how it treats people. */
   soul: string;
   channels: Channel[];
   connections: Connection[];
@@ -84,7 +86,7 @@ export interface Bot {
   pinned: boolean;
   avatarUrl?: string;
   avatarSeed?: string;
-  /** 外观描述（bot 自己用 configure 改头像时给的），生成头像时带进提示词 */
+  /** A description of how it looks (given when a bot changes its own avatar with configure), carried into the prompt that draws it. */
   avatarLook?: string;
   createdAt: number;
   /** server-only: the bot's private chat with the user on each IM it is connected to, e.g. { telegram: '<chatId>' }; learned from the first message there */
@@ -97,13 +99,13 @@ export interface Bot {
   integrationIds?: string[];
   /** self-builds in progress (build tool) */
   building?: BuildJob[];
-  /** 成长动线：这个 bot 从诞生起每一次变化，按时间排 */
+  /** Growth: every change this bot has been through since birth, in order. */
   growth?: GrowthEvent[];
-  /** 产品自带的角色：steward = 管家，负责把 bot 们安顿到另一台机器并照看它 */
+  /** A role that comes with the product: steward = the assistant that settles the bots onto another machine and looks after it. */
   kind?: 'steward';
-  /** 正在值守的长程任务（vigil 工具）；持久化，重启后继续 */
+  /** The long-running thing it is watching (the vigil tool); persisted, and resumed after a restart. */
   vigil?: Vigil;
-  /** 它自己的电脑（云机器上的一个桌面，用户在 App 里能实时看到屏幕）；没有这个字段 = 从未开过机 */
+  /** Its own computer (a desktop on the cloud machine, whose screen the user watches live in the App). Absent = never started. */
 }
 
 /** A bot's own computer: a virtual display on the machine the bots run on, with a browser the bot drives. */
@@ -142,7 +144,7 @@ export interface GrowthEvent {
   id: string;
   ts: number;
   kind: GrowthKind;
-  /** 一句话，里面用【】包住对象名，界面会高亮 */
+  /** One line, with the subject wrapped in 【】 so the interface can highlight it. */
   text: string;
 }
 
@@ -208,29 +210,31 @@ export interface Integration {
 }
 
 /**
- * 事项的四态，也就是用户在日程右边那栏看到的四叠：
- * doing 进行中 ｜ waiting 待确认（不给东西就动不了）｜ done 已完成（做成了）｜ closed 已关闭（不做了）。
+ * The four states of a matter — the same four piles the user sees down the right of the schedule:
+ * doing | waiting (cannot move until something arrives) | done (it worked) | closed (it is not happening).
  *
- * 原来是五态（另有 open 和 blocked）：open 对用户和 doing 没区别——bot 接下了就是在做；blocked 对用户
- * 和 waiting 也没区别——都是「不理它就停在这」，界面里这两个本来就一直成对出现。「卡住了」那份紧迫感
- * 由卡片的种类表达（confirm / clarify / blocked 三种没变），不靠事项状态。
+ * There used to be five, with open and blocked as well. To a user, open was indistinguishable from doing — a bot
+ * that took the work is doing it — and blocked was indistinguishable from waiting, since both mean "this stays
+ * here until you deal with it", and the interface always showed the pair together anyway. The urgency of being
+ * stuck is carried by the kind of card (confirm / clarify / blocked, all unchanged), not by a matter state.
  */
 export type TodoStatus = 'doing' | 'waiting' | 'done' | 'closed';
 
 /**
- * 这条事项是怎么来的：谁交办的、用户从哪个入口说的、在哪条会话里。建的时候由运行时快照，
- * 模型填不了也改不了；之后不随更新变化（「最近一次从哪推进的」是另一回事，现在不记）。
+ * Where a matter came from: who assigned it, which entry point the user spoke through, which thread it was in.
+ * Snapshotted by the runtime at creation — the model can neither set nor change it — and not touched by later
+ * updates ("where it was last pushed along" is a different thing, and is not recorded).
  */
 export interface TodoOrigin {
-  /** 谁交办的：用户、群里的同事、例行任务、系统事件 */
+  /** Who assigned it: the user, a colleague in a group, a recurring task, a system event. */
   by: 'user' | 'bot' | 'routine' | 'system';
-  /** 用户是从哪个入口说的话；by 不是 user 时没有 */
+  /** Which entry point the user spoke through; absent unless by is user. */
   via?: Channel;
-  /** by 是 bot 时，交办的那位同事 */
+  /** When by is bot, the colleague who assigned it. */
   fromBotId?: string;
-  /** 在哪条会话里交办的：bot:X 私聊 ｜ matter:M 群聊 */
+  /** Which thread it was assigned in: bot:X for a direct thread, matter:M for a group. */
   threadId: ThreadId;
-  /** 触发它的那条消息（用户说的话），用来跳回原文 */
+  /** The message that triggered it (what the user said), so the original can be jumped to. */
   messageId?: string;
   at: number;
 }
@@ -246,34 +250,35 @@ export interface Todo {
   createdAt: number;
   updatedAt: number;
   fromMessageId?: string;
-  /** 怎么来的：谁交办、哪个入口、哪条会话。老数据没有。 */
+  /** Where it came from: who, which entry point, which thread. Absent on older data. */
   origin?: TodoOrigin;
 }
 
 /**
- * 日程上我们自己排的一件事。
+ * One thing we put on the schedule ourselves.
  *
- * 例行任务是「每天 / 每周反复」，这是「某一刻的一次」——bot 觉得用户需要一个日程时排的：到点提醒用户，
- * 或者它自己到点要做的事。到点了系统把它交回给排它的那个 bot（和例行任务同一条路），由 bot 决定说什么、
- * 做什么；提醒就是它的一条消息，不另起一套通知通道。
+ * A recurring task repeats daily or weekly; this is once, at one moment — set when a bot decides the user needs
+ * something on their schedule: a reminder for them, or something it will do itself. When it fires, the system
+ * hands it back to the bot that set it (the same path recurring tasks take) and the bot decides what to say and
+ * do. A reminder is simply a message from it, not a second notification system.
  */
 export interface CrewEvent {
   id: string;
-  /** 谁排的；到点了也交回给它 */
+  /** Who set it; it comes back to them when it fires. */
   botId: string;
   title: string;
-  /** 开始时刻 */
+  /** When it starts. */
   at: number;
-  /** 有时长的才有；没有就是时间轴上的一个点 */
+  /** Only when it has a duration; without it, a point on the timeline. */
   minutes?: number;
-  /** user = 到点提醒用户；bot = 到点它自己做 */
+  /** user = remind the user when it fires; bot = it does the thing itself. */
   who: 'user' | 'bot';
-  /** 到点要说的话 / 要做的事，越具体越好 */
+  /** What to say or do when it fires; the more concrete the better. */
   note?: string;
-  /** 从哪条会话排的，用来跳回原文 */
+  /** Which thread it was set from, so the original can be jumped to. */
   threadId?: ThreadId;
   createdAt: number;
-  /** 已经到点、交回给 bot 了 */
+  /** Already fired and handed back to the bot. */
   firedAt?: number;
 }
 
@@ -290,7 +295,7 @@ export interface Pending {
   id: string;
   botId: string;
   threadId: ThreadId;
-  /** 从哪个 IM 发起的；有值且不是 app 的，只回到那个 IM，不进 App 窗口 */
+  /** Which messenger it came from; when set and not app, the reply goes only there and not into the App window. */
   via?: Channel;
   matterId?: string;
   todoId?: string;
@@ -330,7 +335,7 @@ export interface Matter {
   notify: boolean;
   pinned: boolean;
   createdAt: number;
-  /** the IM group this 群聊 mirrors, e.g. { feishu: '<chat_id>' }: created when the user pulls one of our bots into a group there */
+  /** the IM group this group mirrors, e.g. { feishu: '<chat_id>' }: created when the user pulls one of our bots into a group there */
   bindings?: Partial<Record<Channel, string>>;
 }
 
@@ -345,29 +350,29 @@ export type Card =
   | { type: 'confirm'; pendingId: string; title: string; sub: string; amount: number; currency?: string }
   | { type: 'options'; pendingId: string; options: { id: string; label: string; hint: string; price?: string }[] }
   | { type: 'blocked'; pendingId: string; title: string; sub: string }
-  /** 登录卡：bot 在电脑上撞到登录墙，把它搬到对话里。qr = 实时二维码，用户手机扫；password = 用户填，服务端直接打进页面，不存、不给模型看。 */
+  /** A login card: the bot hit a login wall on the computer and brought it into the thread. qr is a live QR code for the user's phone; password is filled in by the user and typed into the page by the server — never stored, never shown to the model. */
   | { type: 'login'; askId: string; kind: 'qr' | 'password'; title: string; fields?: { key: string; label: string; secret?: boolean }[]; how?: string; done?: boolean; /** done and it worked (scanned / filled) vs done because it went stale */ ok?: boolean; note?: string }
   | { type: 'secrets'; integrationId: string; title: string; fields: { key: string; label: string; hint?: string; secret?: boolean }[]; help?: { url?: string; urlLabel?: string; steps?: string[] }; done?: boolean }
-  /** 机器卡：管家发的。connect = 用户填 IP / 账号 / 密码，本机连上并存进凭据；run = 管家在那台机器上执行的一条命令及其输出；move = 把 bot 们搬到那台机器。密码只到服务端，bot 看不到。 */
+  /** A machine card, sent by the assistant. connect: the user fills in IP / account / password, this computer connects and stores it in the credential file. run: one command the assistant ran on that machine, with its output. move: move the bots onto that machine. The password only ever reaches the server; the bot never sees it. */
   | {
       type: 'machine';
       stage: 'connect' | 'run' | 'move';
       title: string;
-      /** connect: 默认登录用户名 */
+      /** connect: the default username. */
       user?: string;
       state: 'idle' | 'running' | 'done' | 'error';
       log?: string[];
       error?: string;
-      /** connect 成功后的机器体检 */
+      /** The machine health report, once connect succeeded. */
       summary?: string[];
-      /** run: 执行的命令和退出码 */
+      /** run: the command and its exit code. */
       command?: string;
       exit?: number;
-      /** move: 搬去哪 */
+      /** move: where they are going. */
       target?: { url: string; name: string; bots: number };
       progress?: { sent: number; total: number };
     }
-  /** 外部 agent 执行卡：bot 把任务交给了 Claude Code / Codex / Hermes / OpenCode / OpenClaw，这里实时显示它在做什么 */
+  /** An external agent run: the bot handed a task to Claude Code / Codex / Hermes / OpenCode / OpenClaw, and this shows what it is doing, live. */
   | {
       type: 'agent_run';
       agent: string;
@@ -375,17 +380,17 @@ export type Card =
       title: string;
       mode: 'acp' | 'cli';
       state: 'running' | 'done' | 'error';
-      /** 工具调用与阶段性输出，一行一条 */
+      /** Tool calls and interim output, one per line. */
       log?: string[];
-      /** 最终回复（截断） */
+      /** The final reply (truncated). */
       output?: string;
       error?: string;
-      /** 等用户拍板的权限请求数 */
+      /** How many permission requests are waiting on the user. */
       asked?: number;
-      /** 在用户的电脑上运行（电脑名）：agent 装在电脑上，经本机转接调用 */
+      /** Running on the user's computer (its name): the agent is installed there and called through it. */
       viaHost?: string;
     }
-  /** 值守卡：bot 正在盯一个长程任务（vigil 工具），系统按间隔检查、有变化才叫醒它 */
+  /** A watch: the bot is watching something long-running (the vigil tool); the system checks at an interval and wakes it only on a change. */
   | {
       type: 'vigil';
       goal: string;
@@ -430,7 +435,7 @@ export interface Message {
   todoId?: string;
   receipt?: { kind: ReceiptKind; text: string; todoId?: string };
   via?: Channel;
-  /** 这条只发到这几处（例行任务指定了通道时）。不填 = 照常：应用 + 这个 bot 在的每个 IM。 */
+  /** This one goes only to these places (when a recurring task named its channels). Absent = as usual: the App plus every messenger this bot lives on. */
   to?: Channel[];
   mentions?: string[];
   status?: string;
@@ -511,10 +516,10 @@ export interface LibraryEntry {
   assets?: { url: string; howto?: string };
 }
 
-/** 全局偏好：跟着这套 bot 走，不是某个浏览器的设置 */
+/** Global preferences: they belong to this set of bots, not to one browser. */
 export interface CrewSettings {
-  /** bot 用什么语言说话和写东西：界面语言的代码（zh、en、ja…），或 auto = 跟着用户当时说的语言 */
-  /** 用户所在时区（IANA 名，App 上报）。例行任务的时间按它算：云机器本身跑在 UTC 上。 */
+  /** What language the bots speak and write in: an interface language code (en, zh, ja…), or auto to follow whatever the user just used. */
+  /** The user's timezone (an IANA name, reported by the App). Recurring tasks are computed in it, because a cloud machine itself runs on UTC. */
   timezone?: string;
 }
 
@@ -542,7 +547,7 @@ export interface RuntimeInfo {
   hostLink?: 'connecting' | 'connected' | 'off' | 'no_token';
   /** this runtime can give each bot its own computer (a Linux desktop with a browser, watchable from the App) */
   desktops?: boolean;
-  /** 那块屏幕现在真的在画（index.ts 一直在发这个字段，只有前端那份类型声明过它） */
+  /** Whether that screen is actually painting right now (index.ts has always sent this field; only the App's copy of the type ever declared it). */
   desktopsLive?: boolean;
   /** why not, when it cannot */
   desktopsNote?: string;
@@ -552,7 +557,7 @@ export interface RuntimeInfo {
   busy?: string[];
 }
 
-/** 用量：token 和花费，按 bot / 天 / 模型汇总（从每个 bot 的会话日志读出来，见 usage.ts） */
+/** Usage: tokens and cost, summed by bot, day and model, read out of each bot's session log (see usage.ts). */
 export interface UsageRow {
   input: number;
   output: number;
@@ -571,67 +576,67 @@ export interface UsageReport {
   bots: (UsageRow & { botId: string; name: string })[];
   daily: (UsageRow & { day: string })[];
   models: (UsageRow & { model: string })[];
-  /** 钱花在什么上：对话、看图、操作屏幕、画图、搜索、记忆、找手册、进化、出生 */
+  /** What the money went on: conversation, seeing, operating a screen, drawing, search, memory, finding manuals, building, being born. */
   kinds: (UsageRow & { kind: UsageKind })[];
 }
 
-/** 升级：这台电脑上的代码、正在跑的代码、bot 所在机器上的代码，三者对不对得上（见 upgrade.ts） */
+/** Upgrades: whether the code on this computer, the code running, and the code on the machine holding the bots all line up (see upgrade.ts). */
 export interface UpgradeStatus {
-  /** bot 在哪：这台电脑，还是搬去的那台机器 */
+  /** Where the bots are: this computer, or the machine they moved to. */
   target: 'local' | 'machine';
-  /** 跑 bot 的那一端所在的提交 */
+  /** The commit the end running the bots is on. */
   running?: string;
-  /** 仓库分支上最新的提交 */
+  /** The newest commit on the branch. */
   latest?: string;
-  /** 这两个提交的版本名：标签本身（v0.1.0），或标签之后第几个提交（v0.1.0+3） */
+  /** The version names of those two commits: the tag itself (v0.1.0), or how many commits past it (v0.1.0+3). */
   runningName?: string;
   latestName?: string;
   version: string;
   repo: string;
   branch: string;
-  /** 这台电脑上有没提交的改动 */
+  /** Whether this computer has uncommitted changes. */
   dirty?: boolean;
   upToDate: boolean;
-  /** 现在为什么不能升 */
+  /** Why it cannot upgrade right now. */
   blocked?: string;
   machineName?: string;
   busy?: boolean;
 }
 
-/* ---------------- 设置 › 模型 ---------------- */
+/* ---------------- Settings › Models ---------------- */
 
 export type SlotId = 'model' | 'lightModel' | 'visionModel' | 'guiModel' | 'imageModel' | 'searchModel' | 'embeddingModel' | 'rerankModel';
 
-/** 这个模型得会什么；也是候选列表按什么筛 */
+/** What this model has to be able to do; also what the candidate list is filtered by. */
 export type SlotNeeds = 'chat' | 'vision' | 'image' | 'embed' | 'rerank';
 
 export interface ModelSlot {
   id: SlotId;
   needs: SlotNeeds;
-  /** 只有这几家能干（画图和联网搜索只有 OpenRouter）；没有就是随便哪家 */
+  /** Only these providers can do it (drawing and web search are OpenRouter only); absent means any of them. */
   only?: string[];
-  /** 留空就跟着另一行走 */
+  /** Left empty, it follows another row. */
   inherits?: SlotId;
-  /** 留空就用产品自带的 */
+  /** Left empty, the product's own is used. */
   fallback?: string;
-  /** 留空就每次自己挑（画图按风格挑） */
+  /** Left empty, one is chosen per call (for drawing, by style). */
   auto?: boolean;
-  /** 用户选的；空表示还在默认上 */
+  /** What the user picked; empty means still on the default. */
   value?: string;
-  /** 这一轮真正会跑的 */
+  /** What will actually run this turn. */
   effective?: string;
-  /** 要用的模型背后没有钥匙 */
+  /** The model this wants has no key behind it. */
   blocked?: boolean;
-  /** 部署时用环境变量钉死的：能看不能改 */
+  /** Pinned by an environment variable at deploy time: visible, not editable. */
   pinned?: boolean;
-  /** 这一行自己的钥匙（永远是 ••••） */
+  /** This row's own key (always ••••). */
   key?: string;
-  /** 实际用的那把从哪来 */
+  /** Where the key actually in use came from. */
   keyFrom?: KeySource;
   meta?: ModelMeta;
 }
 
-/** pi 的目录里还没有这个模型时，得手工告诉它的那几件事 */
+/** The few things that have to be said by hand when pi's catalogue does not know a model yet. */
 export interface ModelMeta {
   contextWindow?: number;
   maxTokens?: number;
@@ -645,14 +650,14 @@ export interface ModelProvider {
   id: string;
   name: string;
   chat: boolean;
-  /** 这家的 key 叫什么（「OpenRouter API key」） */
+  /** What this provider calls its key ("OpenRouter API key"). */
   apiKey?: string;
   oauth?: { label: string; subscription: boolean };
-  /** 环境里或 pi 那边本来就有这家的钥匙 */
+  /** A key for this provider already exists, in the environment or in pi. */
   keyed?: boolean;
 }
 
-/** 这一行用的钥匙是谁的：自己填的，还是部署时留在环境里的 */
+/** Whose key this row uses: one entered here, or one left in the environment at deploy time. */
 export type KeySource = { kind: 'own' } | { kind: 'ambient' };
 
 export interface ModelChoice {
@@ -660,7 +665,7 @@ export interface ModelChoice {
   name: string;
   vision: boolean;
   context?: number;
-  /** 每百万 token 多少钱 */
+  /** Price per million tokens. */
   costIn?: number;
   costOut?: number;
 }
@@ -668,7 +673,7 @@ export interface ModelChoice {
 export interface ModelsPage {
   slots: ModelSlot[];
   providers: ModelProvider[];
-  /** 对话和看图按 provider id；画图、向量、重排按 `<needs>:<provider>`，没有这个键就是「自己填 id」 */
+  /** Conversation and vision are keyed by provider id; drawing, embedding and reranking by `<needs>:<provider>`. No key means "type the id yourself". */
   models: Record<string, ModelChoice[]>;
 }
 

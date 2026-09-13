@@ -74,30 +74,30 @@ const GMAIL: Connector = {
   name: 'Gmail',
   provider: 'google',
   toolkit: 'gmail',
-  blurb: '读邮件、搜邮件、代你发邮件',
+  blurb: 'read mail, search mail, send mail as you',
   scopes: ['openid', 'email', 'https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send'],
   tools: [
     {
       name: 'search_mail',
-      description: '按 Gmail 搜索语法找邮件（如 from:boss@x.com newer_than:7d、subject:发票 has:attachment、is:unread），返回发件人、主题、日期、摘要和 id。',
-      schema: Type.Object({ query: Type.String({ description: 'Gmail 搜索语句' }), max: Type.Optional(Type.Number({ description: '最多几封，默认 10，上限 25' })) }),
+      description: 'Find mail with Gmail search syntax (from:boss@x.com newer_than:7d, subject:invoice has:attachment, is:unread) and get back sender, subject, date, snippet and id.',
+      schema: Type.Object({ query: Type.String({ description: 'a Gmail search query' }), max: Type.Optional(Type.Number({ description: 'how many at most; defaults to 10, capped at 25' })) }),
       composio: {
         slug: 'GMAIL_FETCH_EMAILS',
         map: (a) => ({ query: String(a.query), max_results: Math.min(25, Math.max(1, Number(a.max ?? 10))), verbose: false, include_payload: false }),
         render: (d) => {
           const list = arr(d, ['messages']);
-          if (!list.length) return '没有匹配的邮件。';
-          return list.map((m) => `- [${pick(m, ['messageId', 'id'])}] ${pick(m, ['messageTimestamp', 'date', 'internalDate'])} | ${pick(m, ['sender', 'from'])} | ${pick(m, ['subject']) || '（无主题）'}\n  ${(pick(m, ['preview', 'snippet', 'messageText']) || (typeof m.preview === 'object' && m.preview ? pick(m.preview as Record<string, unknown>, ['body', 'subject']) : '')).slice(0, 160)}`).join('\n');
+          if (!list.length) return 'No mail matched.';
+          return list.map((m) => `- [${pick(m, ['messageId', 'id'])}] ${pick(m, ['messageTimestamp', 'date', 'internalDate'])} | ${pick(m, ['sender', 'from'])} | ${pick(m, ['subject']) || '(no subject)'}\n  ${(pick(m, ['preview', 'snippet', 'messageText']) || (typeof m.preview === 'object' && m.preview ? pick(m.preview as Record<string, unknown>, ['body', 'subject']) : '')).slice(0, 160)}`).join('\n');
         },
       },
       async run(call, a) {
         const max = Math.min(25, Math.max(1, Number(a.max ?? 10)));
         const list = (await call(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(String(a.query))}&maxResults=${max}`)) as { messages?: { id: string }[] };
-        if (!list.messages?.length) return '没有匹配的邮件。';
+        if (!list.messages?.length) return 'No mail matched.';
         const rows = await Promise.all(
           list.messages.map(async ({ id }) => {
             const m = (await call(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`)) as { id: string; snippet?: string; payload?: { headers?: { name: string; value: string }[] } };
-            return `- [${m.id}] ${header(m, 'Date')} | ${header(m, 'From')} | ${header(m, 'Subject') || '（无主题）'}\n  ${(m.snippet ?? '').slice(0, 160)}`;
+            return `- [${m.id}] ${header(m, 'Date')} | ${header(m, 'From')} | ${header(m, 'Subject') || '(no subject)'}\n  ${(m.snippet ?? '').slice(0, 160)}`;
           }),
         );
         return rows.join('\n');
@@ -105,7 +105,7 @@ const GMAIL: Connector = {
     },
     {
       name: 'read_mail',
-      description: '读一封邮件的正文（用 search_mail 返回的 id）。',
+      description: 'Read the body of one message, by the id search_mail returned.',
       schema: Type.Object({ id: Type.String() }),
       composio: {
         slug: 'GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID',
@@ -113,32 +113,32 @@ const GMAIL: Connector = {
         render: (d) => {
           const m = (d.response_data ?? d) as Record<string, unknown>;
           const body = pick(m, ['messageText', 'snippet']);
-          return `发件人：${pick(m, ['sender', 'from'])}\n收件人：${pick(m, ['to'])}\n日期：${pick(m, ['messageTimestamp', 'date'])}\n主题：${pick(m, ['subject'])}\n\n${body ? (body.length > 12000 ? body.slice(0, 12000) + '\n…（已截断）' : body) : compact(m, 4000)}`;
+          return `From: ${pick(m, ['sender', 'from'])}\nTo: ${pick(m, ['to'])}\nDate: ${pick(m, ['messageTimestamp', 'date'])}\nSubject: ${pick(m, ['subject'])}\n\n${body ? (body.length > 12000 ? body.slice(0, 12000) + '\n… (truncated)' : body) : compact(m, 4000)}`;
         },
       },
       async run(call, a) {
         const m = (await call(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(String(a.id))}?format=full`)) as { payload?: GmailPart & { headers?: { name: string; value: string }[] } };
         const body = gmailBody(m.payload).trim();
-        return `发件人：${header(m, 'From')}\n收件人：${header(m, 'To')}\n日期：${header(m, 'Date')}\n主题：${header(m, 'Subject')}\n\n${body.length > 12000 ? body.slice(0, 12000) + '\n…（已截断）' : body || '（正文为空或只有附件）'}`;
+        return `From: ${header(m, 'From')}\nTo: ${header(m, 'To')}\nDate: ${header(m, 'Date')}\nSubject: ${header(m, 'Subject')}\n\n${body.length > 12000 ? body.slice(0, 12000) + '\n… (truncated)' : body || '(empty body, or attachments only)'}`;
       },
     },
     {
       name: 'send_mail',
-      description: '以用户的身份发一封邮件。有后果的动作：发之前必须已经按自主度经用户确认。',
-      schema: Type.Object({ to: Type.String({ description: '收件人，多个用逗号' }), subject: Type.String(), body: Type.String({ description: '纯文本正文' }), cc: Type.Optional(Type.String()) }),
+      description: 'Send a message as the user. This has consequences: it must already have been confirmed per the bot\'s autonomy before it is called.',
+      schema: Type.Object({ to: Type.String({ description: 'the recipient; several separated by commas' }), subject: Type.String(), body: Type.String({ description: 'the body, as plain text' }), cc: Type.Optional(Type.String()) }),
       composio: {
         slug: 'GMAIL_SEND_EMAIL',
         map: (a) => {
           const to = String(a.to).split(/[,，;\s]+/).filter(Boolean);
           return { recipient_email: to[0], extra_recipients: to.slice(1), cc: a.cc ? String(a.cc).split(/[,，;\s]+/).filter(Boolean) : undefined, subject: String(a.subject), body: String(a.body), is_html: false };
         },
-        render: (d) => `已发送（id ${pick((d.response_data ?? d) as Record<string, unknown>, ['id', 'messageId']) || '?'}）。`,
+        render: (d) => `Sent (id ${pick((d.response_data ?? d) as Record<string, unknown>, ['id', 'messageId']) || '?'}).`,
       },
       async run(call, a) {
         const subj = `=?UTF-8?B?${Buffer.from(String(a.subject)).toString('base64')}?=`;
         const raw = [`To: ${a.to}`, a.cc ? `Cc: ${a.cc}` : '', `Subject: ${subj}`, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', Buffer.from(String(a.body)).toString('base64')].filter((l) => l !== '').join('\r\n');
         const r = (await call('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', body: JSON.stringify({ raw: b64url(raw) }) })) as { id?: string };
-        return `已发送（id ${r.id ?? '?'}）。`;
+        return `Sent (id ${r.id ?? '?'}).`;
       },
     },
   ],
@@ -146,15 +146,15 @@ const GMAIL: Connector = {
 
 const CALENDAR: Connector = {
   id: 'google-calendar',
-  name: 'Google 日历',
+  name: 'Google Calendar',
   provider: 'google',
   toolkit: 'googlecalendar',
-  blurb: '看日程、找空闲、代你建和改会议',
+  blurb: 'see the schedule, find free time, create and change meetings for you',
   scopes: ['openid', 'email', 'https://www.googleapis.com/auth/calendar.events'],
   tools: [
     {
       name: 'list_events',
-      description: '列出一段时间内的日程（主日历）。时间用 ISO 8601，如 2026-09-07T00:00:00+08:00；不给则默认今天起 7 天。',
+      description: 'List events in a window, from the primary calendar. Times are ISO 8601, like 2026-09-07T00:00:00+08:00; without them it defaults to the next seven days.',
       schema: Type.Object({ from: Type.Optional(Type.String()), to: Type.Optional(Type.String()) }),
       composio: {
         slug: 'GOOGLECALENDAR_EVENTS_LIST',
@@ -165,23 +165,23 @@ const CALENDAR: Connector = {
         },
         render: (d) => {
           const items = arr(d, ['items', 'events']);
-          if (!items.length) return '这段时间没有日程。';
+          if (!items.length) return 'Nothing in that window.';
           const t = (v: unknown) => (v && typeof v === 'object' ? pick(v as Record<string, unknown>, ['dateTime', 'date']) : String(v ?? ''));
-          return items.map((e) => `- [${pick(e, ['id'])}] ${t(e.start)} → ${t(e.end)} | ${pick(e, ['summary']) || '（无标题）'}${e.location ? ` @ ${e.location}` : ''}${Array.isArray(e.attendees) && e.attendees.length ? ` | ${(e.attendees as { email: string }[]).map((x) => x.email).join(', ')}` : ''}`).join('\n');
+          return items.map((e) => `- [${pick(e, ['id'])}] ${t(e.start)} → ${t(e.end)} | ${pick(e, ['summary']) || '(untitled)'}${e.location ? ` @ ${e.location}` : ''}${Array.isArray(e.attendees) && e.attendees.length ? ` | ${(e.attendees as { email: string }[]).map((x) => x.email).join(', ')}` : ''}`).join('\n');
         },
       },
       async run(call, a) {
         const from = a.from ? new Date(String(a.from)) : new Date();
         const to = a.to ? new Date(String(a.to)) : new Date(from.getTime() + 7 * 86400000);
         const r = (await call(`https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=50&timeMin=${encodeURIComponent(from.toISOString())}&timeMax=${encodeURIComponent(to.toISOString())}`)) as { items?: { id: string; summary?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; location?: string; attendees?: { email: string }[] }[] };
-        if (!r.items?.length) return '这段时间没有日程。';
-        return r.items.map((e) => `- [${e.id}] ${e.start?.dateTime ?? e.start?.date} → ${e.end?.dateTime ?? e.end?.date} | ${e.summary ?? '（无标题）'}${e.location ? ` @ ${e.location}` : ''}${e.attendees?.length ? ` | ${e.attendees.map((x) => x.email).join(', ')}` : ''}`).join('\n');
+        if (!r.items?.length) return 'Nothing in that window.';
+        return r.items.map((e) => `- [${e.id}] ${e.start?.dateTime ?? e.start?.date} → ${e.end?.dateTime ?? e.end?.date} | ${e.summary ?? '(untitled)'}${e.location ? ` @ ${e.location}` : ''}${e.attendees?.length ? ` | ${e.attendees.map((x) => x.email).join(', ')}` : ''}`).join('\n');
       },
     },
     {
       name: 'create_event',
-      description: '在主日历上新建一个日程。有后果的动作（会占用户时间、会给参会人发邀请）：按自主度先确认。',
-      schema: Type.Object({ title: Type.String(), start: Type.String({ description: 'ISO 8601 带时区' }), end: Type.String({ description: 'ISO 8601 带时区' }), attendees: Type.Optional(Type.Array(Type.String({ description: '邮箱' }))), location: Type.Optional(Type.String()), description: Type.Optional(Type.String()) }),
+      description: 'Create an event on the primary calendar. This has consequences — it takes the user\'s time and invites other people — so confirm per the bot\'s autonomy first.',
+      schema: Type.Object({ title: Type.String(), start: Type.String({ description: 'ISO 8601 with a timezone' }), end: Type.String({ description: 'ISO 8601 with a timezone' }), attendees: Type.Optional(Type.Array(Type.String({ description: 'an email address' }))), location: Type.Optional(Type.String()), description: Type.Optional(Type.String()) }),
       composio: {
         slug: 'GOOGLECALENDAR_CREATE_EVENT',
         map: (a) => {
@@ -190,7 +190,7 @@ const CALENDAR: Connector = {
         },
         render: (d) => {
           const r = (d.response_data ?? d) as Record<string, unknown>;
-          return `已创建（id ${pick(r, ['id']) || '?'}）${r.htmlLink ? `：${r.htmlLink}` : ''}`;
+          return `Created (id ${pick(r, ['id']) || '?'})${r.htmlLink ? `: ${r.htmlLink}` : ''}`;
         },
       },
       async run(call, a) {
@@ -198,17 +198,17 @@ const CALENDAR: Connector = {
           method: 'POST',
           body: JSON.stringify({ summary: a.title, start: { dateTime: a.start }, end: { dateTime: a.end }, location: a.location, description: a.description, attendees: Array.isArray(a.attendees) ? (a.attendees as string[]).map((email) => ({ email })) : undefined }),
         })) as { id?: string; htmlLink?: string };
-        return `已创建（id ${r.id ?? '?'}）${r.htmlLink ? `：${r.htmlLink}` : ''}`;
+        return `Created (id ${r.id ?? '?'})${r.htmlLink ? `: ${r.htmlLink}` : ''}`;
       },
     },
     {
       name: 'delete_event',
-      description: '删除一个日程（用 list_events 返回的 id）。不可逆：先确认。',
+      description: 'Delete an event, by the id list_events returned. Irreversible: confirm first.',
       schema: Type.Object({ id: Type.String() }),
-      composio: { slug: 'GOOGLECALENDAR_DELETE_EVENT', map: (a) => ({ event_id: String(a.id), calendar_id: 'primary' }), render: () => '已删除。' },
+      composio: { slug: 'GOOGLECALENDAR_DELETE_EVENT', map: (a) => ({ event_id: String(a.id), calendar_id: 'primary' }), render: () => 'Deleted.' },
       async run(call, a) {
         await call(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(String(a.id))}?sendUpdates=all`, { method: 'DELETE' });
-        return '已删除。';
+        return 'Deleted.';
       },
     },
   ],
@@ -221,26 +221,26 @@ export const connectorById = (id: string) => CONNECTORS.find((c) => c.id === id 
  * clicks a login card; in the pool they read as external tools whose authorization is a click, not a key.
  */
 export const TOOLKITS: { slug: string; title: string; description: string; tags: string[]; category: string }[] = [
-  { slug: 'gmail', title: 'Gmail', description: '读邮件、搜邮件、代用户发邮件和回复。', tags: ['邮件', '邮箱', 'email', 'mail', 'gmail', '收件箱', '发邮件'], category: 'productivity' },
-  { slug: 'googlecalendar', title: 'Google 日历', description: '看日程、找空闲、建会议、改会议、发邀请。', tags: ['日历', '日程', '会议', 'calendar', '排期', '邀请'], category: 'productivity' },
-  { slug: 'googledrive', title: 'Google Drive', description: '找文件、读文件、上传和分享云盘里的东西。', tags: ['云盘', '文件', 'drive', '共享', '上传'], category: 'productivity' },
-  { slug: 'googlesheets', title: 'Google Sheets', description: '读写在线表格：查行、追加、改单元格、建表。', tags: ['表格', 'sheets', '电子表格', '数据', '在线表格'], category: 'productivity' },
-  { slug: 'googledocs', title: 'Google Docs', description: '读和写在线文档，建新文档、追加段落。', tags: ['文档', 'docs', '在线文档', '写作'], category: 'productivity' },
-  { slug: 'notion', title: 'Notion', description: '读页面和数据库、建页面、追加块、查库里的记录。', tags: ['notion', '笔记', '知识库', '数据库', '页面', 'wiki'], category: 'productivity' },
-  { slug: 'slack', title: 'Slack（读写工作区）', description: '搜消息、读频道、发消息到频道或私信；这是读写用户 Slack 的工具，不是让你自己上 Slack 当机器人。', tags: ['slack', '频道', '消息', '工作区'], category: 'productivity' },
-  { slug: 'github', title: 'GitHub', description: '读仓库、看代码和提交、找 PR 和 issue，也能建 issue、提 PR、评审、合并。', tags: ['github', '代码', '仓库', 'PR', 'issue', '提交', 'git'], category: 'dev' },
-  { slug: 'linear', title: 'Linear', description: '查、建、改 Linear 里的 issue 和项目。', tags: ['linear', 'issue', '任务', '项目管理', '迭代'], category: 'dev' },
-  { slug: 'jira', title: 'Jira', description: '查、建、改 Jira 里的工单和看板。', tags: ['jira', '工单', 'issue', '看板', '项目管理'], category: 'dev' },
-  { slug: 'trello', title: 'Trello', description: '看板、卡片、清单的读写。', tags: ['trello', '看板', '卡片', '任务'], category: 'productivity' },
-  { slug: 'asana', title: 'Asana', description: '任务、项目、负责人和截止日期的读写。', tags: ['asana', '任务', '项目管理', '截止'], category: 'productivity' },
-  { slug: 'outlook', title: 'Outlook', description: '微软邮箱和日历：读邮件、发邮件、看日程。', tags: ['outlook', '邮件', '邮箱', '日历', '微软', 'office'], category: 'productivity' },
-  { slug: 'dropbox', title: 'Dropbox', description: '找、读、上传、分享 Dropbox 里的文件。', tags: ['dropbox', '云盘', '文件', '分享'], category: 'productivity' },
-  { slug: 'airtable', title: 'Airtable', description: '读写 Airtable 的表和记录。', tags: ['airtable', '表格', '数据库', '记录'], category: 'productivity' },
-  { slug: 'hubspot', title: 'HubSpot', description: '联系人、公司、交易的 CRM 读写。', tags: ['hubspot', 'crm', '客户', '销售', '联系人', '线索'], category: 'business' },
-  { slug: 'discord', title: 'Discord', description: '读频道、发消息、管服务器里的内容。', tags: ['discord', '频道', '社群', '消息'], category: 'productivity' },
-  { slug: 'lark', title: 'Lark（海外版飞书）', description: '海外版飞书的文档、日历、消息。国内飞书不走这里。', tags: ['lark', '文档', '日历'], category: 'productivity' },
-  { slug: 'twitter', title: 'X（Twitter）', description: '搜推文、读时间线、发推、回复。', tags: ['twitter', 'x', '推特', '推文', '社交'], category: 'business' },
-  { slug: 'youtube', title: 'YouTube', description: '搜视频、看频道和视频信息、拿字幕。', tags: ['youtube', '视频', '频道', '字幕'], category: 'research' },
+  { slug: 'gmail', title: 'Gmail', description: 'Read mail, search mail, send and reply as the user.', tags: ['email', 'mail', 'gmail', 'inbox', '邮件', '邮箱', '收件箱', '发邮件'], category: 'productivity' },
+  { slug: 'googlecalendar', title: 'Google Calendar', description: 'See the schedule, find free time, create and change meetings, send invitations.', tags: ['calendar', 'schedule', 'meeting', 'invite', '日历', '日程', '会议'], category: 'productivity' },
+  { slug: 'googledrive', title: 'Google Drive', description: 'Find, read, upload and share files in Drive.', tags: ['drive', 'files', 'cloud storage', 'share', 'upload', '云盘', '文件'], category: 'productivity' },
+  { slug: 'googlesheets', title: 'Google Sheets', description: 'Read and write spreadsheets: query rows, append, edit cells, create sheets.', tags: ['sheets', 'spreadsheet', 'data', '表格', '电子表格'], category: 'productivity' },
+  { slug: 'googledocs', title: 'Google Docs', description: 'Read and write documents, create new ones, append paragraphs.', tags: ['docs', 'document', 'writing', '文档', '在线文档'], category: 'productivity' },
+  { slug: 'notion', title: 'Notion', description: 'Read pages and databases, create pages, append blocks, query records.', tags: ['notion', 'notes', 'wiki', 'database', 'pages', '笔记', '知识库'], category: 'productivity' },
+  { slug: 'slack', title: 'Slack (read and write a workspace)', description: 'Search messages, read channels, post to a channel or a DM. This reads and writes the user\'s Slack; it is not how you appear in Slack as a bot yourself.', tags: ['slack', 'channel', 'messages', 'workspace', '频道', '消息'], category: 'productivity' },
+  { slug: 'github', title: 'GitHub', description: 'Read repositories, code and commits, find PRs and issues, and also open issues, raise PRs, review and merge.', tags: ['github', 'git', 'code', 'repository', 'PR', 'issue', '代码', '仓库'], category: 'dev' },
+  { slug: 'linear', title: 'Linear', description: 'Find, create and change issues and projects in Linear.', tags: ['linear', 'issue', 'tasks', 'project management', '任务', '项目管理'], category: 'dev' },
+  { slug: 'jira', title: 'Jira', description: 'Find, create and change tickets and boards in Jira.', tags: ['jira', 'ticket', 'issue', 'board', 'project management', '工单', '看板'], category: 'dev' },
+  { slug: 'trello', title: 'Trello', description: 'Read and write boards, cards and lists.', tags: ['trello', 'board', 'cards', 'tasks', '看板', '卡片'], category: 'productivity' },
+  { slug: 'asana', title: 'Asana', description: 'Read and write tasks, projects, assignees and due dates.', tags: ['asana', 'tasks', 'project management', 'due dates', '任务', '项目管理'], category: 'productivity' },
+  { slug: 'outlook', title: 'Outlook', description: "Microsoft mail and calendar: read mail, send mail, see the schedule.", tags: ['outlook', 'mail', 'email', 'calendar', 'microsoft', 'office', '邮件', '日历'], category: 'productivity' },
+  { slug: 'dropbox', title: 'Dropbox', description: 'Find, read, upload and share files in Dropbox.', tags: ['dropbox', 'files', 'cloud storage', 'share', '云盘', '文件'], category: 'productivity' },
+  { slug: 'airtable', title: 'Airtable', description: 'Read and write Airtable tables and records.', tags: ['airtable', 'tables', 'database', 'records', '表格', '数据库'], category: 'productivity' },
+  { slug: 'hubspot', title: 'HubSpot', description: 'CRM reads and writes: contacts, companies, deals.', tags: ['hubspot', 'crm', 'customers', 'sales', 'contacts', 'leads', '客户', '销售'], category: 'business' },
+  { slug: 'discord', title: 'Discord', description: 'Read channels, post messages, manage what is on a server.', tags: ['discord', 'channel', 'community', 'messages', '频道', '社群'], category: 'productivity' },
+  { slug: 'lark', title: 'Lark (Feishu international)', description: "Documents, calendar and messages on Lark. Mainland Feishu does not go through here.", tags: ['lark', 'documents', 'calendar', '文档', '日历'], category: 'productivity' },
+  { slug: 'twitter', title: 'X (Twitter)', description: 'Search posts, read the timeline, post and reply.', tags: ['twitter', 'x', 'posts', 'social', '推特', '推文'], category: 'business' },
+  { slug: 'youtube', title: 'YouTube', description: 'Search videos, read channel and video information, fetch captions.', tags: ['youtube', 'video', 'channel', 'captions', '视频', '字幕'], category: 'research' },
 ];
 /** Common Composio toolkit slugs, for the tool description and for guessing what the user meant. */
 export const POPULAR_TOOLKITS = TOOLKITS.map((t) => t.slug);
