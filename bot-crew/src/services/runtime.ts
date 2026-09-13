@@ -104,7 +104,7 @@ export function setRuntime(t: RuntimeTarget) {
 
 const target = getRuntime();
 export const isRemote = target.kind === 'remote';
-/** WebSocket URL of the runtime this page is connected to ('' = in-browser mock). */
+/** WebSocket URL of the runtime this page is connected to ('' = started without a server; see App.tsx). */
 export const wsUrl = target.kind === 'remote' ? withRecent(`${target.url.replace(/^http/, 'ws')}/ws?token=${encodeURIComponent(target.token)}`) : localWsUrl;
 /** HTTP base of that runtime. */
 export const httpBase = target.kind === 'remote' ? target.url : localHttpBase;

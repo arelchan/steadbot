@@ -49,8 +49,9 @@ Four traps, all of which have cost someone an hour:
 ## Running it
 
 `bash steadbot` starts both halves against `~/.crew`. To avoid touching real data, point `CREW_HOME` at a
-scratch directory and set `CREW_FAKE=1` for the scripted model. Kill test servers **by port**, never with
-a broad `pkill`.
+scratch directory — it will want its own model key, because nothing here is simulated: with no model
+configured the bots refuse to take a turn and the App sends you to Settings › Models. Kill test servers
+**by port**, never with a broad `pkill`.
 
 ## The one-paragraph mental model
 

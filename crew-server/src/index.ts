@@ -13,7 +13,6 @@ import { Router } from './router.ts';
 import { Notifier } from './notifier.ts';
 import { Scheduler } from './scheduler.ts';
 import { AvatarService } from './avatar.ts';
-import { FakeBrain } from './fake-brain.ts';
 import { blankBot, inferBot, inferSkillDocs, inferSoul } from './infer-bot.ts';
 import { SkillStore, SkillStores, migrateSharedSkills } from './skills.ts';
 import { loadPrices, trimLedger } from './meter.ts';
@@ -150,7 +149,7 @@ async function main() {
   if (active) resumeInterruptedTurns();
   // Reconnect MCP servers that were healthy last time (background).
   for (const i of store.data.integrations) if (i.kind === 'mcp' && i.status !== 'off') void mcp.connect(i.id);
-  await bots.init(() => new FakeBrain(store));
+  await bots.init();
   const router = new Router(store, bots, broker, events);
   const notifier = new Notifier(store);
   const scheduler = new Scheduler(store, bots);
@@ -698,7 +697,11 @@ async function main() {
           const touched = saveModels(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as ModelsPatch);
           if (touched.keys) await applyProviderKeys(bots.modelRuntime);
           if (touched.keys || touched.models) {
-            bots.pickModels(() => new FakeBrain(store));
+            const wasStuck = bots.needsModel;
+            bots.pickModels();
+            // A key saved on that page is the difference between a crew that cannot answer and one that can:
+            // tell every open client straight away rather than waiting for the next reconnect.
+            if (wasStuck !== bots.needsModel) server.broadcast({ type: 'mode', mode: bots.mode });
             // Every bot builds its session from the models above; the ones idle right now rebuild on their next
             // message, and the ones mid-turn finish on the old model first (recycle waits for them).
             for (const b of store.data.bots) void bots.recycle(b.id);

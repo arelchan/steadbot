@@ -11,7 +11,7 @@ import type { CrewStore, StoreEvent } from './store.ts';
 import type { Bot, ClientMessage, Message, ServerMessage, Snapshot } from './types.ts';
 
 export interface WsHandlers {
-  snapshotMode: () => 'live' | 'fake';
+  snapshotMode: () => 'live' | 'needs_model';
   /** Extra snapshot fields not owned by the store (e.g. skills). */
   snapshotExtra?: () => Partial<Snapshot>;
   /**

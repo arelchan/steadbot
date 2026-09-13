@@ -43,6 +43,10 @@ export const zh: Dict = {
   'common.generating': '生成中…',
   'common.resize': '拖动调整宽度，双击恢复',
   'common.offline': '后端没连上，正在重试…',
+  'common.needsModel': '还没配模型，bot 现在干不了活。',
+  'common.needsModelGo': '去填一把钥匙',
+  'common.noServerTitle': '没有能说话的服务端',
+  'common.noServerBody': '这个 App 启动时没拿到服务端地址。在仓库里跑 `steadbot`，它会把两半一起拉起来。',
 
   /* ---- 侧栏 ---- */
   'side.new': '新建',
@@ -710,6 +714,8 @@ export const zh: Dict = {
   'err.localSteadbotDown': '连不上这台电脑上的 Steadbot；它可能没在跑',
   'err.installLinkLost': '和本机服务的连接断了，安装中止；请重试',
   'err.noPairingCode': '没拿到连接码',
+  'err.noServer': '没有服务端。用 `steadbot` 启动，别单独跑 App。',
+  'err.uploadFailed': '上传失败（{status}）',
 
   /* ---- 渠道 / 技能库分类 ---- */
   'channel.app': '这里',

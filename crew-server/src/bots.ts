@@ -20,7 +20,6 @@ type RegisteredModel = { id: string; name: string; api?: Api; baseUrl?: string; 
 import type { CrewStore } from './store.ts';
 import type { PendingBroker } from './broker.ts';
 import { createBotUiContext } from './broker.ts';
-import type { FakeBrain } from './fake-brain.ts';
 import type { SkillStores } from './skills.ts';
 import type { AgentRunner, McpManager } from './integrations.ts';
 import { agentExtension, mcpExtension } from './extensions/integrations.ts';
@@ -163,7 +162,8 @@ export class BotManager extends EventEmitter {
   eyes: Eyes | undefined;
   /** The model that works a screen from screenshots (gui.ts): guiModel, else the eyes. */
   hands: Hands | undefined;
-  fake: FakeBrain | undefined;
+  /** No model is configured, so no bot can take a turn. Nothing is simulated: the App is told to go configure one. */
+  needsModel = true;
   /** Product-level operations for create_bot / create_group / configure; set by index.ts before use. */
   ops: CrewOps | undefined;
   /** the bots' computers (desktop.ts); unset on a runtime that cannot host them */
@@ -183,19 +183,19 @@ export class BotManager extends EventEmitter {
     super();
   }
 
-  async init(fakeFactory: () => FakeBrain) {
+  async init() {
     this.modelRuntime = await ModelRuntime.create({ allowModelNetwork: false });
     useRuntime(this.modelRuntime);
     migrateSlots(this.modelRuntime);
     await applyProviderKeys(this.modelRuntime);
-    this.pickModels(fakeFactory);
+    this.pickModels();
   }
 
   /**
    * Read the five model slots and resolve each to something callable. Runs at startup and again whenever 设置 › 模型
    * is saved — a key or a model changed on the page has to be true on the next turn, not the next restart.
    */
-  pickModels(fakeFactory: () => FakeBrain) {
+  pickModels() {
     // Each row resolves on the provider that carries *its* key — a clone when the row has one of its own, the
     // plain provider otherwise (models.ts). So every pick goes through `providerForSlot`, never a bare provider id.
     const pick = (slot: SlotId, spec?: string, as?: { vision?: boolean }) => {
@@ -210,16 +210,11 @@ export class BotManager extends EventEmitter {
     this.model = pick('model', config.model);
     this.lightModel = pick('lightModel', config.lightModel) ?? this.model;
     const anyAuth = this.modelRuntime.getProviders().some((p) => this.modelRuntime.hasConfiguredAuth(p.id));
-    if (config.fake || (!this.model && !anyAuth)) {
-      this.fake ??= fakeFactory();
-      this.modelRuntime.registerNativeProvider(this.fake.handle.provider);
-      this.model = this.fake.model;
-      this.lightModel = this.model;
-      console.log('[crew] no model keys configured: running with the scripted fake brain (set keys in config.json to go live)');
-    } else {
-      this.fake = undefined;
-      console.log(`[crew] model: ${this.model ? `${this.model.provider}/${this.model.id}` : 'pi default'}`);
-    }
+    // Nothing stands in for a model. Without one the bots stay put and say so, rather than acting out a
+    // conversation the user would have no way of telling apart from work that really happened.
+    this.needsModel = !this.model && !anyAuth;
+    if (this.needsModel) console.warn('[crew] no model configured: the bots will not run until Settings › Models has a key');
+    else console.log(`[crew] model: ${this.model ? `${this.model.provider}/${this.model.id}` : 'pi default'}`);
     // Eyes for the `see` tool: the model set for it (registered on the fly when pi's catalog does not know it),
     // otherwise whichever of the bots' own models can already take images.
     const visionSpec = config.visionModel ?? DEFAULT_VISION_MODEL;
@@ -307,8 +302,8 @@ export class BotManager extends EventEmitter {
     return per;
   }
 
-  get mode(): 'live' | 'fake' {
-    return this.fake ? 'fake' : 'live';
+  get mode(): 'live' | 'needs_model' {
+    return this.needsModel ? 'needs_model' : 'live';
   }
 
   private ctxFor(botId: string, runtime: () => BotRuntime | undefined): BotCtx {
@@ -319,7 +314,6 @@ export class BotManager extends EventEmitter {
       broker: this.broker,
       events: this.events,
       current: () => runtime()?.current,
-      fake: !!this.fake,
     };
   }
 
@@ -640,6 +634,27 @@ export class BotManager extends EventEmitter {
     return out;
   }
 
+  /**
+   * Every way into a turn lands here first, and with no model configured every one of them stops: one line in the
+   * thread saying what is missing and where to fix it. A bot that cannot think does not get to pretend.
+   */
+  private async refuseForLackOfModel(botId: string, inbound: Inbound): Promise<void> {
+    this.store.typing(inbound.threadId, botId, false);
+    if (inbound.kind !== 'user') return;
+    const last = this.noModelSaid.get(inbound.threadId) ?? 0;
+    if (Date.now() - last < 60_000) return;
+    this.noModelSaid.set(inbound.threadId, Date.now());
+    this.store.addMessage({
+      threadId: inbound.threadId,
+      author: 'system',
+      text: 'No model is configured, so nobody here can answer yet. Open Settings › Models and add one API key — any OpenAI-compatible endpoint, or OpenRouter — and say this again.',
+      ts: Date.now(),
+    });
+  }
+
+  /** Per thread, when the "no model" line was last said: one reminder a minute, not one per message. */
+  private noModelSaid = new Map<string, number>();
+
   /** Queue inbound work for a bot. Resolves when the bot has settled. */
   /**
    * Inbound user messages take one of three paths:
@@ -648,6 +663,7 @@ export class BotManager extends EventEmitter {
    *   queue    anything else (other threads, bot/routine/system injections) → strict FIFO per bot
    */
   send(botId: string, inbound: Inbound): Promise<void> {
+    if (this.needsModel) return this.refuseForLackOfModel(botId, inbound);
     if (inbound.kind !== 'user') return this.enqueue(botId, inbound);
     return (async () => {
       const rt = await this.ensure(botId);
@@ -723,7 +739,7 @@ export class BotManager extends EventEmitter {
           const p = withAttachments(sourceMark(groupTitle, inbound.via) + inbound.text, inbound.files, config.modelInfo?.vision === true);
           const text = inbound.cutIn ? cutInPrompt('llm', inbound.cutIn.said, p.text) : p.text;
           await rt.session.prompt(text, { expandPromptTemplates: false, ...(p.images.length ? { images: p.images } : {}) });
-          if (rt.textCount === before && !this.fake && !rt.cutShort) {
+          if (rt.textCount === before && !rt.cutShort) {
             // The model sometimes puts the whole answer in its thinking block and emits no text. Nudge once.
             console.warn(`[crew] bot ${botId}: empty reply, nudging`);
             rt.pi.sendMessage({ customType: 'system', content: '你上一轮没有输出正文，用户什么都没看到（思考内容用户看不见）。现在把要对用户说的话作为正文发出来，一两句即可。', display: false }, { deliverAs: 'followUp', triggerTurn: true });
@@ -738,7 +754,7 @@ export class BotManager extends EventEmitter {
         }
       } catch (e) {
         console.error(`[crew] bot ${botId} failed:`, e);
-        this.store.addMessage({ threadId: inbound.threadId, author: 'system', text: `（${this.store.bot(botId)?.name ?? botId} 出错了：${(e as Error).message}）`, ts: Date.now() });
+        this.store.addMessage({ threadId: inbound.threadId, author: 'system', text: `(${this.store.bot(botId)?.name ?? botId} hit an error: ${(e as Error).message})`, ts: Date.now() });
       } finally {
         this.store.typing(inbound.threadId, botId, false);
         rt.current = undefined;

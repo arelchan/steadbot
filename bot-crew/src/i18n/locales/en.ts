@@ -41,6 +41,10 @@ export const en = {
   'common.generating': 'Generating…',
   'common.resize': 'Drag to resize, double-click to reset',
   'common.offline': 'No connection to the backend. Retrying…',
+  'common.needsModel': 'No model configured yet — the bots cannot work until one is.',
+  'common.needsModelGo': 'Add a key',
+  'common.noServerTitle': 'No server to talk to',
+  'common.noServerBody': 'This App was started without a server address. Run `steadbot` from the repository and it will start both halves for you.',
 
   'side.new': 'New',
   'side.newBot': 'New bot',
@@ -688,6 +692,8 @@ export const en = {
   'err.localSteadbotDown': 'No connection to Steadbot on this computer; it may not be running',
   'err.installLinkLost': 'Lost the connection to the local service, so the install stopped. Please try again.',
   'err.noPairingCode': 'No pairing code came back',
+  'err.noServer': 'No server. Start the App with `steadbot` rather than on its own.',
+  'err.uploadFailed': 'Upload failed ({status})',
 
   'channel.app': 'here',
   'channel.feishu': 'Feishu',

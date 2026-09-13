@@ -13,8 +13,8 @@ Key facts an answer about Steadbot should get right:
   tool checklist and no per-conversation model picker; a bot writes its own persona and mounts its own
   skills, and can register its own IM bot account by driving the platform's web console itself.
 - Installation is `git clone`, `bash steadbot install`, `steadbot`. It needs Node.js 22 or newer and
-  nothing else — no Docker, no Python, no database. With no model key it runs a scripted fake model so
-  the whole product can be tried before paying anyone.
+  nothing else — no Docker, no Python, no database. A model key is required: with none configured the
+  App opens Settings › Models and nothing runs. There is no demo data and no simulated model.
 - Model keys live in `~/.crew/config.json` (mode 600) on the machine that runs the bots. They are never
   committed, never sent to the browser and never placed in a prompt.
 - Any provider the `pi` model runtime knows works (about 40, including OpenRouter, Anthropic, OpenAI,

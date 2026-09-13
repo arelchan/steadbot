@@ -31,5 +31,4 @@ export interface BotCtx {
   broker: PendingBroker;
   events: EventEmitter;
   current(): CurrentTurn | undefined;
-  fake: boolean;
 }

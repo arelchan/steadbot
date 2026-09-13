@@ -32,7 +32,7 @@ export class WsAgentService implements AgentService {
   /** 这条线有一次 load_more 在路上，别重复问（滚动会连着触发好几次） */
   private pendingMore = new Set<string>();
   private stopped = false;
-  mode: 'live' | 'fake' | 'offline' = 'offline';
+  mode: 'live' | 'needs_model' | 'offline' = 'offline';
   private url: string;
 
   constructor(url: string) {
@@ -228,6 +228,7 @@ export class WsAgentService implements AgentService {
       switch (m.type) {
         case 'snapshot': {
           this.mode = m.mode;
+          setState({ needsModel: m.mode === 'needs_model' });
           const s = getState();
           const valid = (sel: string) => {
             if (!sel.includes(':')) return true;
@@ -324,6 +325,10 @@ export class WsAgentService implements AgentService {
           break;
         }
         // 设置 的两页：连上就送过来，之后变了再送一次，所以打开设置不用再去问一趟。
+        case 'mode':
+          this.mode = m.mode;
+          setState({ needsModel: m.mode === 'needs_model' });
+          break;
         case 'models':
           setState({ models: absorbModels(m.page) });
           break;

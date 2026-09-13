@@ -76,7 +76,6 @@ interface FileConfig {
   composioApiKey?: string;
   /** mirrors for machines where the default indexes are slow; empty = official */
   tools?: { pipIndex?: string; npmRegistry?: string };
-  fake?: boolean;
 }
 
 const home = process.env.CREW_HOME ?? join(homedir(), '.crew');
@@ -180,7 +179,6 @@ export const config = {
   get modelMeta(): Record<string, ModelInfo> {
     return file.modelMeta ?? {};
   },
-  fake: process.env.CREW_FAKE === '1' || file.fake === true,
   /** whether external agents installed on this machine are used here at all (0 = only borrow the user's computer's; see host.ts) */
   localAgents: process.env.CREW_LOCAL_AGENTS !== '0',
   askTimeoutMs: Number(process.env.CREW_ASK_TIMEOUT_MS ?? file.askTimeoutMs ?? 30 * 60 * 1000),

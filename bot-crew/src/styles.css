@@ -1809,3 +1809,17 @@ button.mem-add { text-align: left; }
 .wk-tick.wk-plan.mine { background: var(--accent-bg); box-shadow: none; color: var(--accent); }
 .wk-tick.wk-plan.mine:hover { box-shadow: 0 0 0 1px var(--accent-hair); }
 .wk-tick.wk-plan.done { opacity: 0.55; }
+
+/* no model configured yet: the one thing standing between the user and a working crew.
+   It sits at the top, not next to the offline pill: this one stays until it is dealt with, and the
+   bottom of the window is where the composer is — a permanent banner there covers the box you type in. */
+.setup-bar { display: flex; align-items: center; gap: 10px; top: 14px; bottom: auto; }
+.setup-go {
+  background: var(--accent); color: #fff; border: 0; border-radius: 999px;
+  font-size: 12px; padding: 4px 11px; cursor: pointer; font-family: inherit;
+}
+.setup-go:hover { filter: brightness(1.08); }
+/* started without a server address (development only) */
+.no-server { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 32px; text-align: center; }
+.no-server h1 { font-size: 17px; font-weight: 600; }
+.no-server p { color: var(--muted); font-size: 13px; max-width: 46ch; line-height: 1.6; }

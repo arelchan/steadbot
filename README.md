@@ -16,7 +16,7 @@
 
 <br>
 
-<img src=".github/assets/thread.png" alt="Two bots handing work between them in a group thread, with the open matters beside it" width="100%">
+<img src=".github/assets/hero.png" alt="A bot that booked a train, stopped at the payment step and is waiting on a decision, with the open tasks beside it" width="100%">
 
 <br>
 
@@ -45,9 +45,9 @@ steadbot                 # starts the server and the App, opens a browser
 
 **Node.js 22 or newer** is the only requirement. No Docker, no Python, no database.
 
-With no model key configured it starts in **fake mode**: a scripted model walks the whole
-message → matter → decision → done loop, so you can see what the product is before paying anyone. To
-do real work, open **Settings › Models** and add one key.
+The first run opens **Settings › Models** and asks for one API key — any OpenAI-compatible endpoint,
+or OpenRouter. Nothing runs until a model is configured: there is no demo data and no simulated
+model, so what you see on screen is always your own bots doing your own work.
 
 Your data lives in `~/.crew`. Keys live in `~/.crew/config.json` (mode 600) **on the machine that runs
 the bots** — never in this repository, never in the browser, never in a prompt.
@@ -73,7 +73,7 @@ steadbot stop     # stop both
 <table>
 <tr>
 <td width="50%"><img src=".github/assets/schedule.png" alt="A week of recurring tasks with decisions waiting on the right"><br><sub><b>The week.</b> Recurring work across the top, what needs you on the right.</sub></td>
-<td width="50%"><img src=".github/assets/bot.png" alt="A direct conversation with one bot"><br><sub><b>One bot, one continuous thread.</b> No sessions to start or clear.</sub></td>
+<td width="50%"><img src=".github/assets/thread.png" alt="Two bots handing work between them in a matter thread"><br><sub><b>Two bots, one matter.</b> A handoff between them stays in front of you.</sub></td>
 </tr>
 </table>
 

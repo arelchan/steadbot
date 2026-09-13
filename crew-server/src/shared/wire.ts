@@ -94,7 +94,9 @@ export type ServerMessage =
   | { type: 'upgrade_done'; error?: string; restarting?: boolean }
   | { type: 'usage'; report: UsageReport }
   | { type: 'models'; page: ModelsPage }
-  | { type: 'snapshot'; state: Snapshot; mode: 'live' | 'fake' }
+  /** `needs_model`: no model is configured, so no bot can take a turn — the App sends the user to Settings › Models. */
+  | { type: 'snapshot'; state: Snapshot; mode: 'live' | 'needs_model' }
+  | { type: 'mode'; mode: 'live' | 'needs_model' }
   | { type: 'message'; message: Message }
   | { type: 'message_patch'; id: string; patch: Partial<Message> }
   | { type: 'typing'; threadId: ThreadId; botId: string; on: boolean }

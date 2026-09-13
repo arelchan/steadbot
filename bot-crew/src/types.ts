@@ -84,6 +84,8 @@ export interface State {
   panels: Panels;
   layout: Layout;
   focusMessageId?: string;
-  /** live backend connection state (undefined in mock mode) */
+  /** live backend connection state */
   online?: boolean;
+  /** The server has no model configured, so no bot can take a turn until one is added. */
+  needsModel?: boolean;
 }

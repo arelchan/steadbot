@@ -16,7 +16,7 @@
 
 <br>
 
-<img src=".github/assets/thread.png" alt="两个 bot 在一个群里交接工作，右边是这件事上还开着的事项" width="100%">
+<img src=".github/assets/hero.png" alt="一个 bot 订好了票、停在付款那一步等你拍板，右边是还开着的事项" width="100%">
 
 <br>
 
@@ -46,8 +46,8 @@ steadbot                 # 起后端 + App，并打开浏览器
 
 只要 **Node.js 22 以上**。不用 Docker，不用 Python，不用数据库。
 
-没配模型密钥时自动进 **fake 模式**：一个脚本化的假模型把「消息 → 事项 → 拍板 → 完成」整条链路
-跑通，所以你可以先看清楚这是个什么产品，再决定给谁付钱。要真干活，打开**设置 › 模型**填一把钥匙。
+第一次打开会直接进**设置 › 模型**，要你填一把 API key——任何 OpenAI 兼容的接口，或者 OpenRouter。
+没配模型就不开工：没有演示数据，也没有假模型，屏幕上的每一条都是你自己的 bot 在干你自己的活。
 
 数据在 `~/.crew`。钥匙在 `~/.crew/config.json`（权限 600），**存在跑 bot 的那台机器上**——
 不进仓库、不进浏览器、不进提示词。
@@ -86,7 +86,7 @@ MCP 服务和 OAuth 连接器进同一条池子。
 <table>
 <tr>
 <td width="50%"><img src=".github/assets/schedule.png" alt="一周的例行任务，右边是等你拍板的事"><br><sub><b>一周。</b>例行任务在顶上，要你拍板的在右边。</sub></td>
-<td width="50%"><img src=".github/assets/bot.png" alt="和一个 bot 的私聊"><br><sub><b>一个 bot 一条连续的对话。</b>没有会话要开、要清。</sub></td>
+<td width="50%"><img src=".github/assets/thread.png" alt="两个 bot 在一件事里交接工作"><br><sub><b>两个 bot，一件事。</b>它们之间的交接就摆在你眼前。</sub></td>
 </tr>
 </table>
 

@@ -2,7 +2,6 @@ import { useSyncExternalStore } from 'react';
 import { getDesktopNotify } from './services/theme';
 import type { CrewSettings, Action, Bot, Integration, Layout, Matter, Message, Panel, Panels, Pending, Selection, SkillDoc, State, ThreadId, Todo, ToastItem } from './types';
 import { DEFAULT_LAYOUT, LAYOUT_LIMITS } from './types';
-import { seedState } from './data/seed';
 
 const KEY = 'bot-crew:v1';
 
@@ -46,17 +45,45 @@ function load(): State {
       };
     }
   } catch (e) {
-    // 一个坏字节就把用户整份本地视图换成 demo 种子数据，而且一个字都不说——
-    // 这里不是"忽略"，是得让人知道。坏的那份挪到一边留着，不要直接盖掉。
+    // One bad byte and this window would start empty without saying a word. It is not "ignore" — the user should
+    // know, and the unreadable copy is moved aside rather than overwritten.
     try {
       const bad = localStorage.getItem(KEY);
       if (bad) localStorage.setItem(`${KEY}.corrupt`, bad);
     } catch {
-      /* 存不下就算了 */
+      /* no room to keep it: nothing more to do */
     }
-    console.error('[crew] 本地缓存读不出来，这次从空的起（坏的那份存在 bot-crew:v1.corrupt）', e);
+    console.error('[crew] could not read the local cache; starting empty (the bad copy is at bot-crew:v1.corrupt)', e);
   }
-  return seedState();
+  return emptyState();
+}
+
+/**
+ * What the App holds before the server has said anything. Empty on purpose: there is no demo crew and no sample
+ * conversation, so the first bot on this screen is one the user's own server told us about.
+ */
+export function emptyState(): State {
+  return {
+    bots: [],
+    matters: [],
+    todos: [],
+    events: [],
+    pendings: [],
+    actions: [],
+    messages: [],
+    skills: [],
+    library: [],
+    integrations: [],
+    sharedProfile: [],
+    selection: 'week',
+    toasts: [],
+    typing: {},
+    lastSeen: {},
+    panel: { mode: 'board' },
+    panels: { identity: false, tasks: true },
+    layout: { ...DEFAULT_LAYOUT },
+    focusMessageId: undefined,
+  };
 }
 
 /**
@@ -408,8 +435,7 @@ export const unreadCount = (s: State, threadId: string) =>
 
 export const resetAll = () => {
   localStorage.removeItem(KEY);
-  localStorage.removeItem('bot-crew:demo-ran');
-  state = seedState();
+  state = emptyState();
   listeners.forEach((l) => l());
 };
 

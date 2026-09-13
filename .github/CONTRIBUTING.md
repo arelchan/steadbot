@@ -10,8 +10,8 @@ git clone https://github.com/arelchan/steadbot.git && cd steadbot
 bash steadbot install && steadbot
 ```
 
-Node.js 22+. Without a model key it runs in fake mode, which is enough to exercise most of the UI and
-the whole message → matter → decision → done loop.
+Node.js 22+, and one model key — there is no fake model and no demo data, so nothing runs until
+**Settings › Models** has one. Any OpenAI-compatible endpoint will do.
 
 Two packages, developed independently:
 
