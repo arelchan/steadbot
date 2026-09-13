@@ -16,7 +16,7 @@
 import { basename } from 'node:path';
 import type { Integration } from './types.ts';
 import type { SkillStore } from './skills.ts';
-import { type Requires, type Ready, describe, ensure, missing, restoreSystem, sanitize } from './tools.ts';
+import { type Requires, type Ready, describe, ensure, missing, restoreSystem, sanitize, READY, INSTALLING } from './tools.ts';
 import { pipNameFor } from './requires.ts';
 import { handsBins } from './gui.ts';
 
@@ -106,12 +106,12 @@ export async function reconcile(reason: string): Promise<void> {
       }
       if (todo.length) {
         const all = [...new Set(todo.flatMap((t) => names(t.req)))];
-        console.log(`[crew] 依赖（${reason}）：${all.join('、')} 不在这台机器上，后台装…`);
+        console.log(`[crew] deps (${reason}): ${all.join(', ')} not on this machine, installing in the background…`);
         for (const n of all) installing.add(n);
         try {
           for (const t of todo) {
             const r = await ensure(t.req, t.entry).catch((e: Error) => ({ ok: false, note: e.message }) as Ready);
-            if (!r.ok) console.warn(`[crew] 依赖：${t.entry} 还差 ${r.note ?? ''}`);
+            if (!r.ok) console.warn(`[crew] deps: ${t.entry} still needs ${r.note ?? ''}`);
             for (const n of names(t.req)) installing.delete(n);
           }
         } finally {
@@ -120,7 +120,7 @@ export async function reconcile(reason: string): Promise<void> {
         // System binaries are not pip's or npm's to install; `ensure` only records them. In the container — which is
         // ours, and is rebuilt from an image that drops them — putting them back is the same background job.
         if (todo.some((t) => t.req.bin?.length)) await restoreSystem().catch(() => undefined);
-        console.log('[crew] 依赖：这一轮装完');
+        console.log('[crew] deps: this round is installed');
       }
     } while (again);
   } finally {
@@ -133,7 +133,7 @@ export function kick(reason: string, delay = 1500) {
   if (timer) clearTimeout(timer);
   timer = setTimeout(() => {
     timer = undefined;
-    void reconcile(reason).catch((e: Error) => console.warn('[crew] 依赖收敛失败：', e.message));
+    void reconcile(reason).catch((e: Error) => console.warn('[crew] deps: could not converge:', e.message));
   }, delay);
   timer.unref?.();
 }
@@ -154,16 +154,16 @@ export async function ready(req: Requires, forEntry: string, budgetMs = 25_000):
       for (const n of want) installing.delete(n);
     });
   const done = await Promise.race([job, new Promise<undefined>((r) => setTimeout(() => r(undefined), budgetMs))]);
-  if (!done) return { ok: false, pending: want, note: `正在装 ${want.join('、')}，装好就能用` };
+  if (!done) return { ok: false, pending: want, note: `${INSTALLING} ${want.join(', ')} — usable once it lands` };
   return done.ok ? { ok: true } : { ok: false, note: done.note };
 }
 
 /** One line for the system prompt: ready, on its way, or not happening here. */
 export async function line(req: Requires): Promise<string> {
-  const state = await describe(req).catch(() => '就位');
-  if (state === '就位') return '就位';
+  const state = await describe(req).catch(() => READY);
+  if (state === READY) return READY;
   const left = await missing(req).catch(() => ({}) as Requires);
   const waiting = names(left).filter((n) => installing.has(n));
-  if (waiting.length && waiting.length === names(left).length) return `正在装 ${waiting.join('、')}`;
+  if (waiting.length && waiting.length === names(left).length) return `${INSTALLING} ${waiting.join(', ')}`;
   return state;
 }

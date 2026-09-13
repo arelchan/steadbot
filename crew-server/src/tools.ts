@@ -22,6 +22,13 @@ const systemFile = join(toolsDir, 'system.json');
 const pyBin = join(pyDir, 'bin');
 const python = join(pyBin, 'python3');
 
+/**
+ * The two dependency states the system prompt compares against. Constants rather than prose, because
+ * identity.ts branches on them — the day one of these was a translated sentence, the branch silently died.
+ */
+export const READY = 'ready';
+export const INSTALLING = 'installing';
+
 export interface Requires {
   pip?: string[];
   npm?: string[];
@@ -200,7 +207,7 @@ export async function ensure(req: Requires, forEntry: string): Promise<Ready> {
       }
     }
     if (bad.length) {
-      errors.push(`${kind} 装不了：${bad.join('、')}`);
+      errors.push(`${kind} could not be installed: ${bad.join(', ')}`);
       const m = manifest();
       m.failed = { ...m.failed };
       for (const n of bad) m.failed[`${kind}:${n}`] = { kind, at: Date.now() };
@@ -213,7 +220,7 @@ export async function ensure(req: Requires, forEntry: string): Promise<Ready> {
       try {
         await ensureVenv();
       } catch (e) {
-        errors.push(`python 环境建不起来：${(e as Error).message.slice(0, 160)}`);
+        errors.push(`could not create the python environment: ${(e as Error).message.slice(0, 160)}`);
         return;
       }
       await install('pip', need.pip!, (batch) => run(join(pyBin, 'pip'), ['install', '--no-input', ...(config.tools.pipIndex ? ['-i', config.tools.pipIndex] : []), ...batch], 15 * 60_000).then(() => undefined));
@@ -247,7 +254,7 @@ export async function ensure(req: Requires, forEntry: string): Promise<Ready> {
 
   const left = await missing(req);
   const ok = !left.pip?.length && !left.npm?.length && !left.bin?.length;
-  const note = ok ? undefined : [left.bin?.length ? `这台机器上没有 ${left.bin.join('、')}` : '', ...errors].filter(Boolean).join('；') || `装不上：${[...(left.pip ?? []), ...(left.npm ?? [])].join('、')}`;
+  const note = ok ? undefined : [left.bin?.length ? `not on this machine: ${left.bin.join(', ')}` : '', ...errors].filter(Boolean).join('; ') || `could not install: ${[...(left.pip ?? []), ...(left.npm ?? [])].join(', ')}`;
   return { ok, installed, missing: left, note };
 }
 
@@ -275,7 +282,7 @@ const PKG_FOR: Record<string, string> = {
   identify: 'imagemagick',
   xdotool: 'xdotool',
   cliclick: 'cliclick',
-  // what the pool's 音视频 manuals reach for (ffmpeg-*, media-*)
+  // what the pool's audio/video manuals reach for (ffmpeg-*, media-*)
   'yt-dlp': 'yt-dlp',
   sox: 'sox',
   exiftool: 'libimage-exiftool-perl',
@@ -298,20 +305,20 @@ export async function installSystem(bins: string[]): Promise<string[]> {
   const rootLinux = platform() === 'linux' && typeof process.getuid === 'function' && process.getuid() === 0;
   const brew = platform() === 'darwin' && (await hasBin('brew'));
   if (!rootLinux && !brew) {
-    console.log(`[crew] tools: 这台机器上没有 ${gone.join('、')}，需要的技能会说明缺什么`);
+    console.log(`[crew] tools: not on this machine: ${gone.join(', ')} — skills that need them will say so`);
     return gone;
   }
   const debs = [...new Set(gone.map((b) => PKG_FOR[b] ?? b))];
   const pkgs = brew ? debs.map((p) => BREW_FOR[p] ?? p) : debs;
-  console.log(`[crew] tools: 补装系统包 ${pkgs.join(', ')}…`);
+  console.log(`[crew] tools: installing system packages ${pkgs.join(', ')}…`);
   try {
     // Formulae only: a command-line tool is an addition, a cask (LibreOffice, a browser) is an application on the
     // user's Mac — that stays their call, and the skill says what it is missing.
     if (brew) await run('/bin/sh', ['-lc', `HOMEBREW_NO_AUTO_UPDATE=1 brew install --formula ${pkgs.join(' ')}`], 20 * 60_000);
     else await run('/bin/sh', ['-lc', `apt-get update && apt-get install -y --no-install-recommends ${pkgs.join(' ')} && rm -rf /var/lib/apt/lists/*`], 20 * 60_000);
-    console.log('[crew] tools: 系统包补装完成');
+    console.log('[crew] tools: system packages installed');
   } catch (e) {
-    console.warn('[crew] tools: 系统包补装失败 —', (e as Error).message.split('\n').slice(-1)[0].slice(0, 200));
+    console.warn('[crew] tools: system packages failed —', (e as Error).message.split('\n').slice(-1)[0].slice(0, 200));
   }
   dropCaches();
   const still: string[] = [];
@@ -349,7 +356,7 @@ export async function restoreSystem(): Promise<void> {
 export async function describe(req: Requires): Promise<string> {
   const left = await missing(req);
   const all = [...(left.pip ?? []), ...(left.npm ?? []), ...(left.bin ?? [])];
-  return all.length ? `缺 ${all.join('、')}` : '就位';
+  return all.length ? `missing ${all.join(', ')}` : READY;
 }
 
 export async function restoreTools(): Promise<void> {
@@ -358,9 +365,9 @@ export async function restoreTools(): Promise<void> {
   if (!want.pip.length && !want.npm.length) return;
   const gone = await missing(want);
   if (!gone.pip?.length && !gone.npm?.length) return;
-  console.log(`[crew] tools: ${[...(gone.pip ?? []), ...(gone.npm ?? [])].join(', ')} 不在这台机器上，后台补装…`);
+  console.log(`[crew] tools: ${[...(gone.pip ?? []), ...(gone.npm ?? [])].join(', ')} not on this machine, installing in the background…`);
   const r = await ensure(gone, 'restore');
-  console.log(r.ok ? '[crew] tools: 补装完成' : `[crew] tools: 补装未完成 — ${r.note ?? ''}`);
+  console.log(r.ok ? '[crew] tools: installed' : `[crew] tools: not finished — ${r.note ?? ''}`);
 }
 
 /** Everything a fresh or rebuilt machine has to put back, in the background. */

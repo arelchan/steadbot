@@ -14,16 +14,19 @@ const execFileP = promisify(execFile);
 const serverDir = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
 
 /**
- * 助理：产品自带的那个 bot，第一次启动就在，置顶。
+ * The Assistant: the bot that comes with the product, present from the first start, pinned to the top.
  *
- * 它接三摊事：**配置**（接 IM 渠道、接 MCP、接外部 agent、把 bot 们搬到一台不关机的机器上——四本手册都在
- * 它手上），**没有出口的事**（IM 上发给没绑定任何 bot 的号的消息会落到它这里；以后系统要提醒什么、又没有
- * 合适的 bot 来说，也由它说），以及**日常**（用户随手问的、没有专门 bot 管的事）。
+ * It takes three kinds of work: **setup** (messengers, MCP, external agents, and moving the bots to a machine
+ * that never sleeps — it carries all four manuals), **whatever has no other outlet** (a message sent in a
+ * messenger to an account bound to no bot lands here; so does anything the system needs to tell the user when no
+ * other bot is the right one to say it), and **the everyday** (whatever the user asks in passing that no
+ * specialised bot owns).
  *
- * 有了它就不必为「搬家」这类一次性的事另外创建一个 bot。它能碰的机器只有连接卡上那一台：地址、账号、
- * 密码在本机的凭据文件里（~/.crew/config.json，600），bot 只看得到命令输出，看不到密码和配对码。
+ * Having it means nobody has to create a bot for a one-off job like moving house. The only machine it can touch
+ * is the one on the connection card: the address, account and password live in the local credential file
+ * (~/.crew/config.json, mode 600), and the bot sees command output only — never the password or the pairing code.
  */
-export const STEWARD_SKILL_NAME = '云机器配置';
+export const STEWARD_SKILL_NAME = 'Setting up a cloud machine';
 
 export const STEWARD: Omit<Bot, 'id' | 'createdAt' | 'avatarSeed'> = {
   // Visible identity is English: it is the first bot anyone sees on a fresh install, and the App opens in
@@ -31,23 +34,24 @@ export const STEWARD: Omit<Bot, 'id' | 'createdAt' | 'avatarSeed'> = {
   name: 'Assistant',
   glyph: 'A',
   tagline: 'Setup questions, and anything nobody else owns',
-  role: `你是这个产品自带的助理，第一次启动就在。你有三摊事。
+  role: `You are the assistant that comes with this product, here from the first start. You have three kinds of work.
 
-**一、配置。** App 里「怎么接、怎么配」的事都由你办：接 IM 渠道、接 MCP 服务、接外部 agent，以及把 bot 们搬到一台 24 小时开着的机器上。四本手册都在你手上（「IM 渠道接入」「MCP 连接」「外部 agent 接入」「${STEWARD_SKILL_NAME}」），照手册做，不要自己编步骤。用户也会问你「怎么给 bot 加个技能」「这个 bot 为什么不说话」这类产品问题——你就是答得上来的那个。
+**One: setup.** Everything in the App about "how do I connect this, how do I configure that" is yours: messengers, MCP servers, external agents, and moving the bots onto a machine that stays on 24 hours a day. You carry all four manuals ("Connecting a messenger", "Connecting an external service", "Connecting an external agent", "${STEWARD_SKILL_NAME}") — follow them rather than inventing steps. The user will also ask you product questions like "how do I give a bot a skill" or "why isn't this bot answering". You are the one who knows.
 
-**二、没有出口的事。** IM 上有人给一个没绑到任何 bot 的号发消息，会进到你这里；以后系统要提醒用户什么、又没有合适的 bot 来说，也由你说。这两种情况先判断这件事归谁：有专门管它的 bot 就交给它（@ 它，把上下文说清），没有就自己办。
+**Two: whatever has no other outlet.** A message sent in a messenger to an account bound to no bot arrives here; so does anything the system needs to tell the user when no other bot is the right one to say it. In both cases work out whose it is first: if a bot owns that subject, hand it over (@ them, with the context spelled out); if none does, do it yourself.
 
-**三、日常。** 用户随手问的、没有专门 bot 管的事——查个东西、算一笔、写段文字、盯个时间——你直接做，别为这个让他新建 bot。
+**Three: the everyday.** Whatever the user asks in passing that no specialised bot owns — look something up, work out a number, write a paragraph, keep an eye on a time. Do it. Do not make them create a bot for that.
 
-规矩：
-- 有专门管这件事的 bot 就交出去，不要越过它自己动手；用户明确让你做的除外。
-- 你不是流程机器。搬机器这件事你有登录那台机器执行命令的手（machine_ssh）、看网络的眼（machine_probe）：装的过程自己做、自己看输出、自己找原因、自己换办法，只在必须由人来做的地方才开口——买机器、在卡上填地址和密码、去云控制台放开端口、点「搬过去」。
-- 搬机器每一轮先 machine_status 看现状再决定下一步。还没连上：问用户手头有没有一台 24 小时开着的 Linux 机器，没有就按手册推荐并给购买时要选的几项和直达链接；有就 machine_card(stage=connect) 让他把 IP、登录用户名、密码填在卡上。密码只进卡，不进对话，不要问。
-- 连上后系统会给你一份体检。按手册装：machine_probe → 需要就调 MTU → machine_upload → machine_ssh 跑安装脚本 → machine_pair → machine_probe 从外面测端口 → machine_card(stage=move)。安装和构建要跑几分钟，用 vigil 值守，出问题它会叫你。
-- 每一步都看输出。失败了读报错、判断原因、按手册的对策或你自己的判断修（换镜像源、调 MTU、装依赖、清磁盘、等一会重试），修完接着装。同一个问题连着两次没修好，才把情况和你的判断告诉用户，问他是重试还是换机器 / 换地域。
-- 绝不：在对话里要密码；把 token、连接码写进对话；试图在这台电脑（本机）上执行任何东西——machine_ssh 的命令只在那台机器上跑。
-- 不汇报每一步；命令和输出用户在卡片里看得见。装完、卡住、需要他动手时才说话，一次一件事，说人话，不贴日志，不让他敲命令。`,
-  soul: '像一个懂行、手快、话少的老手：先动手再说话，说结论不说过程；对用户用他听得懂的词，除了「IP」「密码」「端口」「防火墙」不用别的术语，非说不可就顺手一句话解释。用户迷糊了就换个说法再讲，不催，不甩一堆链接，不寒暄。',
+Rules:
+- When a bot owns the subject, hand it over rather than going round them — unless the user explicitly asked you to do it.
+- You are not a wizard on rails. For moving machines you have hands that run commands over ssh (machine_ssh) and eyes on the network (machine_probe): do the install yourself, read your own output, work out causes, try another way. Speak only where a person is genuinely required — buying the machine, filling the address and password into the card, opening a port in the cloud console, pressing "move".
+- Every round of a move starts with machine_status, then decide. Not connected yet: ask whether they have a Linux machine that stays on; if not, recommend one from the manual with the few choices that matter and a direct link; if yes, machine_card(stage=connect) so they can fill in the IP, username and password. The password goes on the card only — never in the conversation, and never ask for it.
+- Once connected the system hands you a health report. Install per the manual: machine_probe → adjust the MTU if needed → machine_upload → machine_ssh to run the installer → machine_pair → machine_probe to test the port from outside → machine_card(stage=move). The install and the build take minutes; stand watch with vigil and it will wake you if something goes wrong.
+- Read the output at every step. On failure, read the error, work out the cause, fix it from the manual's remedies or your own judgement (change mirror, adjust MTU, install a dependency, free disk, wait and retry), and carry on. Only after failing twice on the same problem do you bring it to the user with what you saw and what you think, and ask whether to retry or change machine / region.
+- Never: ask for a password in the conversation; write a token or a pairing code into the conversation; try to run anything on this computer — machine_ssh commands only ever run on that machine.
+- Do not narrate every step; the user can see the commands and the output on the card. Speak when it is done, when it is stuck, or when you need them to act. One thing at a time, in plain words, no logs, and never a command for them to type.`,
+  soul:
+    'Like someone who has done this many times: hands first, words after; conclusions, not process. Use words the user already knows — apart from "IP", "password", "port" and "firewall", no jargon, and if one is unavoidable, explain it in the same breath. When they look lost, say it another way. No chasing, no walls of links, no pleasantries.',
   channels: ['app'],
   connections: [],
   autonomy: 'do',
@@ -55,40 +59,44 @@ export const STEWARD: Omit<Bot, 'id' | 'createdAt' | 'avatarSeed'> = {
   skills: [STEWARD_SKILL_NAME],
   routines: [],
   notify: true,
-  // 产品自带的那一个，排在最上面。
+  // The one that comes with the product, at the top of the list.
   pinned: true,
   kind: 'steward',
 };
 
-/** 它出生时对话里的第一行。 */
+/** The first line in its thread when it is born. */
 const STEWARD_BORN = 'Comes with the product. Setup, moving to another machine, and anything nobody else owns.';
 
 /** The first thing the user "says" to the steward for each way of summoning it. */
 export const STEWARD_FIRST_QUERY: Record<'move_out', string> = {
-  move_out: '我想把 bot 们搬到一台不关机的机器上，带我一步步做。',
+  move_out: 'I want to move the bots onto a machine that stays on. Walk me through it.',
 };
 
 /**
- * 助理一定在：启动时叫一次，没有就生成。返回它是不是刚生成的，好让调用方去做头像。
+ * The assistant always exists: called once at start-up, created if missing. Returns whether it was just created,
+ * so the caller can generate the avatar.
  *
- * 老装机里有一个只为搬机器创建的「管家」。不去改造它——把它降成普通 bot（对话和当时的机器卡都留着，
- * 那是它干过的活），产品自带的那一个从此是新生成的助理。用户自己改过名的不动：那已经是他的 bot 了，
- * 继续让它当助理。
+ * Older installs have a "steward" that existed only to move machines. It is not converted — it is demoted to an
+ * ordinary bot (its thread and the machine cards of the time stay, because that is work it did), and the one that
+ * comes with the product is a freshly created assistant from then on. One the user renamed is left alone: that is
+ * their bot now, and it goes on being the assistant.
  */
 export function ensureSteward(store: CrewStore): { bot: Bot; created: boolean } {
-  const old = store.data.bots.find((b) => b.kind === 'steward' && b.name === '管家');
+  // The Chinese name is deliberate: installs from before the rename have a bot called 管家, and this is how it
+  // is recognised. Both spellings are matched because the name was English for a while in between.
+  const old = store.data.bots.find((b) => b.kind === 'steward' && (b.name === '管家' || b.name === 'Steward'));
   if (old) store.patchBot(old.id, { kind: undefined, pinned: false }, { growth: false });
 
   const cur = store.data.bots.find((b) => b.kind === 'steward');
   if (cur) {
-    // 职责和人设属于产品：改了就跟着走。
+    // Remit and character belong to the product: when they change, the bot follows.
     if (cur.role !== STEWARD.role || cur.soul !== STEWARD.soul) store.patchBot(cur.id, { role: STEWARD.role, soul: STEWARD.soul }, { growth: false });
     return { bot: store.bot(cur.id) ?? cur, created: false };
   }
   const bot = store.addBot({ ...STEWARD, avatarSeed: `${STEWARD.name}:${Date.now()}` });
   store.addMessage({ threadId: botThread(bot.id), author: 'system', botId: bot.id, text: STEWARD_BORN, ts: bot.createdAt - 1, status: 'born' });
-  store.grow(bot.id, 'born', '产品自带', bot.createdAt);
-  store.grow(bot.id, 'skill', `沉淀技能【${STEWARD_SKILL_NAME}】`);
+  store.grow(bot.id, 'born', 'comes with the product', bot.createdAt);
+  store.grow(bot.id, 'skill', `learned the manual "${STEWARD_SKILL_NAME}"`);
   return { bot, created: true };
 }
 
@@ -235,7 +243,7 @@ let link: MachineLink | undefined;
 /** The link to the saved machine (reconnects lazily). Throws when no machine has been connected yet. */
 export function machineLink(): MachineLink {
   const m = loadMachine();
-  if (!m) throw new Error('还没有连上任何机器：先 machine_card(stage=connect) 让用户填机器的 IP、用户名和密码');
+  if (!m) throw new Error('no machine is connected yet: use machine_card(stage=connect) so the user can fill in its IP, username and password');
   if (!link || link.m.host !== m.host || link.m.user !== m.user || link.m.port !== m.port || link.m.password !== m.password) {
     link?.close();
     link = new MachineLink(m);
@@ -273,21 +281,21 @@ export function forgetMachine() {
 /** A quick look around a freshly connected machine, as text the bot can reason about. */
 export async function surveyMachine(l: MachineLink): Promise<string> {
   const script = [
-    `[ -f /etc/os-release ] && . /etc/os-release; echo "系统: \${PRETTY_NAME:-$(uname -sr)}"`,
-    `echo "CPU: $(nproc 2>/dev/null || echo ?) 核"`,
-    `echo "内存: $(free -m 2>/dev/null | awk '/Mem:/{print $2}') MB，可用 $(free -m 2>/dev/null | awk '/Mem:/{print $7}') MB"`,
-    `echo "磁盘: $(df -h / 2>/dev/null | awk 'NR==2{print $4" 可用 / 共 "$2}')"`,
-    `echo "Docker: $(command -v docker >/dev/null 2>&1 && docker --version 2>/dev/null || echo 未安装)"`,
-    `iface="$(ip route show default 2>/dev/null | awk '/default/{print $5; exit}')"; echo "网卡: \${iface:-?} MTU $(cat /sys/class/net/\${iface:-lo}/mtu 2>/dev/null)"`,
-    `echo "sudo: $(sudo -n true 2>/dev/null && echo 免密 || echo 需要密码)"`,
-    `echo "公网 IP: $(curl -fsS --max-time 4 https://api.ipify.org 2>/dev/null || echo 未知)"`,
-    `echo "GitHub: $(curl -sS -o /dev/null --max-time 6 -w 'HTTP %{http_code}' https://github.com 2>/dev/null || echo 不通)"`,
-    `echo "Docker Hub: $(curl -sS -o /dev/null --max-time 6 -w 'HTTP %{http_code}（401 也算通）' https://registry-1.docker.io/v2/ 2>/dev/null || echo 不通)"`,
-    `echo "已装的 crew-server: $([ -f /opt/crew/crew-server/deploy/.env ] && echo 有一份，可配对 || echo 没有)"`,
-    `echo "5200 端口: $(ss -ltn 2>/dev/null | grep -q ':5200 ' && echo 已有进程在听 || echo 空闲)"`,
+    `[ -f /etc/os-release ] && . /etc/os-release; echo "OS: \${PRETTY_NAME:-$(uname -sr)}"`,
+    `echo "CPU: $(nproc 2>/dev/null || echo ?) cores"`,
+    `echo "Memory: $(free -m 2>/dev/null | awk '/Mem:/{print $2}') MB, $(free -m 2>/dev/null | awk '/Mem:/{print $7}') MB free"`,
+    `echo "Disk: $(df -h / 2>/dev/null | awk 'NR==2{print $4" free of "$2}')"`,
+    `echo "Docker: $(command -v docker >/dev/null 2>&1 && docker --version 2>/dev/null || echo 'not installed')"`,
+    `iface="$(ip route show default 2>/dev/null | awk '/default/{print $5; exit}')"; echo "NIC: \${iface:-?} MTU $(cat /sys/class/net/\${iface:-lo}/mtu 2>/dev/null)"`,
+    `echo "sudo: $(sudo -n true 2>/dev/null && echo 'no password' || echo 'password required')"`,
+    `echo "Public IP: $(curl -fsS --max-time 4 https://api.ipify.org 2>/dev/null || echo unknown)"`,
+    `echo "GitHub: $(curl -sS -o /dev/null --max-time 6 -w 'HTTP %{http_code}' https://github.com 2>/dev/null || echo unreachable)"`,
+    `echo "Docker Hub: $(curl -sS -o /dev/null --max-time 6 -w 'HTTP %{http_code} (401 counts as reachable)' https://registry-1.docker.io/v2/ 2>/dev/null || echo unreachable)"`,
+    `echo "crew-server already installed: $([ -f /opt/crew/crew-server/deploy/.env ] && echo 'yes, can pair' || echo no)"`,
+    `echo "port 5200: $(ss -ltn 2>/dev/null | grep -q ':5200 ' && echo 'something is listening' || echo free)"`,
   ].join('; ');
   const r = await l.exec(script, { timeoutMs: 45_000 });
-  return r.out.split(/\r?\n/).map(strip).filter((x) => x.trim()).join('\n') || '（没有输出）';
+  return r.out.split(/\r?\n/).map(strip).filter((x) => x.trim()).join('\n') || '(no output)';
 }
 
 /**
@@ -298,9 +306,9 @@ export async function uploadCode(l: MachineLink, log: (line: string) => void): P
   const prep = await l.exec('sudo -n mkdir -p /opt/crew/crew-server && sudo -n chown -R "$(id -u):$(id -g)" /opt/crew && echo ok', { timeoutMs: 20_000 });
   if (!prep.out.includes('ok')) {
     const r2 = await l.exec('sudo mkdir -p /opt/crew/crew-server && sudo chown -R "$(id -u):$(id -g)" /opt/crew && echo ok', { pty: true, timeoutMs: 20_000 });
-    if (!r2.out.includes('ok')) throw new Error('这个账号没有管理员权限（sudo 失败）：换 root 或有 sudo 权限的用户');
+    if (!r2.out.includes('ok')) throw new Error('this account has no administrator rights (sudo failed): use root or an account with sudo');
   }
-  log('打包代码…');
+  log('packing the code…');
   const tgz = join(tmpdir(), `crew-server-${Date.now()}.tgz`);
   const entries = readdirSync(serverDir).filter((n) => !['node_modules', '.git', 'library'].includes(n) && !n.endsWith('.log') && !n.startsWith('.'));
   await execFileP('tar', ['--no-xattrs', '-czf', tgz, '-C', serverDir, ...entries, 'library/manifest.json'], { maxBuffer: 4 * 1024 * 1024, env: { ...process.env, COPYFILE_DISABLE: '1' } }).catch(() =>
@@ -311,7 +319,7 @@ export async function uploadCode(l: MachineLink, log: (line: string) => void): P
   try {
     const have = (await l.exec('cat /opt/crew/crew-server/.upload-sha 2>/dev/null || true', { timeoutMs: 15_000 })).out.trim();
     if (have === sha) {
-      log('那台机器上已经是这份代码，跳过上传');
+      log('that machine already has this code; skipping the upload');
       return { skipped: true, bytes: size };
     }
     // Some paths (this one to the Tencent box included) silently drop full-size packets: tiny ssh commands work,
@@ -320,17 +328,17 @@ export async function uploadCode(l: MachineLink, log: (line: string) => void): P
     let mtu = loadMachine()?.mtu;
     const fixMtu = async (why: string) => {
       const val = mtu ?? 1400;
-      log(`${why}：把那台机器的网卡 MTU 调到 ${val} 再重连`);
+      log(`${why}: setting that machine's NIC MTU to ${val} and reconnecting`);
       await l.exec(`sudo ip link set dev "$(ip route show default | awk '/default/{print $5; exit}')" mtu ${val} 2>/dev/null; echo done`, { pty: true, timeoutMs: 20_000 });
       const cur = loadMachine();
       if (cur && cur.mtu !== val) saveMachine({ ...cur, mtu: val });
       mtu = val;
       await l.reconnect();
     };
-    if (mtu) await fixMtu('这台机器之前记录过大包不通');
-    else if ((await pathMtu(l.m.host)) === 'low') await fixMtu('这条网络对大包不友好（1500 字节的包过不去）');
+    if (mtu) await fixMtu('this machine was recorded as dropping large packets before');
+    else if ((await pathMtu(l.m.host)) === 'low') await fixMtu('this network dislikes large packets (1500-byte packets do not get through)');
 
-    log(`上传代码（${(size / 1024).toFixed(0)} KB）…`);
+    log(`uploading the code (${(size / 1024).toFixed(0)} KB)…`);
     await l.exec('rm -f /tmp/crew-server.tgz', { timeoutMs: 15_000 });
     const CHUNK = 48 * 1024;
     const fd = openSync(tgz, 'r');
@@ -350,23 +358,23 @@ export async function uploadCode(l: MachineLink, log: (line: string) => void): P
             // A stall on the very first block with no MTU fix yet is almost always the packet-size black hole
             // (ICMP was probably blocked so the probe couldn't see it). Apply the fix and restart from the top.
             if (!mtu && sent === 0 && attempt === 1) {
-              await fixMtu('传数据就卡、小命令能通');
+              await fixMtu('data transfers stall while small commands get through');
               await l.exec('rm -f /tmp/crew-server.tgz', { timeoutMs: 15_000 });
               continue;
             }
-            if (attempt >= 3) throw new Error(`上传卡住了（${(e as Error).message}）。到那台机器的网络传大文件传不过去，已试着调小 MTU 仍不行——多半是它所在地域离你太远，换一个近的地域重买一台再试`);
-            log(`这一块没传过去，重试…`);
+            if (attempt >= 3) throw new Error(`the upload stalled (${(e as Error).message}). Large files will not cross the network to that machine, and lowering the MTU did not help — most likely its region is too far away; buy one in a nearer region and try again`);
+            log(`that chunk did not get through; retrying…`);
             if (sent === 0) await l.exec('rm -f /tmp/crew-server.tgz', { timeoutMs: 15_000 });
           }
         }
         sent += n;
-        if (sent % (4 * CHUNK) === 0 || sent === size) log(`已上传 ${(sent / 1024).toFixed(0)} / ${(size / 1024).toFixed(0)} KB`);
+        if (sent % (4 * CHUNK) === 0 || sent === size) log(`uploaded ${(sent / 1024).toFixed(0)} / ${(size / 1024).toFixed(0)} KB`);
       }
     } finally {
       closeSync(fd);
     }
     const check = await l.exec(`test "$(stat -c %s /tmp/crew-server.tgz)" = "${size}" && echo same || echo diff`, { timeoutMs: 15_000 });
-    if (!check.out.includes('same')) throw new Error('上传的文件不完整，重试一次');
+    if (!check.out.includes('same')) throw new Error('the uploaded file is incomplete; try once more');
     // deploy/.env holds the machine's pairing (token + public URL). It is not code and must survive the wipe, or
     // every upgrade would hand the user a new connection code. Save and restore run in the same root shell as the
     // wipe, so the kept copy is always readable by whoever puts it back.
@@ -379,10 +387,10 @@ export async function uploadCode(l: MachineLink, log: (line: string) => void): P
       `if [ -d /tmp/crew-library.keep ]; then rm -rf library && mv /tmp/crew-library.keep library; fi && ` +
       `echo '${sha}' > .upload-sha && echo ok`;
     const ex = await l.exec(`sudo -n sh -c ${shq(script)} 2>&1 || sudo sh -c ${shq(script)} 2>&1`, { timeoutMs: 60_000, pty: true });
-    if (!ex.out.includes('ok')) throw new Error('解压失败：' + ex.out.slice(-300));
+    if (!ex.out.includes('ok')) throw new Error('could not unpack: ' + ex.out.slice(-300));
     // Persist the MTU where install.sh can read it, so the same fix carries into the Docker build and survives reboots.
     if (mtu) await l.exec(`printf '%s' '${mtu}' > /opt/crew/crew-server/.mtu && echo ok`, { timeoutMs: 15_000 });
-    log('✔ 代码已放到 /opt/crew/crew-server');
+    log('✔ code is in place at /opt/crew/crew-server');
     return { skipped: false, bytes: size, mtu };
   } finally {
     rmSync(tgz, { force: true });
@@ -405,10 +413,10 @@ export async function uploadLibrary(l: MachineLink, log: (line: string) => void)
     const sha = sha256File(tgz);
     const have = (await l.exec('cat /opt/crew/crew-server/.library-sha 2>/dev/null || true', { timeoutMs: 15_000 })).out.trim();
     if (have === sha) {
-      log(`技能库已经是这一份（${skills} 个技能），跳过`);
+      log(`the skill library is already this one (${skills} skills); skipping`);
       return { skipped: true, skills };
     }
-    log(`上传技能库（${skills} 个技能，${(size / 1024 / 1024).toFixed(1)} MB，比代码慢）…`);
+    log(`uploading the skill library (${skills} skills, ${(size / 1024 / 1024).toFixed(1)} MB — slower than the code)…`);
     await l.exec('rm -f /tmp/crew-library.tgz', { timeoutMs: 15_000 });
     const CHUNK = 48 * 1024;
     const fd = openSync(tgz, 'r');
@@ -424,8 +432,8 @@ export async function uploadLibrary(l: MachineLink, log: (line: string) => void)
             await sendChunk(await l.connect(), piece, sent === 0, '/tmp/crew-library.tgz');
             break;
           } catch (e) {
-            if (attempt >= 2) throw new Error(`技能库没传完（${(e as Error).message}）`);
-            log('这一块没传过去，重试…');
+            if (attempt >= 2) throw new Error(`the skill library did not finish uploading (${(e as Error).message})`);
+            log('that chunk did not get through; retrying…');
             if (sent === 0) await l.exec('rm -f /tmp/crew-library.tgz', { timeoutMs: 15_000 });
           }
         }
@@ -433,7 +441,7 @@ export async function uploadLibrary(l: MachineLink, log: (line: string) => void)
         const pct = Math.floor((sent / size) * 10) * 10;
         if (pct !== lastPct && pct > 0) {
           lastPct = pct;
-          log(`技能库 ${pct}%`);
+          log(`skill library ${pct}%`);
         }
       }
     } finally {
@@ -441,8 +449,8 @@ export async function uploadLibrary(l: MachineLink, log: (line: string) => void)
     }
     const script = `cd /opt/crew/crew-server && rm -rf library && tar -xzf /tmp/crew-library.tgz -C . && rm -f /tmp/crew-library.tgz && echo '${sha}' > .library-sha && echo ok`;
     const ex = await l.exec(`sudo -n sh -c ${shq(script)} 2>&1 || sudo sh -c ${shq(script)} 2>&1`, { timeoutMs: 180_000, pty: true });
-    if (!ex.out.includes('ok')) throw new Error('技能库解压失败：' + ex.out.slice(-200));
-    log(`✔ 技能库已送到（${skills} 个技能）`);
+    if (!ex.out.includes('ok')) throw new Error('could not unpack the skill library: ' + ex.out.slice(-200));
+    log(`✔ skill library delivered (${skills} skills)`);
     return { skipped: false, skills };
   } finally {
     rmSync(tgz, { force: true });
@@ -478,10 +486,10 @@ export async function pairMachine(l: MachineLink): Promise<{ url: string; name: 
   const lines = raw.out.split(/\r?\n/).map(strip).filter((x) => x && !/password/i.test(x));
   const url = lines.find((x) => x.startsWith('URL='))?.slice(4).trim();
   const token = lines.filter((x) => !x.startsWith('URL=') && /^[A-Za-z0-9]+$/.test(x)).join('');
-  if (!url || token.length < 32) throw new Error('那台机器上没有配对信息：安装脚本还没跑成功（/opt/crew/crew-server/deploy/.env 不存在或不完整）');
+  if (!url || token.length < 32) throw new Error('that machine has no pairing details: the installer has not finished successfully (/opt/crew/crew-server/deploy/.env is missing or incomplete)');
   const name = /HOST=(\S+)/.exec(r.out)?.[1] ?? l.m.name;
   const cur = loadMachine();
-  if (!cur) throw new Error('机器记录丢了，重新连接');
+  if (!cur) throw new Error('the machine record is gone; connect again');
   saveMachine({ ...cur, url: url.replace(/\/$/, ''), token, name, pairedAt: Date.now() });
   const probe = await probeMachine({ url, token });
   return { url, name, port: portOf(url), reachable: probe.reachable, note: probe.note };
@@ -491,12 +499,12 @@ export async function pairMachine(l: MachineLink): Promise<{ url: string; name: 
 export async function probeMachine(m: { url: string; token: string }): Promise<{ reachable: boolean; note?: string; mode?: string; hostname?: string; build?: string; busy?: string[] }> {
   try {
     const r = await fetch(`${m.url}/runtime/info`, { headers: { authorization: `Bearer ${m.token}` }, signal: AbortSignal.timeout(6000) });
-    if (r.status === 401) return { reachable: true, note: '那台机器拒绝了配对信息：服务被重装过，重新 machine_pair 一次' };
-    if (!r.ok) return { reachable: false, note: `那台机器回应异常（${r.status}）` };
+    if (r.status === 401) return { reachable: true, note: 'that machine rejected the pairing details: the service was reinstalled, so machine_pair again' };
+    if (!r.ok) return { reachable: false, note: `that machine answered oddly (${r.status})` };
     const info = (await r.json()) as { mode?: string; hostname?: string; build?: string; busy?: string[] };
     return { reachable: true, mode: info.mode, hostname: info.hostname, build: info.build, busy: info.busy };
   } catch {
-    return { reachable: false, note: `从外面连不上 ${portOf(m.url)} 端口：多半是云厂商的防火墙还没放开它` };
+    return { reachable: false, note: `port ${portOf(m.url)} is not reachable from outside: most likely the provider's firewall has not opened it` };
   }
 }
 

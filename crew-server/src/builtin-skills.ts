@@ -6,261 +6,260 @@ import type { SkillStore } from './skills.ts';
  */
 export const BUILTIN_SKILLS: { name: string; description: string; body: string }[] = [
   {
-    name: 'IM 渠道接入',
-    description: '把自己接进微信 / Telegram / Discord / WhatsApp / Slack / 飞书 / 企业微信：微信发一张二维码让用户扫；其余首选用电脑自己去平台后台建机器人、harvest 收凭据，电脑不可用才发卡引导用户。',
-    body: `## 目的
-把你自己接进用户常用的 IM。接好后，用户在 IM 里说的话进入同一个你、同一份对话和事项；你的回复和拍板卡片回到 IM。
+    name: 'Connecting a messenger',
+    description:
+      'How to put yourself into WeChat / Telegram / Discord / WhatsApp / Slack / Feishu / WeCom: WeChat is a QR code the user scans. For the rest, prefer driving the platform console yourself and harvesting the credentials; fall back to a credential card only when the computer is unavailable.',
+    body: `## Purpose
+Put yourself inside the messenger the user already lives in. Once connected, what they say there arrives at the same you, in the same thread, against the same matters; your replies and decision cards go back there.
 
-现在支持：微信、Telegram、Discord、WhatsApp、Slack、飞书 / Lark、企业微信。中间四个在全球更常见，微信、飞书、企业微信主要在国内。用户没指定就问他平时用哪个，别替他挑。
+Supported today: WeChat, Telegram, Discord, WhatsApp, Slack, Feishu / Lark, WeCom. The middle four are the common ones globally; WeChat, Feishu and WeCom are mostly used in China. If the user has not said which, ask — do not pick for them.
 
-**微信是个例外，一步就完**：不用后台、不用凭据、不用问路线，build(aspect=channel, action=add, value="微信") 直接在对话里发一张二维码，用户拿微信扫一下就接上了。下面那两条路线是给其余平台的。
+**WeChat is the exception and takes one step**: no console, no credentials, no route to choose. build(aspect=channel, action=add, value="WeChat") puts a QR code in the thread, the user scans it with their phone, and you are in. The two routes below are for everything else.
 
-## 何时使用
-用户说「我想在微信/飞书/Telegram 里用你」「把你接到群里」「怎么在飞书里找到你」；或者你自己判断该住进某个 IM。
+## When to use this
+The user says "I want to use you in WeChat / Feishu / Telegram", "put you in our group", "how do I find you in Feishu" — or you decide for yourself that you should live in a particular messenger.
 
-## 模型：一个 bot 就是 IM 里的一个机器人
-你在 Telegram / Discord / WhatsApp / Slack / 飞书 / 企业微信里是**独立的机器人**，有自己的名字和头像、自己的凭据。用户私聊那个机器人就是在和你说话；把几个机器人拉进同一个群，你们就在群里一起干活（@谁谁回，群在这里对应一个「群聊」）。没有「先接渠道再绑会话」这回事，也没有 /bind 命令。
+## The model: one bot is one bot account
+In Telegram / Discord / WhatsApp / Slack / Feishu / WeCom you are an **independent bot account**, with your own name, avatar and credentials. A direct message to that account is a message to you; put several of these accounts in one group and you work there together (@ someone and they answer; a group there maps to a group here). There is no "connect the channel, then bind a session", and no /bind command.
 
-## 两条路线，由用户定
-**路线一：你自己接自己。** 用电脑（computer(open)）打开对方平台的后台，自己建机器人、开权限、订事件，凭据用 harvest 直接收进配置，用户只在登录那一步帮一下（扫码卡 / 密码卡）。
-**路线二：用户自己建、填卡。** build(aspect=channel, action=add, value="飞书") 发系统标准凭据卡，用户按卡上的步骤在平台后台建机器人、把凭据填在卡上。
-**先问一句再动手**：用 ask_user 给两个选项——「我自己去后台接（要你登录一次）」「你按卡上的步骤建，我来接上」——顺带说清这个平台哪条更顺（比如 Telegram 建议路线二、飞书两条都行）。例外：recall 一下用户对接 IM 路线的偏好，**之前每次都选同一条**就直接走那条、不再问；用户这次选了，用 remember 记下「接 IM 偏好路线 X」，选过几次不一致就还是问。
-电脑开不起来（computer(open) 报错）时只有路线二，不用问。
-两条路线里凭据都不经过对话：不问用户要 token / Secret，不让他贴在对话里，不让他改配置文件，你也不自己去改配置。
+## Two routes; the user picks
+**Route one: you connect yourself.** Use the computer (computer(open)) to open the platform's console, create the bot, enable the permissions and subscribe the events yourself, then harvest the credentials straight into config. The user only helps at the login step (a QR card or a password card).
+**Route two: the user creates it and fills in a card.** build(aspect=channel, action=add, value="Feishu") sends the standard credential card; the user follows the steps on it in the platform console and fills the credentials into the card.
+**Ask once before starting**: use ask_user with two options — "I'll do it in the console myself (you log in once)" and "You create it from the card and I'll connect it" — and say which route is smoother for this platform (Telegram: route two; Feishu: either). Exception: recall the user's preference about this. If they have **chosen the same route every time**, take it without asking. When they choose this time, remember "prefers route X for messengers". If past choices disagree, ask.
+When the computer will not start (computer(open) errors), only route two exists — do not ask.
+In neither route do credentials pass through the conversation: never ask the user for a token or a secret, never have them paste one in the thread, never have them edit a config file, and do not edit config yourself.
 
-## 路线一：具体怎么做
-0. \`harvest(action=info, target=飞书)\`：看这个 IM 要哪几项、机器人该叫什么、要填给对方的信息（企业微信、WhatsApp 的回调 URL、公网 IP）。
-1. \`computer(open)\`，\`browser_navigate\` 到后台（地址在 info 里）。**需要登录时不要让用户去开电脑**：页面上是二维码就 \`ask_login(kind=qr, url=当前网址一段, selector=二维码元素)\`，把实时的码发到对话里让他手机扫；是账号密码就 \`ask_login(kind=password, passwordSelector=…)\`，他填在卡上、系统直接打进页面。发完这一轮就结束，登录成功系统会叫你回来。卡上的码是实时的（每几秒重取一次当前页面），不会因为过期而扫不上；只有极少数页面裁不出码（比如画在跨域 iframe 里），这时才退回去请用户打开电脑屏幕自己扫。
-   - 怎么扫，卡上已经写了（该用哪个 App 的哪个入口；这些码都只认自家 App 的扫码器，系统相机扫不了），你不要再自己编一套步骤；用户说扫不上，先让他照卡上写的做。卡是给电脑屏幕看的、手机来扫——他如果只有一部手机，就走路线二。
-   - **绝对不要向用户索要手机号、短信验证码、App 里收到的登录码。**那是能登进他整个账号的凭据，不许经过对话；登录只有两条路：扫码卡、密码卡。
-2. 按平台步骤在页面上操作：建应用 / 机器人（名字用你的名字），加机器人能力，开权限，订事件，发布。每步看结果里带的快照，只点自己标签里的东西。
-3. 到凭据页：密钥被遮着就先点「查看 / 显示」，然后 \`harvest(take, target=飞书, field=App ID, url=当前网址一段)\`，再 \`harvest(take, field=App Secret, …)\`。同类格式的值不止一个时加 near（旁边的标签文字）。收齐系统自动接入，告诉你那边的名字。
-4. **验收（必做，不做不算接完）**：\`channel_check(arm, channel=飞书)\` 拿一个暗号 → 回电脑打开这个 IM 的**网页版**（用户已经登录的那个，不是开放平台后台），搜自己的机器人名字，以用户的身份把暗号发给自己 → \`channel_check(status)\`。ok 才算真的通了；这条测试消息不会进对话。
-   - 搜不到自己：应用没发布，或可用范围不包括这个用户。回后台补，再验一次。
-   - 搜得到、发了却 waiting：事件没订上（少「接收消息」）、没选长连接，或版本还在审核。
-   - 两次都过不去才告诉用户，说清楚卡在哪一步、需要他做什么（多半是管理员审核）。
-5. 验收通过后：在 App 里一句话告诉用户去哪找你（那边的机器人叫什么名字），并在那个 IM 里回他一句。
-6. 跑通后，用 build(aspect=skill, action=set) 给自己写一份「接入 X 实操」手册：实际点了哪些菜单、哪些按钮文案、哪一步卡过、怎么绕。不写任何凭据。下次你或同事再接就照它走。
+## Route one, step by step
+0. \`harvest(action=info, target=Feishu)\`: what this messenger needs, what the bot should be called, and what you must give the other side (WeCom and WhatsApp callback URLs, public IP).
+1. \`computer(open)\`, then \`browser_navigate\` to the console (the address is in info). **When a login is needed, do not tell the user to go to the computer**: if the page shows a QR code, \`ask_login(kind=qr, url=part of the current address, selector=the QR element)\` puts the live code in the thread for them to scan with their phone; if it is a password form, \`ask_login(kind=password, passwordSelector=…)\` and they fill the card, which the system types into the page. End the turn there — the system wakes you when the login succeeds. The code on the card is live (re-fetched from the page every few seconds) so it cannot go stale; only rarely is a code impossible to crop (drawn inside a cross-origin iframe), and only then do you fall back to asking the user to open the computer's screen and scan it there.
+   - How to scan is already written on the card (which app, which entry point; these codes only work with that platform's own scanner, not the system camera). Do not invent your own instructions. If the user says it will not scan, have them follow the card first. The card is meant to be looked at on a computer screen and scanned with a phone — if they only have a phone, use route two.
+   - **Never ask the user for a phone number, an SMS code, or a login code from inside an app.** Those are credentials to their entire account and must not pass through the conversation. Logging in has exactly two paths: the QR card and the password card.
+2. Work through the platform's steps on the page: create the app / bot (use your own name), add bot capability, enable permissions, subscribe events, publish. Read the snapshot that comes back after each step, and only click things in your own tab.
+3. At the credentials page: if a secret is masked, click "view / show" first, then \`harvest(take, target=Feishu, field=App ID, url=part of the current address)\`, then \`harvest(take, field=App Secret, …)\`. When several values on the page share a format, add near (the label text beside it). Once the set is complete the system connects it and tells you the name on the other side.
+4. **Verify (mandatory; without this it is not connected)**: \`channel_check(arm, channel=Feishu)\` gives you a passphrase → go back to the computer and open the **web client** of that messenger (the one the user is already logged into, not the developer console), search for your own bot name, and send the passphrase to yourself as the user → \`channel_check(status)\`. Only ok means it actually works; this test message never enters the thread.
+   - Cannot find yourself: the app is unpublished, or its availability does not include this user. Fix it in the console and verify again.
+   - Found, sent, still waiting: events are not subscribed (missing "receive messages"), long connection not selected, or the version is still in review.
+   - Only after two failures do you tell the user, and then say exactly which step is stuck and what you need from them (usually an admin approval).
+5. Once verified: tell the user in one line in the App where to find you (what the bot is called over there), and say one thing to them in that messenger.
+6. After it works, use build(aspect=skill, action=set) to write yourself a "connecting X, in practice" manual: which menus you actually clicked, the exact button labels, where you got stuck, how you got round it. No credentials in it. Next time you or a colleague connect that platform, you follow it.
 
-### 各平台的倾向
-- **Telegram**：**问的时候建议路线二。** 它没有独立的开放平台后台，建机器人就是在用户自己的账号里找 @BotFather 聊天——路线一意味着把用户的个人 Telegram 整个登进这台共用的电脑，而且它的登录码只认 Telegram App 内 Settings → Devices → Add Device 的扫码器，用户经常卡在这一步。所以直接 build(aspect=channel, action=add, value="Telegram") 发凭据卡，让用户在手机 Telegram 里找 @BotFather：/newbot → 显示名用你的名字、用户名以 bot 结尾 → 把它回的 token 填在卡上，一分钟的事。用户明确要你自己动手才走路线一（web.telegram.org 扫码登录 → 和 @BotFather 对话 → harvest(field=Bot Token)）。拉进群后默认只看得到 @它 的消息，正好。
-- **飞书**：open.feishu.cn/app → 创建企业自建应用（名字用你的名字）→ 添加应用能力：机器人 → 权限管理开 im:message、im:message:send_as_bot、im:chat:readonly → 事件与回调：选「长连接」，加「接收消息」「机器人进群」「机器人被移出群」→ 凭证与基础信息：App ID 直接 harvest；App Secret 点「查看」后 harvest → **版本管理与发布：创建版本 → 可用范围要包含这个用户（默认「全员可用」最省事）→ 发布，等管理员审核通过**。不需要公网地址。
-  - 发布这一步不是可选的：不发布，凭据照样连得上、后台一切正常，但用户在飞书里根本搜不到这个机器人，消息也进不来。所以必须走完第 4 步验收。
-  - 审核要企业管理员点同意。用户自己就是管理员的话让他去「管理后台 → 应用管理」通过一下；不是的话，告诉他找谁审，别在这儿干等。
-  - 飞书不能主动私聊一个从没跟你说过话的人，所以「接好后主动打招呼」这件事要反过来做：验收时是**你以用户的身份**在网页版里给机器人发第一条，之后你才能回他。
-- **Slack**：api.slack.com/apps → Create New App → From an app manifest 最省事：一次把 scopes（chat:write、im:history、channels:history、groups:history、app_mentions:read、channels:read、groups:read、users:read）、Socket Mode、事件（message.im、message.channels、message.groups、app_mention、member_joined_channel、member_left_channel）都写进去 → Basic Information 里生成 App-Level Token（connections:write）→ harvest(field=App-Level Token) → Install to Workspace → OAuth & Permissions 里 harvest(field=Bot Token)。不需要公网地址。
-- **企业微信**：管理后台 → 我的企业：harvest(field=企业 ID) → 应用管理 → 自建应用（名字用你的名字）→ 详情页 harvest(field=AgentId)、点「查看」后 harvest(field=Secret) → 接收消息 → 设置 API 接收：回调 URL 填 info 给的地址，Token 和 EncodingAESKey 点随机生成后各 harvest 一次 → 企业可信 IP 填 info 给的公网 IP → 保存（系统接上后它才能验证通过，顺序：先收齐让系统接上，再点保存）。企业微信的应用进不了群，只能私聊。
-- **Discord**：discord.com/developers/applications → New Application（名字用你的名字）→ Bot 页 Reset Token 后 harvest(field=Bot Token) → **Bot 页把 Message Content Intent 打开**（不开就只收得到 @ 你的消息内容，其余是空的）→ OAuth2 → URL Generator 勾 bot + Send Messages + Read Message History，生成邀请链接让用户点一下把你请进他的服务器。不需要公网地址。私聊要求你和对方在同一个服务器里。
-- **WhatsApp**：只走官方的 Cloud API（第三方协议会封号）。developers.facebook.com/apps → 建 Business 应用 → 加 WhatsApp 产品 → API Setup 页有测试号码和 Phone number ID（harvest(field=Phone number ID)）→ **令牌要用系统用户的永久令牌**（业务管理后台建系统用户，给 whatsapp_business_messaging 权限；页面上现成的那个 24 小时就过期）→ Webhook 填 harvest(info) 给的回调地址和校验串，订阅 messages 字段。两条硬规矩要提前告诉用户：**必须是对方先给你发消息**，而且**只有 24 小时窗口内你才能自由回复**，超时只能发预先审核过的模板；测试号码只能发给白名单里的号码，对外用要在 Meta 做完商业验证并绑自己的号码。WhatsApp 的接口没有群，只能私聊。
-- **飞书国际版（Lark）**：和飞书是同一套东西的两朵云，后台在 open.larksuite.com。凭据形态一样，系统会自动判断该连哪一朵，你照飞书的步骤走即可。
-- **微信**：走腾讯自己的 iLink 机器人网关，不需要后台、不需要凭据、不需要公网地址，也不是第三方协议，没有封号那回事。做法只有一步：build(aspect=channel, action=add, value="微信")，系统在对话里发一张二维码，用户用手机微信扫一扫，扫完你就在他的微信里了。别去开电脑、别去找什么开放平台、别 harvest（微信这条 harvest 会直接报错）。三条硬规矩要先说清楚：**只能私聊**（这个网关没有群）、**只能回不能先说**（回复要带用户上一条消息的凭条，所以你开不了口，得他先发一句）、**暂时只收发文字**（图片、语音、文件先请他从 App 发）。码有效期几分钟，过期系统会自动换一张；一直没扫就作废，重新 add 一次即可。
-- **企业微信**：见上面那条，是另一回事——公司内部同事用的自建应用，接不到外面的个人微信用户。用户说「微信」默认是前者，说「企微 / 企业微信」才是后者，分不清就问一句。
+### What each platform prefers
+- **Telegram**: **recommend route two when you ask.** It has no separate developer console — creating a bot means talking to @BotFather from the user's own account, so route one would mean logging their entire personal Telegram into this shared computer, and its login code only works with the scanner under Settings → Devices → Add Device, where users routinely get stuck. So: build(aspect=channel, action=add, value="Telegram") sends the credential card, and they find @BotFather in Telegram on their phone: /newbot → display name is your name, username ends in bot → paste the token it returns onto the card. A minute's work. Only take route one if they explicitly ask you to do it (web.telegram.org QR login → talk to @BotFather → harvest(field=Bot Token)). In a group it only sees messages that @ it, which is what you want.
+- **Feishu**: open.feishu.cn/app → create a custom in-house app (use your name) → add the bot capability → permissions: im:message, im:message:send_as_bot, im:chat:readonly → events and callbacks: choose "long connection", add "receive message", "bot added to group", "bot removed from group" → credentials page: harvest the App ID directly; click "view" then harvest the App Secret → **version management and release: create a version → availability must include this user ("everyone" is simplest) → publish, and wait for the admin to approve**. No public address needed.
+  - Publishing is not optional: without it the credentials still connect and the console looks fine, but the user cannot find the bot in Feishu at all and no message arrives. That is why step 4 exists.
+  - Approval needs a company admin. If the user is the admin, have them approve it under "admin console → app management". If not, tell them who to ask rather than waiting here.
+  - Feishu will not let a bot open a conversation with someone who has never talked to it, so "say hello once connected" has to run backwards: during verification **you, as the user**, send the first message to the bot in the web client, and only then can you reply.
+- **Slack**: api.slack.com/apps → Create New App → From an app manifest is simplest: it writes the scopes (chat:write, im:history, channels:history, groups:history, app_mentions:read, channels:read, groups:read, users:read), Socket Mode and events (message.im, message.channels, message.groups, app_mention, member_joined_channel, member_left_channel) in one go → Basic Information, generate an App-Level Token (connections:write) → harvest(field=App-Level Token) → Install to Workspace → harvest(field=Bot Token) under OAuth & Permissions. No public address needed.
+- **WeCom**: admin console → My Company: harvest(field=Corp ID) → App management → custom app (use your name) → on its page harvest(field=AgentId), click "view" then harvest(field=Secret) → Receive messages → set up API receiving: put the callback URL from info in, generate a random Token and EncodingAESKey and harvest each → put the public IP from info into trusted enterprise IPs → save (it can only verify after the system has connected, so: harvest everything first, let the system connect, then save). A WeCom app cannot join groups; direct messages only.
+- **Discord**: discord.com/developers/applications → New Application (use your name) → Bot page, Reset Token then harvest(field=Bot Token) → **turn on Message Content Intent on the Bot page** (without it you receive only the content of messages that @ you, and nothing else) → OAuth2 → URL Generator, tick bot + Send Messages + Read Message History, and give the user the invite link to add you to their server. No public address needed. Direct messages require you and the user to share a server.
+- **WhatsApp**: the official Cloud API only (third-party protocols get accounts banned). developers.facebook.com/apps → create a Business app → add the WhatsApp product → the API Setup page has a test number and a Phone number ID (harvest(field=Phone number ID)) → **the token must be a system user's permanent token** (create a system user in Business Manager with whatsapp_business_messaging; the one offered on the page expires in 24 hours) → Webhook takes the callback address and verify string from harvest(info), subscribed to the messages field. Two hard rules to tell the user up front: **the other person must message you first**, and **you can only reply freely inside a 24-hour window** — after that only pre-approved templates. The test number can only message allow-listed numbers; going live needs Meta business verification and their own number. The WhatsApp API has no groups; direct messages only.
+- **Lark (Feishu international)**: the same product on a different cloud, console at open.larksuite.com. The credentials look the same and the system works out which cloud to use, so follow the Feishu steps.
+- **WeChat**: goes through Tencent's own iLink bot gateway — no console, no credentials, no public address, and not a third-party protocol, so no ban risk. There is exactly one step: build(aspect=channel, action=add, value="WeChat"), the system puts a QR code in the thread, the user scans it with WeChat on their phone, and you are in their WeChat. Do not open the computer, do not go looking for a developer platform, do not harvest (harvest errors out for WeChat). Three hard rules to state first: **direct messages only** (this gateway has no groups), **you can reply but never open** (a reply carries a receipt from the user's last message, so they have to speak first), and **text only for now** (ask them to send images, voice and files from the App). The code lasts a few minutes and the system replaces it automatically; if it is never scanned it lapses and you simply add again.
+- **WeCom**: see above — a different thing entirely. It is an in-house app for colleagues inside a company and cannot reach personal WeChat users outside it. "WeChat" means the former by default; "WeCom" means the latter. If it is unclear, ask.
 
-## 路线二：用户自己建、填卡
-build(aspect=channel, action=add, value="飞书")。系统发凭据卡，卡上有步骤和要填的项。你只说一句「按卡上的步骤建一个机器人，凭据填在卡上」。接上后同样要走第 4 步验收。用户填完系统自动接上并通知你。失败就把原因说成人话，让他核对后重填：request_credentials，integration 填平台名（如「飞书」），系统会重发标准卡（字段是固定的，不用你定）。
-
-## 收尾
-- 没跑过 channel_check 就不要说「接好了」。凭据能连 ≠ 用户找得到你，这两件事分开判断。
-- configure(target=bot, action=get) 能看到「IM」一栏：哪个平台接了、那边叫什么。
-- 提醒用户：在哪个 IM 都是同一个你，对话和事项只有一份；拍板卡片在 IM 里是按钮（企业微信里是编号，回数字）。
-- 哪一步卡住：路线一里把自己的标签拉到前台让用户看一眼、点一下；路线二让他截图或复述看到的界面，再给下一步。`,
+## Route two: the user creates it and fills in the card
+build(aspect=channel, action=add, value="Feishu"). The system sends the credential card, with the steps and the fields on it. All you say is "follow the steps on the card to create a bot, and put the credentials on the card". Step 4's verification still applies. When they finish, the system connects it and tells you. If it fails, say why in plain words and have them check and refill: request_credentials with integration set to the platform name (e.g. "Feishu") resends the standard card (the fields are fixed; you do not define them).`,
   },
   {
-    name: 'MCP 连接',
-    description: '用户想让 bot 连上邮箱、日历、Notion、GitHub、文件等外部服务时怎么接：能一键接的发授权卡，其余走 MCP 手动接入。',
-    body: `## 目的
-把外部服务接到用户身上，让它的能力变成你的工具。用户不需要懂 OAuth、IMAP、API、token，也不需要把任何凭据贴进对话。
+    name: 'Connecting an external service',
+    description:
+      'How to connect mail, calendars, Notion, GitHub, files and the rest: send an authorisation card when one-click works, otherwise connect it by hand over MCP.',
+    body: `## Purpose
+Attach an external service to the user so its abilities become your tools. They do not need to understand OAuth, IMAP, APIs or tokens, and they never paste a credential into the conversation.
 
-## 先看能不能一键接（首选）
-用 connect 工具一步到位：你调用，对话里出现一张授权卡，用户点一下、在浏览器登录并同意，回来就接好了，系统会通知你继续。几百个主流平台都支持，service 填平台的英文 slug：
-- 邮件 / 日历：gmail、googlecalendar、outlook
-- 文档 / 笔记 / 表格：notion、googledrive、googledocs、googlesheets、dropbox、airtable
-- 沟通：slack、lark（飞书）、discord
-- 开发 / 项目：github、linear、jira、trello、asana
-- 其他：hubspot、twitter、youtube……拿不准就试一下 slug，connect 会告诉你认不认识
-用户提到这些服务而没接时，直接 connect，不要先问「你用哪个邮箱」「走什么方式」。只有 connect 明确说不认识这个平台，再走下面的手动方式。
+## First see whether one click will do it (preferred)
+The connect tool does the whole thing: you call it, an authorisation card appears in the thread, the user clicks it, logs in and approves in their browser, and it is connected — the system then wakes you to continue. Several hundred mainstream platforms work this way; service takes the platform's slug:
+- Mail / calendar: gmail, googlecalendar, outlook
+- Docs / notes / sheets: notion, googledrive, googledocs, googlesheets, dropbox, airtable
+- Messaging: slack, lark, discord
+- Development / projects: github, linear, jira, trello, asana
+- Others: hubspot, twitter, youtube… if you are unsure, try the slug; connect will tell you whether it knows it
+When the user mentions one of these and it is not connected, just call connect. Do not ask "which mail provider do you use" or "how would you like to connect it" first. Only when connect says plainly that it does not know the platform do you fall back to the manual route below.
 
-## 原则：端到端
-凡是要用户去别处做一件事，给他能点的链接和到那一页之后的两三步，不要只说「去设置里开一下」。授权走 connect 卡；凭据走 request_credentials 卡（带 help 链接）；接好了系统会通知，用户什么都不用回来汇报。
+## Principle: end to end
+Whenever the user has to do something elsewhere, give them a link they can click and the two or three steps that follow on that page — never just "turn it on in settings". Authorisation goes through a connect card; credentials go through a request_credentials card (with a help link); when it is connected the system says so, and the user never has to come back and report.
 
-## 三步走
-1. 用户提需求（「整理邮件」「把飞书文档里的会议纪要汇总」）。
-2. 你判断要接哪个平台，先 connect 试一键接入：认识就出卡，用户点一下登录即接好。
-3. connect 说不认识，才手动接。顺序是「先搭桥，再要凭据」，不要反过来：
-   a. 先干活：有现成 MCP 服务器就用（下面有清单，没有就搜「<平台> MCP server」）；确实没有、而你有「外部 agent」，立刻用 delegate_agent 让它照该平台的开放接口写一个最小的 stdio MCP 服务器，只做用户这次要的一两个接口（例：QQ 邮箱 = IMAP 收 + SMTP 发），凭据一律从环境变量读，写到你的工作区里。
-   b. 用 build(aspect=mcp, action=add, value={"name":"…","command":"python3 /路径/server.py"}) 建连接。此时凭据还没有，状态是 error，正常。
-   c. 用 request_credentials 发一张凭据卡：fields 的 key 就是桥读的环境变量名，label 用人话，hint 写去哪拿（例：QQ 邮箱 → 设置 › 账户 › 开启 IMAP/SMTP 服务 → 16 位授权码）。用户填在卡上，值直接进连接，不经过对话。
-   d. 系统重连后通知你：成功就直接开始办事；失败就判断是凭据不对还是桥有 bug，分别重发凭据卡或让 agent 修。
-   全程不要让用户把密码、授权码、token 打在对话里；也不要先问一堆再动手，用户只该看到「我去搭一下」→ 一张凭据卡 → 「接好了」。没有外部 agent 时，如实说需要在「集成 › 外部 agent」里开启 Claude Code、Codex、Hermes、OpenCode 或 OpenClaw。
-connect 返回「还没开通」时，如实告诉用户这个产品暂时接不了它，不要引导他去生成 App 密码或 token。
+## Three steps
+1. The user asks for something ("sort my mail", "pull the meeting notes out of our Feishu docs").
+2. You work out which platform that needs, and try connect first: if it knows the platform, a card appears and one login connects it.
+3. Only if connect says it does not know it do you connect by hand. The order is "build the bridge, then ask for credentials", never the reverse:
+   a. Work first: use an existing MCP server if there is one (list below; otherwise search "<platform> MCP server"). If there genuinely is none and you have an external agent, use delegate_agent straight away to have it write a minimal stdio MCP server against that platform's public API — only the one or two endpoints the user needs this time (example: QQ Mail = IMAP receive + SMTP send), reading every credential from an environment variable, written into your own workspace.
+   b. Create the connection with build(aspect=mcp, action=add, value={"name":"…","command":"python3 /path/server.py"}). There are no credentials yet, so its status is error. That is expected.
+   c. Send a credential card with request_credentials: each field key is the environment variable the bridge reads, the label is plain language, and the hint says where to get it (QQ Mail → Settings › Account › enable IMAP/SMTP → the 16-character app password). The user fills in the card and the values go straight into the connection, never through the conversation.
+   d. The system reconnects and tells you: on success, start the work. On failure, decide whether the credential is wrong or the bridge is buggy, and either resend the card or have the agent fix it.
+   At no point does the user type a password, an app password or a token into the thread; and do not interrogate them before starting. All they should see is "let me wire that up" → one credential card → "connected". With no external agent available, say honestly that they need to enable Claude Code, Codex, Hermes, OpenCode or OpenClaw under Integrations › External agents.
+When connect says the platform is not enabled yet, tell the user plainly that the product cannot reach it for now. Do not walk them into generating an app password or a token instead.
 
-## 手动方式：MCP（第 3 步）
-MCP（Model Context Protocol）是把外部系统的能力包装成「工具」的标准。连上一个 MCP 服务器，它的工具就直接出现在你的工具列表里。
-- stdio：本地启动一个进程（大多是 npx 一行命令）。适合文件系统、本地数据库、需要本机登录态的东西。
-- http：一个远程地址（以 https:// 开头，通常以 /mcp 结尾）。适合 Notion、Linear、GitHub 等官方托管的 MCP，首次调用一般会走它们自己的 OAuth。
+## The manual route: MCP (step 3)
+MCP (Model Context Protocol) is the standard for wrapping an external system's abilities as "tools". Connect an MCP server and its tools appear directly in your tool list.
+- stdio: start a local process (usually one npx command). Right for filesystems, local databases, anything that needs a login on this machine.
+- http: a remote address (starts with https://, usually ends in /mcp). Right for Notion, Linear, GitHub and other officially hosted MCPs; the first call normally goes through their own OAuth.
 
-流程：
-1. 问清用户要连什么、想让你用它做什么，判断该用哪个 MCP 服务器。
-2. 需要凭据的，告诉用户去对应平台申请；凭据不要贴在对话里，stdio 类的放在启动命令的环境变量里，由用户在「集成」页填写。
-3. 用 build(aspect=mcp, action=add, value={"name":"…","command":"…"}) 或 value={"name":"…","url":"…"} 建连接，系统自动连上、列出工具数，并直接授权给你。库里已经有的（library search 能搜到）不要自己写，用 build(aspect=mcp, action=add, value=slug)。
-4. 在「你的集成」里看状态：ok 且有工具数即成功；error 时把报错原样告诉用户。工具名以连接名开头。
-6. 让用户说一句要用到它的话，实际跑一次验证。
+Flow:
+1. Establish what they want connected and what they want you to do with it, and pick the MCP server.
+2. If it needs credentials, tell the user where to apply for them. Credentials never go in the thread: for stdio they live in environment variables on the start command, which the user fills in on the Integrations page.
+3. Create the connection with build(aspect=mcp, action=add, value={"name":"…","command":"…"}) or value={"name":"…","url":"…"}. The system connects, lists the tool count and grants them to you. Anything already in the pool (findable with library search) should not be hand-written: build(aspect=mcp, action=add, value=slug).
+4. Check the status under "your integrations": ok with a tool count means it worked; on error, pass the error to the user verbatim. Tool names are prefixed with the connection name.
+5. Have the user say something that uses it, so it gets exercised once for real.
 
-常用 MCP 服务器：
-- 本地文件：npx -y @modelcontextprotocol/server-filesystem <允许访问的目录>
-- GitHub：npx -y @modelcontextprotocol/server-github（需要环境变量 GITHUB_PERSONAL_ACCESS_TOKEN）
-- Notion：官方托管 https://mcp.notion.com/mcp（http 方式）
-- Linear：https://mcp.linear.app/mcp
-- Slack 读写：npx -y @modelcontextprotocol/server-slack（需要 SLACK_BOT_TOKEN、SLACK_TEAM_ID）
-- 浏览器自动化：npx -y @playwright/mcp@latest
-- Postgres：npx -y @modelcontextprotocol/server-postgres <连接串>
-- 画布 / 白板类（Excalidraw、tldraw）：搜「<产品名> mcp server」，一般也是 npx 一行
+Common MCP servers:
+- Local files: npx -y @modelcontextprotocol/server-filesystem <allowed directory>
+- GitHub: npx -y @modelcontextprotocol/server-github (needs GITHUB_PERSONAL_ACCESS_TOKEN)
+- Notion: officially hosted at https://mcp.notion.com/mcp (http)
+- Linear: https://mcp.linear.app/mcp
+- Slack read/write: npx -y @modelcontextprotocol/server-slack (needs SLACK_BOT_TOKEN, SLACK_TEAM_ID)
+- Browser automation: npx -y @playwright/mcp@latest
+- Postgres: npx -y @modelcontextprotocol/server-postgres <connection string>
+- Canvas / whiteboard (Excalidraw, tldraw): search "<product> mcp server"; usually one npx line too
 
-## 国内平台（都不在一键范围，只能第 3 步手动接）
-要凭据一律用 request_credentials 发卡，help.url 给下面这些直达链接，steps 写到了那一页点什么。用户不该自己找菜单。
-- 飞书 / Lark：应用列表 https://open.feishu.cn/app → 创建「企业自建应用」→「凭证与基础信息」里的 App ID 和 App Secret；在「权限管理」开通要用的范围（云文档 docx / drive、日历 calendar、通讯录 contact 等），然后「版本管理与发布」发布一版才生效。官方 MCP：npx -y @larksuiteoapi/lark-mcp mcp -a <App ID> -s <App Secret>；默认以应用身份访问，只能看应用被授权的文档，要读用户自己的文档需加 --oauth 走一次用户授权（会弹浏览器）。飞书作为 IM 渠道另有产品自带的接法，在「集成 › 渠道」里，用的是同一对 App ID / Secret。
-- 钉钉：开发者后台 https://open-dev.dingtalk.com/fe/app → 应用开发 → 企业内部应用 → 凭证里的 Client ID（原 AppKey）和 Client Secret（原 AppSecret）；在「权限管理」申请对应接口权限。官方没有稳定的 MCP，社区有零散实现，找不到可用的就按第 3 步写最小服务。
-- 企业微信：管理后台应用页 https://work.weixin.qq.com/wework_admin/frame#apps → 应用管理 → 自建应用 → AgentId 和 Secret；企业 ID（CorpID）在「我的企业」页底部。坑：接口调用要把服务器公网 IP 加进应用的「可信 IP」，本机无固定公网 IP 时会 60020 报错。没有官方 MCP。
-- QQ 邮箱 / 163 / 126 / 企业邮箱：都走 IMAP + SMTP，凭据是「授权码」不是登录密码。QQ：https://mail.qq.com → 设置 › 账户 › 「IMAP/SMTP 服务」点开启 → 短信验证 → 16 位授权码（服务器 imap.qq.com:993 / smtp.qq.com:465）。163：https://mail.163.com → 设置 › POP3/SMTP/IMAP › 开启并「新增授权密码」（imap.163.com:993 / smtp.163.com:465）。没有现成 MCP，按第 3 步让 agent 写一个几十行的 IMAP/SMTP 桥，凭据字段 MAIL_ADDRESS、MAIL_AUTH_CODE。
-- 微信：作为 IM 渠道，产品自带（build(aspect=channel, action=add, value="微信") 发二维码，走腾讯的 iLink 网关，扫码即通），不用在这里手动接。要读微信的其它数据（公众号后台、微信客服、支付）没有现成 MCP，按第 3 步自己写，凭据用 request_credentials 发卡。
-- 腾讯文档、语雀、Notion 国内版等：先搜「<平台> MCP server」，一般是 npx 一行加一个 token 环境变量；没有就按第 3 步。
+## Chinese platforms (none of them are one-click; step 3 only)
+Credentials always go through a request_credentials card, with help.url pointing at the direct links below and steps saying what to click once there. The user should not have to hunt through menus.
+- Feishu / Lark: app list https://open.feishu.cn/app → create a custom in-house app → App ID and App Secret under "credentials and basic info"; enable the scopes you need under "permissions" (docs docx / drive, calendar, contact…), then publish a version under "version management and release" for it to take effect. Official MCP: npx -y @larksuiteoapi/lark-mcp mcp -a <App ID> -s <App Secret>; it acts as the app by default and only sees documents the app was granted, so reading the user's own documents needs --oauth and one user authorisation (which opens a browser). Feishu as a messenger channel has its own built-in path under Integrations › Channels, using the same App ID / Secret pair.
+- DingTalk: developer console https://open-dev.dingtalk.com/fe/app → app development → in-house app → Client ID (formerly AppKey) and Client Secret under credentials; request the API scopes under "permissions". There is no stable official MCP and community ones are patchy; if you cannot find a usable one, write the minimal server per step 3.
+- WeCom: admin console apps page https://work.weixin.qq.com/wework_admin/frame#apps → app management → custom app → AgentId and Secret; the Corp ID is at the bottom of "My Company". Trap: API calls require the server's public IP in the app's trusted IP list, and a machine without a fixed public IP gets error 60020. No official MCP.
+- QQ Mail / 163 / 126 / company mailboxes: all IMAP + SMTP, and the credential is an "app password", not the login password. QQ: https://mail.qq.com → Settings › Account › enable IMAP/SMTP → SMS verification → a 16-character app password (imap.qq.com:993 / smtp.qq.com:465). 163: https://mail.163.com → Settings › POP3/SMTP/IMAP › enable and add an app password (imap.163.com:993 / smtp.163.com:465). No ready-made MCP: per step 3, have an agent write a few dozen lines of IMAP/SMTP bridge with credential fields MAIL_ADDRESS and MAIL_AUTH_CODE.
+- WeChat: as a messenger channel it is built in (build(aspect=channel, action=add, value="WeChat") sends a QR code through Tencent's iLink gateway and scanning connects it) — do not wire it up by hand here. For other WeChat data (official-account console, WeChat Customer Service, payments) there is no ready-made MCP: write one per step 3 and send a credential card.
+- Tencent Docs, Yuque, and the like: search "<platform> MCP server" first; usually one npx line plus a token environment variable. Otherwise step 3.
 
-常见报错：
-- spawn npx ENOENT：本机没有 Node.js / npx，让用户先装 Node 22+。
-- 连接超时或 401/403：token 没配或过期；让用户重新申请后在集成里编辑连接。
-- 0 个工具：服务器起来了但没登录态，让用户按该 MCP 的说明完成首次授权。
+Common errors:
+- spawn npx ENOENT: no Node.js / npx on this machine; have the user install Node 22+.
+- Timeout or 401/403: the token is missing or expired; have them get a new one and edit the connection under Integrations.
+- Zero tools: the server started but has no login; have the user complete that MCP's first-run authorisation.
 
-## 边界
-- 每个连接都是用户自己的账号，权限跟用户一样大。涉及删除、发送、付款类工具时，仍然按自主度走 act / ask_user 的确认规则。
-- 不确定某个平台有没有 MCP 时，如实说，并建议用户搜「<平台> MCP server」。`,
+## Boundaries
+- Every connection is the user's own account, with exactly their permissions. Tools that delete, send or pay still go through the act / ask_user rules for your autonomy.
+- When you do not know whether a platform has an MCP, say so, and suggest they search "<platform> MCP server".`,
   },
   {
-    name: 'bot 在哪台机器上',
-    description: '用户问「bot 跑在哪」「搬到云上」「搬回我电脑」「换一台机器」「那台机器还要不要留着」时怎么回答、怎么带着做。两个方向的条件完全不同，别拿搬出去的条件回答搬回来。',
-    body: `## 目的
-bot 跑在某一台机器上：用户自己的电脑，或者一台不关机的云机器。这一页是 设置 › 云电脑（也叫「bot 们在哪台机器上干活」）。用户问起或要求换地方时，照这份手册答。
+    name: 'Which machine the bots run on',
+    description:
+      'How to answer and how to help when the user asks "where do the bots run", "move them to the cloud", "bring them back to my computer", "switch machines", "do I still need that machine". The two directions have completely different requirements — never answer one with the other\'s.',
+    body: `## Purpose
+The bots run on one machine: the user's own computer, or a cloud machine that never sleeps. This is the page at Settings › Cloud computer. When the user asks about it or wants to move, follow this manual.
 
-## 先分清方向，这是最容易答错的地方
-**搬出去（本机 → 云机器）** 需要一台机器：Linux、24 小时开着、有固定 IP 或域名、能 ssh 进去。没有就带他买一台（管家有《云机器配置》那份手册）。
+## Get the direction straight; this is where it goes wrong
+**Moving out (this computer → a cloud machine)** needs a machine: Linux, on 24 hours a day, a fixed IP or domain, reachable over ssh. If they do not have one, walk them through getting one (the steward carries the "Setting up a cloud machine" manual).
 
-**搬回来（云机器 → 本机）不需要任何条件。** 不需要固定 IP，不需要 ssh，不需要那台电脑 24 小时开着——他的电脑上开着 Steadbot 就行，而他正在跟你说话，说明它开着。用户说「搬回我的电脑」时，**不要反问他电脑是不是 Linux、有没有固定 IP、是不是笔记本**，那是另一个方向的条件。直接告诉他去 设置 › 云电脑，在那台机器那一行点「搬回来」，几分钟，聊天记录、记忆、技能、工作区都跟着回来。
+**Coming home (cloud machine → this computer) requires nothing at all.** No fixed IP, no ssh, no always-on computer — Steadbot running on their computer is the whole requirement, and they are talking to you, which means it is running. When the user says "bring them back to my computer", **do not ask whether their computer is Linux, whether it has a fixed IP, or whether it is a laptop**. Those belong to the other direction. Just tell them: Settings › Cloud computer, press "bring them back" on that machine's row. A few minutes, and the history, memory, skills and workspaces come with them.
 
-唯一要说清的代价，一句话就够：**搬回电脑之后，电脑关了或睡了，bot 就停了**；在云机器上它一直在。他要是本来就想要「关了电脑也别停」，那就别搬回来。
+There is exactly one cost worth stating, in one sentence: **once they are back on the computer, closing or sleeping it stops the bots**. On a cloud machine they keep going. If what they actually want is "keep going with the laptop shut", they should not move back.
 
-## 机器是留着的
-云机器配好之后就一直在那一页列着，跟 bot 现在在哪儿是两件事：
-- bot 在本机时，那台机器那一行是「空着」，随时点「把 bot 搬过去」，不用重新装一遍。
-- 「删掉」只是这台设备上不再记它的地址和连接码；**那台机器上的服务还在跑**，要彻底停掉得去机器上停（或者让管家去停），云厂商那边的机器也还在计费。
-- 可以配多台，一台一行；bot 只会在其中一台上。
+## The machine stays
+Once a cloud machine is configured it stays listed on that page, which is a separate thing from where the bots are right now:
+- With the bots at home, that machine's row reads "empty" and one press moves them there. No reinstall.
+- "Delete" only means this device stops remembering its address and pairing code. **The service on that machine keeps running**, and stopping it for real means stopping it on the machine (or having the steward do it). The cloud provider keeps billing either way.
+- Several machines can be configured, one row each; the bots are only ever on one of them.
 
-## 顺带记住的事实
-- 模型钥匙跟着干活的机器走：搬家会把配置带过去，所以搬完不用重新填。
-- 外部 agent（Claude Code 这些）永远只在用户自己的电脑上，bot 在云上时是借用；电脑关了就用不了，这跟搬不搬家无关。
-- 搬家过程中别让用户关窗口；搬完 App 会自己切过去。`,
+## Facts worth carrying
+- Model keys follow the machine that does the work: a move takes the configuration along, so nothing needs re-entering afterwards.
+- External agents (Claude Code and friends) only ever live on the user's own computer; a bot in the cloud borrows them. When the computer is off they are unavailable, and that has nothing to do with moving.
+- Do not let the user close the window mid-move; when it finishes the App switches over by itself.`,
   },
   {
-    name: '外部 agent 接入',
-    description: '用户想让 bot 会写代码、跑脚本、批量处理文件或做深度调研时，接入 Claude Code、Codex、Hermes、OpenCode、OpenClaw 这类 agent 并授权给 bot 调用。',
-    body: `## 目的
-把外部 agent 变成 bot 的一个工具。bot 用 delegate_agent 把一个完整任务交给它，在 bot 自己的工作区里执行，拿回结果。支持五个：Claude Code、Codex、Hermes、OpenCode、OpenClaw。
+    name: 'Connecting an external agent',
+    description:
+      'How to connect Claude Code, Codex, Hermes, OpenCode or OpenClaw and grant it to a bot, when the user wants the bot to write code, run scripts, process files in bulk or do deep research.',
+    body: `## Purpose
+Turn an external agent into one of your tools. You hand it a whole task with delegate_agent, it runs inside your own workspace, and you get the result back. Five are supported: Claude Code, Codex, Hermes, OpenCode, OpenClaw.
 
-## 两种接法（产品自动选，优先 ACP）
-- ACP：像编辑器接 agent 一样。过程里 agent 调了什么工具用户都看得见；要跑命令、删文件、改工作区外的文件时会变成一张卡片问用户；同一个 agent 的会话保留，追加任务接着上次说。Hermes、OpenCode、OpenClaw 自带 ACP；Claude Code、Codex 通过 Zed 维护的适配器接入（有 npx 即可，首次会下载）。
-- 一次性调用：本机只有 CLI 没有 ACP 时的兜底。一次一个进程，只有最终输出。
-「集成 › 外部 agent」每一行的说明写着当前是哪种。
+## Two ways to connect (the product picks; ACP preferred)
+- ACP: the way an editor connects an agent. The user sees every tool the agent calls; running a command, deleting a file or touching anything outside the workspace turns into a card for them to approve; the session persists, so a follow-up task continues from the last one. Hermes, OpenCode and OpenClaw speak ACP natively; Claude Code and Codex connect through the adapters Zed maintains (npx is enough; the first run downloads them).
+- One-shot: the fallback when the machine has the CLI but no ACP. One process per task, final output only.
+Each row under Integrations › External agents says which one it is on.
 
-## 何时使用
-用户说「让你能写代码」「帮我跑个脚本」「批量改一堆文件」「深挖一下这个项目」「接一下 Claude Code / Codex / Hermes」。
+## When to use this
+The user says "make you able to write code", "run a script for me", "change a pile of files", "dig into this project", "connect Claude Code / Codex / Hermes".
 
-## 流程
-1. 看系统提示词里「你的集成」中的「外部 agent」：ok 表示本机已装好；off 表示没有对应命令。
-2. 没装的，按下面步骤带用户安装并登录，装完让用户在「集成」页点「重新检测」，或直接告诉你，你再 get 一次确认变成 ok。
-3. build(aspect=agent, action=add, value="Claude Code") 让它归你用。
-4. 之后 bot 就能用 delegate_agent 了。让用户说一个具体任务试一下，比如「把 workspace 里的 csv 合并成一个表」。
+## Flow
+1. Look at "external agents" under "your integrations" in the system prompt: ok means it is installed on this machine, off means the command is not there.
+2. For what is not installed, walk the user through installing and logging in below, then have them press "check again" on the Integrations page, or just tell you, and you confirm it has turned ok.
+3. build(aspect=agent, action=add, value="Claude Code") to make it yours.
+4. From then on delegate_agent works. Have the user name a concrete task to try it, like "merge the csvs in the workspace into one table".
 
-## 安装与登录
-- Claude Code：npm install -g @anthropic-ai/claude-code；终端运行 claude 按提示登录（或设 ANTHROPIC_API_KEY）；验证 claude -p "说 hi"。
-- Codex：npm install -g @openai/codex；终端 codex login；验证 codex exec "说 hi"。
-- Hermes：按官方说明安装后终端 hermes setup 配好模型；验证 hermes chat -q "说 hi" --oneshot。
-- OpenCode：npm install -g opencode-ai；终端 opencode auth login；验证 opencode run "说 hi"。
-- OpenClaw：npm install -g openclaw；终端 openclaw login；验证 openclaw agent --local -m "说 hi"。
-- 自定义：任何「命令行一次性接收任务、输出结果」的程序都能接：集成里新增 agent，填命令和参数，任务文本作为最后一个参数传入。
+## Installing and logging in
+- Claude Code: npm install -g @anthropic-ai/claude-code; run claude in a terminal and follow the prompts (or set ANTHROPIC_API_KEY); verify with claude -p "say hi".
+- Codex: npm install -g @openai/codex; codex login in a terminal; verify with codex exec "say hi".
+- Hermes: install per its docs, then hermes setup to configure a model; verify with hermes chat -q "say hi" --oneshot.
+- OpenCode: npm install -g opencode-ai; opencode auth login; verify with opencode run "say hi".
+- OpenClaw: npm install -g openclaw; openclaw login; verify with openclaw agent --local -m "say hi".
+- Custom: anything that takes a task on the command line and prints a result can be connected. Add an agent under Integrations, give the command and arguments, and the task text is passed as the last argument.
 
-## bot 在云端机器上时：借用户电脑上的 agent（本机转接）
-agent 和它的登录态只在用户的电脑上，不复制到云端。用户电脑上开着 Steadbot 时，电脑会自动连上云端机器，把装在电脑上的 agent 借给 bot 用：任务发到电脑上执行，bot 的工作区先带过去、agent 写的文件再带回来，权限确认照样走 bot 的自主度和用户的卡片。
-- 「集成 › 外部 agent」一行写着「装在你的电脑上 · 经它调用」的就是这种；「运行位置」页能看到电脑在不在线。
-- 电脑关了、睡了、或电脑上的 Steadbot 没开：这些 agent 暂时用不了，bot 别的事照常。用户问为什么用不了，答案就是这一句，让他打开电脑上的 Steadbot（终端里输 steadbot）即可，不用重装、不用搬回来。
-- 要装新 agent，装在电脑上，然后点那一行的「重新检测」。
+## When the bots are on a cloud machine: borrowing the agents on the user's computer
+An agent and its login live only on the user's computer and are never copied to the cloud. While Steadbot is running there, that computer connects to the cloud machine and lends its agents to the bots: the task is executed on the computer, your workspace goes over first and the files the agent writes come back, and permission prompts still follow your autonomy and the user's cards.
+- A row under Integrations › External agents that reads "installed on your computer · called through it" is one of these; the runtime page shows whether the computer is online.
+- Computer off, asleep, or Steadbot not running on it: those agents are unavailable for now and everything else carries on. When the user asks why, that one sentence is the answer — have them start Steadbot on their computer (type steadbot in a terminal). No reinstall, no moving home.
+- To add a new agent, install it on the computer, then press "check again" on that row.
 
-## 权限怎么定
-ACP 下 agent 每次动手前会问。产品替 bot 决定：读、搜、看网页一律放行；改工作区里的文件放行；跑命令、删文件、改工作区外的文件，看 bot 的自主度——自主度是「do」的自己放行，否则弹卡片让用户拍板，用户可以选「允许，以后不用问」。
+## How permissions are decided
+Under ACP the agent asks before each action. The product answers on your behalf: reading, searching and fetching pages are always allowed; editing files inside the workspace is allowed; running commands, deleting files and touching anything outside the workspace follow your autonomy — "just do it" allows them, anything else raises a card for the user, who can choose "allow, and stop asking".
 
-## 怎么把任务交给 agent
-- 任务描述要自包含：目标、输入在哪、期望产出、约束。agent 看不到你们的聊天记录。
-- 一次交一个完整任务，等结果回来再决定下一步；追加要求直接再交一次，会接着同一个会话；要彻底重来用 fresh=true。
-- 结果里有文件产出，告诉用户文件在该 bot 的工作区（~/.crew/bots/<botId>/workspace）。
-- agent 说没登录时，把它给的那句登录方法原样转给用户，不要自己去改配置。`,
+## How to hand over a task
+- The description has to stand alone: the goal, where the input is, what you expect back, the constraints. The agent cannot see your conversation.
+- Hand over one whole task and wait for the result before deciding the next step. A follow-up is simply another handover and continues the same session; to start clean use fresh=true.
+- When the result includes files, tell the user they are in that bot's workspace (~/.crew/bots/<botId>/workspace).
+- If the agent says it is not logged in, pass its own instructions to the user verbatim. Do not go and edit its configuration yourself.`,
   },
 ];
 
 /** The steward's manual: where to get a machine that stays on, what to pick, where the IP / password / firewall live. Only the steward carries it. */
 export const STEWARD_SKILL: { name: string; description: string; body: string } = {
-  name: '云机器配置',
-  description: '管家的运维手册：怎么带用户弄到一台 24 小时开着的 Linux 机器，怎么在上面装好服务、诊断和修复常见问题（网络、镜像源、MTU、防火墙、Docker），怎么把 bot 们搬过去。',
-  body: `## 目的
-用户的 bot 现在跑在他自己的电脑上，电脑一关就停。要让 bot 一直在线，需要一台不关机的 Linux 机器。这份手册是你（管家）的运维手册：先动手，看输出，再决定下一步；只在必须由人做的地方才让用户动手。
+  name: 'Setting up a cloud machine',
+  description:
+    "The steward's operations manual: how to get the user a Linux machine that stays on, install the service on it, diagnose and fix the usual problems (network, mirrors, MTU, firewall, Docker), and move the bots over.",
+  body: `## Purpose
+The user's bots currently run on their own computer, and stop when it does. Staying online needs a Linux machine that does not shut down. This is your operations manual: act first, read the output, then decide the next step, and only put work on the user where a person is genuinely required.
 
-## 一、弄到机器
-- 没有机器、图省事：腾讯云「轻量应用服务器」https://cloud.tencent.com/product/lighthouse 。创建方式「基于操作系统镜像」，Ubuntu 22.04；地域：模型走境外服务或要配域名选香港 / 境外节点，否则选离用户近的；套餐 2 核 4G；登录方式「自定义密码」。买好后实例卡片上有公网 IP，用户名 ubuntu，密码忘了在实例页「重置密码」。
-- 阿里云「轻量应用服务器」https://www.aliyun.com/product/swas ：实例「通用型」（不要智能体专用型），镜像 Ubuntu 22.04，2 核 4G；用户名 root，「重置密码」设密码。
-- 自己的机器：Linux（Ubuntu / Debian 都行）、24 小时开、固定 IP、能 ssh。用户名多为 root。
-- 不用提前装任何东西。
+## 1. Getting a machine
+- No machine, wants the easy path: Tencent Cloud Lighthouse https://cloud.tencent.com/product/lighthouse. Create from an OS image, Ubuntu 22.04; region: Hong Kong or an overseas node if the models are overseas or a domain is wanted, otherwise whatever is closest to the user; 2 vCPU / 4 GB; login method "custom password". After purchase the instance card shows the public IP; the username is ubuntu, and a forgotten password is reset on the instance page.
+- Alibaba Cloud Simple Application Server https://www.aliyun.com/product/swas: instance type "general" (not the agent-specific one), image Ubuntu 22.04, 2 vCPU / 4 GB; username root, set a password with "reset password".
+- Their own machine: Linux (Ubuntu or Debian), on 24 hours, fixed IP, reachable over ssh. Usually root.
+- Nothing needs installing in advance.
 
-## 二、连接
-machine_card(stage=connect)。用户填完、连上后，系统把体检发给你（系统、CPU、内存、磁盘、Docker、网卡 MTU、sudo、GitHub / Docker Hub 通不通、有没有装过）。读一遍，心里有数：
-- 内存 < 2G：能装，但要加 swap（见对策）。
-- 磁盘可用 < 5G：先清（apt clean、docker system prune）或让用户换机器。
-- GitHub 不通：构建时技能库拉不到，装完没有内置技能库，不致命；Docker Hub 不通：拉不了基础镜像，要配镜像源（见对策）。
-- 已装过一份：直接 machine_pair，通了就发搬家卡。
-连不上的常见原因：用户名 / 密码错（腾讯云是 ubuntu、阿里云是 root；密码去控制台重置）；IP 抄错或机器没开机（等一分钟）；22 端口被防火墙拦（云厂商默认放开，自己的机器要自己放）。
+## 2. Connecting
+machine_card(stage=connect). Once they fill it in and it connects, the system hands you a health report (OS, CPU, memory, disk, Docker, NIC MTU, sudo, whether GitHub and Docker Hub are reachable, whether it has been installed before). Read it:
+- Memory < 2 GB: installable, but add swap (see remedies).
+- Free disk < 5 GB: clean up first (apt clean, docker system prune) or have them use a bigger machine.
+- GitHub unreachable: the skill library cannot be fetched during the build, so it ends up without the bundled pool. Not fatal. Docker Hub unreachable: base images cannot be pulled and a mirror is needed (see remedies).
+- Already installed: go straight to machine_pair, and if it answers, send the move card.
+Why connections fail, usually: wrong username or password (ubuntu on Tencent, root on Alibaba; reset it in the console); a mistyped IP or a machine that is not up yet (wait a minute); port 22 blocked by a firewall (cloud providers open it by default; their own machine is their own problem).
 
-## 三、标准安装流程
-1. machine_probe：看大包能不能过。
-2. 需要就调 MTU（对策里的命令），并在第 4 步给安装脚本带 CREW_MTU=1300。
-3. machine_upload。
-4. machine_ssh：sudo env CREW_MTU=1300 bash /opt/crew/crew-server/deploy/install.sh （不需要 MTU 时去掉 CREW_MTU）。timeout_s 给 1500。它会装 Docker（缺的话）、构建镜像、启动服务、写好配对信息。看输出末尾有没有「装好了」。
-5. machine_pair：读回地址，从外面测。
-6. 访问不到端口 → 让用户去云控制台「防火墙」加规则（TCP、端口 5200、来源全部）。这一步只能用户做。做完 machine_probe 复查。
-7. 通了 → machine_card(stage=move)。用户点完，App 自动切到那台机器，你在那边继续。
+## 3. The standard install
+1. machine_probe: see whether large packets get through.
+2. Adjust the MTU if needed (command under remedies), and pass CREW_MTU=1300 to the installer in step 4.
+3. machine_upload.
+4. machine_ssh: sudo env CREW_MTU=1300 bash /opt/crew/crew-server/deploy/install.sh (drop CREW_MTU when it is not needed). Give timeout_s 1500. It installs Docker if missing, builds the image, starts the service and writes the pairing details. Check the end of the output for CREW_INSTALL_OK.
+5. machine_pair: read the address back and test it from outside.
+6. Port unreachable → have the user add a firewall rule in the cloud console (TCP, port 5200, any source). Only they can do this. Re-check with machine_probe afterwards.
+7. Reachable → machine_card(stage=move). Once they press it the App switches to that machine and you carry on over there.
 
-安装脚本、Docker 构建这类要跑几分钟、可能中途出状况的步骤，用 vigil 值守：先在后台把命令跑起来（machine_ssh，命令末尾加 >/tmp/install.log 2>&1 & 或用 nohup），然后 vigil(action=start, goal='把服务装起来', watching='安装日志和服务健康', check_kind=machine, check_command='tail -n 30 /tmp/install.log; echo ---; curl -s -o /dev/null -w %{http_code} http://127.0.0.1:5200/health', every_s=30)。系统只在日志有变化或健康检查异常时叫醒你，你看一眼、有问题就修、装好了就 machine_pair 并 vigil(action=stop)。这样长时间安装也不会把你卡住。
+For anything that takes minutes and can go wrong halfway — the install script, the Docker build — use vigil: start the command in the background (machine_ssh with >/tmp/install.log 2>&1 & or nohup), then vigil(action=start, goal='get the service installed', watching='install log and service health', check_kind=machine, check_command='tail -n 30 /tmp/install.log; echo ---; curl -s -o /dev/null -w %{http_code} http://127.0.0.1:5200/health', every_s=30). The system only wakes you when the log changes or health looks wrong; you glance, fix if needed, and when it is up you machine_pair and vigil(action=stop). That way a long install never blocks you.
 
-## 四、对策（看到什么，做什么）
-- 上传卡住 / 第一块传不过去；或 machine_probe 报 MTU 黑洞：在机器上执行
+## 4. Remedies (what you see, what you do)
+- Upload stalls, or the first chunk never lands, or machine_probe reports an MTU black hole: on the machine, run
   sudo ip link set dev "$(ip route show default | awk '/default/{print $5; exit}')" mtu 1300
-  然后重试上传；安装脚本带 CREW_MTU=1300，它会把这个设置固化并让容器同样用 1300（否则搬家后 App 直连也会卡）。
-- 装 Docker 失败 / get.docker.com 超时（多见于国内地域）：curl -fsSL https://get.docker.com | sudo sh -s -- --mirror Aliyun ；或 sudo apt-get install -y docker.io docker-compose-plugin 。
-- docker pull 慢或失败（Docker Hub 不通）：写 /etc/docker/daemon.json 加 "registry-mirrors": ["https://docker.m.daocloud.io","https://dockerproxy.com"]（已有 mtu 等键要保留，用 python3 合并），sudo systemctl restart docker，再重跑安装脚本。
-- apt 慢：把 /etc/apt/sources.list 里的 archive.ubuntu.com 换成 mirrors.aliyun.com（sed -i），apt-get update。
-- 内存不足（构建时被 kill、OOM）：加 2G swap：sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab 。
-- 磁盘满：sudo apt-get clean; sudo docker system prune -af ；还不够让用户换更大的盘。
-- 5200 端口被占：ss -ltnp 看是谁；是旧的 crew 容器就 docker compose -f /opt/crew/crew-server/deploy/docker-compose.yml down 再装。
-- 容器起了但 health 不通（在机器上 curl -s localhost:5200/health 没有 {"ok":true}）：docker compose -f /opt/crew/crew-server/deploy/docker-compose.yml logs --tail 100 crew 看日志；常见是模型密钥没带过去（搬家会带，装完空跑是正常的）或端口冲突。
-- 「需要管理员权限 / sudo 失败」：让用户换 root 或有 sudo 的账号，重新发连接卡。
-- 命令超时：看是卡在网络（下载）还是死锁；网络就换镜像源，死锁就 kill 后重跑。
-- 同一个问题修两次没修好：停下，用一两句话告诉用户你看到的和你的判断，给两个选项（重试 / 换地域重买）。
+  then retry the upload, and pass CREW_MTU=1300 to the installer so the setting is made permanent and the container uses 1300 too (otherwise the App's direct connection stalls after the move).
+- Docker install fails / get.docker.com times out (common in mainland regions): curl -fsSL https://get.docker.com | sudo sh -s -- --mirror Aliyun, or sudo apt-get install -y docker.io docker-compose-plugin.
+- docker pull slow or failing (Docker Hub unreachable): write "registry-mirrors": ["https://docker.m.daocloud.io","https://dockerproxy.com"] into /etc/docker/daemon.json (keep existing keys like mtu; merge with python3), sudo systemctl restart docker, then re-run the installer.
+- apt slow: replace archive.ubuntu.com with mirrors.aliyun.com in /etc/apt/sources.list (sed -i), then apt-get update.
+- Out of memory (killed during the build, OOM): add 2 GB of swap with sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile && echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab.
+- Disk full: sudo apt-get clean; sudo docker system prune -af. If that is not enough, have them attach a bigger disk.
+- Port 5200 taken: ss -ltnp to see by what; if it is an old crew container, docker compose -f /opt/crew/crew-server/deploy/docker-compose.yml down and install again.
+- Container up but health failing (curl -s localhost:5200/health on the machine does not return {"ok":true}): docker compose -f /opt/crew/crew-server/deploy/docker-compose.yml logs --tail 100 crew. Usually the model key did not come across (a move brings it; a fresh install with nothing is normal) or a port conflict.
+- "Needs administrator privileges / sudo failed": have them use root or an account with sudo, and send a fresh connection card.
+- Command timed out: work out whether it is stuck on the network (a download) or deadlocked; a network problem means a mirror, a deadlock means kill and re-run.
+- Same problem twice without fixing it: stop. Tell the user in a sentence or two what you are seeing and what you think, and give two options (retry, or buy again in a different region).
 
-## 五、跟用户怎么说
-- 装的过程不汇报每一步；用户在卡片里能看到命令和输出。装完、卡住、要他动手（放防火墙、换机器、重填密码）时才说话。
-- 一次一件事，说人话，不贴日志，不让他敲命令，不解释「MTU」「Docker」是什么，除非他问。
-- 搬过去之后的事实：这台电脑关机也没关系；聊天记录、记忆、技能、工作区都过去了。
+## 5. How to talk to the user
+- Do not report every step of the install; they can see the commands and output on the card. Speak when it is done, when it is stuck, or when you need them (open the firewall, change machine, re-enter the password).
+- One thing at a time, in plain words. No logs, no commands for them to type, no explaining what "MTU" or "Docker" is unless they ask.
+- Facts for after the move: it no longer matters if their computer shuts down, and the history, memory, skills and workspaces all went over.
 
-## 六、搬回本机 / 机器怎么留着
-这一节是反方向，条件完全不同，别拿上面第一节的要求去回答它。
-- **搬回本机不需要任何条件**：不要固定 IP、不要 ssh、不要 24 小时开机。用户电脑上开着 Steadbot 就行。让他在 设置 › 云电脑 里那台机器那一行点「搬回来」，或者你直接告诉他这一句。唯一的代价是：电脑关了 bot 就停。
-- 用户说「搬回我的电脑」时**不要反问他电脑是不是 Linux、有没有固定 IP**——那是搬出去的条件。
-- 机器配好之后一直留在那一页：bot 搬回本机之后它是「空着」，随时一键再搬过去，不用重装。
-- 那一行的「删掉」只是本地不再记它的地址和连接码，机器上的服务还在跑、云厂商还在计费；用户说「不要这台机器了」要问清是哪一种，要停服务就去机器上 docker compose -f /opt/crew/crew-server/deploy/docker-compose.yml down。`,
+## 6. Coming home, and what happens to the machine
+This section is the other direction, with completely different requirements. Never answer it with section 1's.
+- **Coming home requires nothing**: no fixed IP, no ssh, no always-on computer. Steadbot running on their computer is enough. Have them press "bring them back" on that machine's row under Settings › Cloud computer, or just tell them that sentence.
+- When the user says "bring them back to my computer", **do not ask whether their computer is Linux or has a fixed IP** — that is the outbound direction. The one cost worth stating: with the bots at home, closing the computer stops them.
+- A configured machine stays on that page: with the bots at home its row reads "empty", and one press sends them back without reinstalling.
+- "Delete" on that row only stops this device from remembering its address and pairing code. The service on the machine keeps running and the provider keeps billing. When the user says they are done with a machine, find out which they mean; stopping the service for real is docker compose -f /opt/crew/crew-server/deploy/docker-compose.yml down on the machine.`,
 };
 
 /** Built-in manuals belong to the product: they are (re)written at every start so improvements ship. */
