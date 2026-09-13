@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="bot-crew/public/favicon.svg" width="54" alt="">
-
 <h1>Steadbot</h1>
 
 **Open-source AI coworkers that keep working after you close your laptop.**

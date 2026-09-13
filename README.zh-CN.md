@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="bot-crew/public/favicon.svg" width="52" alt="">
-
 # Steadbot
 
 **开源的 AI 同事——你合上笔记本，它们还在干活。**
