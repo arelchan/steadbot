@@ -109,3 +109,7 @@ Address: ${public_url}
 $( [ -z "${DOMAIN:-}" ] && echo "Note: this is plain HTTP. On the public internet, point a domain here and re-run: DOMAIN=your.domain bash deploy/install.sh" )
 Running this script again keeps the pairing code and only upgrades. Logs: docker compose logs -f crew
 OUT
+
+# Machine-readable end marker: the App's upgrade path greps for this, so that translating the
+# human lines above can never turn a finished install into a reported failure.
+echo CREW_INSTALL_OK

@@ -221,7 +221,10 @@ async function applyOnMachine(l: MachineLink, changed: string[], log: (s: string
   if (heavy) {
     log('依赖或镜像定义变了，要重建镜像（几分钟）…');
     const r = await root(l, `cd ${CHECKOUT}/crew-server/deploy && CREW_COMMIT=$(git -C ${CHECKOUT} rev-parse HEAD) bash ./install.sh`, 45 * 60_000);
-    if (!/装好了/.test(clean(r.out))) throw new Error(`重建失败：${clean(r.out).trim().slice(-240)}`);
+    // install.sh says it finished with a sentinel, not with a sentence: the human line it prints is translated,
+    // and matching on that turned a successful rebuild into "重建失败" the day the script learned English.
+    // `装好了` stays as a fallback so a machine still running an older install.sh keeps working.
+    if (!/CREW_INSTALL_OK|装好了/.test(clean(r.out))) throw new Error(`重建失败：${clean(r.out).trim().slice(-240)}`);
     return;
   }
   log('只是代码变了，重启容器就行（几秒）…');
