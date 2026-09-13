@@ -11,8 +11,16 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![CI](https://github.com/arelchan/steadbot/actions/workflows/ci.yml/badge.svg)](https://github.com/arelchan/steadbot/actions/workflows/ci.yml)
 [![Node](https://img.shields.io/badge/node-%E2%89%A5%2022-brightgreen.svg)](https://nodejs.org)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-orange.svg)](.github/CONTRIBUTING.md)
+[![Stars](https://img.shields.io/github/stars/arelchan/steadbot?style=flat&color=444)](https://github.com/arelchan/steadbot/stargazers)
 
 </div>
+
+<br>
+
+<img src=".github/assets/thread.png" alt="两个 bot 在一个群里交接工作，右边是这件事上还开着的事项" width="100%">
+
+<br>
 
 Steadbot 是一套**自己部署的 AI 同事**，用起来像通信软件，不像 agent 调试台。说一句要办的事，
 一个 bot 就出生了：名字、简介、职责、头像一次写全。之后你像交代同事一样交代它——说完就走。
@@ -77,6 +85,13 @@ App 自动跟过去。登录态不搬：云上的 bot 借用你电脑上开着�
 而是去池子里搜：读一次就用完的不装，同类活反复来的才装在身上。手册就是 Markdown。
 MCP 服务和 OAuth 连接器进同一条池子。
 
+<table>
+<tr>
+<td width="50%"><img src=".github/assets/schedule.png" alt="一周的例行任务，右边是等你拍板的事"><br><sub><b>一周。</b>例行任务在顶上，要你拍板的在右边。</sub></td>
+<td width="50%"><img src=".github/assets/bot.png" alt="和一个 bot 的私聊"><br><sub><b>一个 bot 一条连续的对话。</b>没有会话要开、要清。</sub></td>
+</tr>
+</table>
+
 ## 搬到一台常开的机器上
 
 在你自己的电脑上，对一台装好 Ubuntu、能 ssh 的机器：
@@ -102,8 +117,8 @@ bot 们就带着全部家当搬过去了。2 核 4G 够用，浏览器和记忆�
 
 - [`crew-server/`](crew-server/) —— 运行时：bot、事项、渠道、电脑、记忆、技能、升级。
 - [`bot-crew/`](bot-crew/) —— App：React 19，没有 UI 库，十种语言。
-- [`DESIGN.md`](DESIGN.md) —— 产品为什么长这样，一条判断一条设计。
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) —— 代码该怎么摆。
+- [`DESIGN.md`](docs/design.md) —— 产品为什么长这样，一条判断一条设计。
+- [`ARCHITECTURE.md`](docs/architecture.md) —— 代码该怎么摆。
 - [`AGENTS.md`](AGENTS.md) —— 给在这个仓库里干活的编码 agent 看的。
 
 目录仍叫 `crew-server` 和 `bot-crew`，数据目录仍是 `~/.crew`，环境变量仍是 `CREW_*`——
@@ -125,10 +140,10 @@ OpenAI、DeepSeek、智谱、百炼，还有三十来家。
 
 ## 参与
 
-欢迎 issue 和 PR，动手前看一眼 [CONTRIBUTING.md](CONTRIBUTING.md)。
-安全问题请走 [SECURITY.md](SECURITY.md)，不要开公开 issue。
+欢迎 issue 和 PR，动手前看一眼 [CONTRIBUTING.md](.github/CONTRIBUTING.md)。
+安全问题请走 [SECURITY.md](.github/SECURITY.md)，不要开公开 issue。
 
 ## 许可
 
 [Apache-2.0](LICENSE)。自带的技能池是从各自上游原样搬来的，按它们自己的许可，
-清单见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+清单见 [THIRD_PARTY_NOTICES.md](docs/third-party-notices.md)。

@@ -16,20 +16,20 @@ export function libraryExtension(c: BotCtx, ops: () => CrewOps): InlineExtension
     factory: (pi) => {
       pi.registerTool({
         name: 'library',
-        label: '找现成的',
+        label: 'Find something ready-made',
         description:
-          '库：一批精选过的现成东西，三类——手册（一份 SKILL.md 加它引用的文件：代码分析与架构图、评审、排错、测试、文档表格 PPT、调研写作、数据分析、设计…）、外部工具（接上就多出一组工具：MCP 服务，或 Gmail、日历、GitHub、Notion 这类走一键登录的平台）、素材包。action=search：按需求关键词找候选，每条带 slug、类型、说明；手册还带路径，read 它就能看全文，不用装。action=list：看全部。这只是找：用一次照着手册做即可；值得长在身上的才 build(action=add, value=slug)。适用：遇到一类你没把握做好的任务、用户问「你会不会 X」、你打算自己从头写手册之前。',
-        promptSnippet: '库里找现成的（手册 / 外部工具 / 素材包）：library(search) 找候选，read 手册路径看全文；值得留的才 build(add)',
+          'The pool: a curated set of ready-made things in three kinds — manuals (a SKILL.md plus the files it references: code analysis and architecture diagrams, review, debugging, testing, documents and spreadsheets and decks, research and writing, data analysis, design…), external tools (connect one and a set of tools appears: MCP servers, or one-click platforms like Gmail, Calendar, GitHub and Notion), and asset packs. action=search finds candidates by keyword, each with a slug, a kind and a description; a manual also carries a path, so you can read it in full without installing anything. action=list shows everything. This is finding, not installing: follow a manual once and be done. Only what is worth carrying gets build(action=add, value=slug). Use it when a task is a kind you are not confident about, when the user asks whether you can do X, and before you write a manual from scratch.',
+        promptSnippet: 'find something ready-made (manuals / tools / asset packs): library(search) for candidates, read the manual in full, and build(add) only what is worth keeping',
         promptGuidelines: [
-          '接到一类新任务先 library(search)。搜出来的是候选，不是清单：read 最像的一两份手册看它到底怎么做，其余当没看见。',
-          '看完再判断：这次用一次，就照着手册做完，不装；用户纠正过你、同类任务第二次来、或这次确实靠它才做好，再 build(add, value=slug) 让它长在身上。',
-          '装还是不装，标准是「这是不是我这份工作的常备本事」：装上的每一轮都在你的上下文里，属于你是谁的一部分。属于的就装，几本都行；偶尔用一次的不装——下次需要时你还会在这里搜到它。',
-          '外部工具和素材包没法只看不装：这次需要就 build(add)，用完不需要可以 build(remove)。',
-          '装上之后直接照着做，不用告诉用户「我装了个东西」；用户问起再说一句。',
+          'A new kind of task starts with library(search). What comes back is candidates, not a list: read the one or two closest manuals to see how it is actually done, and ignore the rest.',
+          'Decide after reading: for a one-off, follow the manual and install nothing. When the user has corrected you, when the same kind of task arrives a second time, or when you genuinely needed it to do this well, build(add, value=slug) and carry it.',
+          'The test for installing is whether this is a standing part of your job: what you install is in your context every turn and becomes part of who you are. Install what belongs there, however many. Do not install what you will use once — you will find it here again next time.',
+          'Tools and asset packs cannot be read without installing: build(add) when you need one this time, and build(remove) when you no longer do.',
+          'Once installed, get on with it. Do not announce that you installed something; mention it only if asked.',
         ],
         parameters: Type.Object({
           action: StringEnum(['search', 'list'] as const),
-          query: Type.Optional(Type.String({ description: 'search：任务或能力关键词，例：架构图 / 代码评审 / Excel / 像素 / 邮件' })),
+          query: Type.Optional(Type.String({ description: 'search: keywords for the task or ability — architecture diagram / code review / Excel / pixel art / mail' })),
         }),
         async execute(_id, p) {
           const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }], details: { action: p.action, query: p.query } });
@@ -39,22 +39,22 @@ export function libraryExtension(c: BotCtx, ops: () => CrewOps): InlineExtension
           type Hit = ReturnType<CrewOps['librarySearch']>[number];
           const owned = (e: Hit) => ((e.kind ?? 'skill') === 'skill' ? mine.has(e.title) : e.kind === 'mcp' ? connected.has(e.title) : false);
           const detail = (e: Hit) => {
-            if ((e.kind ?? 'skill') === 'skill') return e.path ? `  手册：${e.path}（read 看全文）` : '';
-            if (e.kind === 'mcp') return `  授权：${authLabel(e)}${e.mcp?.tools ? `；工具：${e.mcp.tools}` : ''}`;
-            return e.license ? `  许可：${e.license}` : '';
+            if ((e.kind ?? 'skill') === 'skill') return e.path ? `  manual: ${e.path} (read it in full)` : '';
+            if (e.kind === 'mcp') return `  auth: ${authLabel(e)}${e.mcp?.tools ? `; tools: ${e.mcp.tools}` : ''}`;
+            return e.license ? `  licence: ${e.license}` : '';
           };
-          const line = (e: Hit) => [`${e.slug}｜${e.kindLabel}｜${e.title}（${e.categoryLabel}）${owned(e) ? '（已在你身上）' : ''}`, `  ${e.description}`, detail(e)].filter(Boolean).join('\n');
+          const line = (e: Hit) => [`${e.slug} | ${e.kindLabel} | ${e.title} (${e.categoryLabel})${owned(e) ? ' (already yours)' : ''}`, `  ${e.description}`, detail(e)].filter(Boolean).join('\n');
           if (p.action === 'list') {
             const all = ops().librarySearch('', 200);
             const byCat = new Map<string, typeof all>();
             for (const e of all) byCat.set(e.category, [...(byCat.get(e.category) ?? []), e]);
-            return text([...byCat.entries()].map(([, es]) => `【${es[0].categoryLabel}】\n${es.map((e) => `- ${e.slug}｜${e.kindLabel}：${e.title} — ${e.description}${owned(e) ? '（已在你身上）' : ''}`).join('\n')}`).join('\n\n'));
+            return text([...byCat.entries()].map(([, es]) => `[${es[0].categoryLabel}]\n${es.map((e) => `- ${e.slug} | ${e.kindLabel}: ${e.title} — ${e.description}${owned(e) ? ' (already yours)' : ''}`).join('\n')}`).join('\n\n'));
           }
-          if (!p.query?.trim()) throw new Error('search 需要 query');
-          // 用词和库里的用词对不上是常态（「帮我看看 PR 写得行不行」对 code-review），所以这里按意思找，不只按字面。
+          if (!p.query?.trim()) throw new Error('search needs a query');
+          // The words rarely line up with the pool's own ("see whether this PR reads all right" against code-review), so this searches by meaning, not only by spelling.
           const hits = await ops().libraryFind(p.query, 8);
-          if (!hits.length) return text('库里没有匹配的。换个关键词再搜，或者直接做；同类活反复来再用 build(aspect=skill) 自己写一份手册。');
-          return text(`${hits.map(line).join('\n')}\n\n先 read 最像的手册看怎么做；这次用一次就照着做，值得留的才 build(add)。`);
+          if (!hits.length) return text('Nothing in the pool matches. Try other keywords, or just do the work; when this kind keeps coming back, write your own manual with build(aspect=skill).');
+          return text(`${hits.map(line).join('\n')}\n\nRead the closest manual first to see how it is done. Follow it this time; only what is worth keeping gets build(add).`);
         },
       });
     },

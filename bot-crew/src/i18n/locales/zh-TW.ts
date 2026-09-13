@@ -210,7 +210,7 @@ export const zhTW: Dict = {
   'task.fromGroup': '來自群組，點一下跳過去',
   'task.fromRoutine': '定時',
   'task.needUnlock': '需要你解鎖',
-  'task.confirmAmt': '確認 ¥{amt}',
+  'task.confirmAmt': '確認付款 {amt}',
   'task.pickOne': '選一個',
   'task.now': '現在',
   'task.finished': '做完了',

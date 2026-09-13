@@ -12,19 +12,19 @@ const Params = Type.Object({
   paths: Type.Array(Type.String(), {
     minItems: 1,
     maxItems: 12,
-    description: '要交给用户的文件。写目录也行，系统从里面挑；工作区里的相对路径或绝对路径都认',
+    description: 'the file to hand over. A directory works too and the system picks from it; workspace-relative or absolute paths are both fine',
   }),
-  what: Type.Optional(Type.String({ description: '一句话说明这是什么，用户会看到' })),
+  what: Type.Optional(Type.String({ description: 'one line saying what this is; the user sees it' })),
 });
 
-/** 交付物里先出手的那几类：能直接看的排前面，素材排后面。 */
+/** What goes out first: things that can be opened and looked at, then the raw material. */
 const RANK = ['.html', '.pdf', '.pptx', '.docx', '.xlsx', '.md', '.csv', '.png', '.jpg', '.jpeg'];
 const rankOf = (p: string) => {
   const i = RANK.indexOf(extname(p).toLowerCase());
   return i < 0 ? RANK.length : i;
 };
 
-/** 目录里的文件（只看一层，够用了：交付物的入口都在顶层）。 */
+/** Files in a directory, one level only — good enough, because the entry point of a deliverable is at the top. */
 function filesIn(dir: string): string[] {
   try {
     return readdirSync(dir)
@@ -43,12 +43,13 @@ function filesIn(dir: string): string[] {
 }
 
 /**
- * 交付：把做出来的东西真的递到用户手上。
+ * Delivery: actually putting what was made into the user's hands.
  *
- * 存在的理由是「产物在哪台机器上」和「用户在哪」经常不是一回事。bot 跑在云机器上，它起的
- * localhost:8899 用户永远打不开；它写在回复里的路径也只是它自己的路径。这个工具把文件变成用户那边
- * 能点开的卡片，并且如实告诉模型这一轮的渠道到底收得到什么——IM 上现在收不到文件，那就得换个说法，
- * 而不是让用户对着一个打不开的链接。
+ * It exists because "which machine the thing is on" and "where the user is" are often not the same place. A bot on
+ * a cloud machine serves a localhost:8899 the user can never open, and a path in its reply is only its own path.
+ * This turns a file into a card the user can open, and tells the model honestly what this turn's channel can
+ * actually receive — a messenger that cannot take files means saying it differently, not leaving the user with a
+ * link that does not work.
  */
 export function deliverExtension(c: BotCtx): InlineExtension {
   return {
@@ -56,15 +57,15 @@ export function deliverExtension(c: BotCtx): InlineExtension {
     factory: (pi) => {
       pi.registerTool({
         name: 'deliver',
-        label: '交付',
+        label: 'Deliver',
         description:
-          '把你做好的东西交给用户：给文件路径（目录也行），用户那边就会出现能点开的卡片。做完东西就用它交付，不要只在回复里写路径或链接——那是你这台机器上的路径，用户点不到。',
-        promptSnippet: '把做好的文件交给用户（出卡片，能点开）',
+          'Hand what you made to the user: give it a path (a directory works too) and a card they can open appears on their side. Use it whenever you finish something. Do not just write a path or a link in your reply — that is a path on your machine, and they cannot open it.',
+        promptSnippet: 'hand a finished file to the user (a card they can open)',
         promptGuidelines: [
-          '产出了文件就 deliver 一次：网页、PPT、报告、图、表格、脚本都算。回复里照常说清这是什么，但「拿到东西」这件事由 deliver 完成。',
-          '**不要把 localhost / 127.0.0.1 的链接给用户**——那是你运行的这台机器上的地址，用户的浏览器打不开。要给他看网页，deliver 那个 .html 文件。',
-          '一次把该给的都给全（入口文件 + 用户要改要用的那些），别一个文件一条消息。纯素材（十几张中间图）不用全给，给成品。',
-          '工具会告诉你这一轮的渠道能不能收到文件。收不到的时候别硬说「发你了」，按它说的换个说法。',
+          'Produced a file, deliver once: pages, decks, reports, graphics, spreadsheets, scripts. Say what it is in your reply as usual, but the actual handing over is deliver\'s job.',
+          '**Never give the user a localhost / 127.0.0.1 link** — that is an address on the machine you run on, and their browser cannot open it. To show them a page, deliver the .html file.',
+          'Give everything that belongs together in one go (the entry file plus whatever they will edit or use), not one message per file. Raw material — a dozen intermediate images — does not all need handing over; give the finished thing.',
+          'The tool tells you whether this turn\'s channel can receive files. When it cannot, do not claim you sent it — say it the way the tool suggests.',
         ],
         parameters: Params,
         async execute(_id, p) {
@@ -88,7 +89,7 @@ export function deliverExtension(c: BotCtx): InlineExtension {
               continue;
             }
             if (st.isDirectory()) {
-              // 目录里只挑能打开的那几类：css、js、中间产物是管道，不是交付物。一个都没有才退回全给。
+              // From a directory, take only what can be opened: css, js and intermediates are plumbing, not deliverables. Only if none qualify does everything go.
               const inside = filesIn(abs);
               const openable = inside.filter((f) => rankOf(f) < RANK.length);
               const use = openable.length ? openable : inside;
@@ -105,7 +106,7 @@ export function deliverExtension(c: BotCtx): InlineExtension {
             const ref = fileRefFor(abs, botDir, c.botId);
             if (ref && !files.some((f) => f.path === ref.path)) files.push(ref);
           }
-          if (!files.length) throw new Error(`这些路径下没有能交付的文件：${(missing.length ? missing : p.paths).join('、')}。先确认文件真的写出来了，路径按工作区来写。`);
+          if (!files.length) throw new Error(`nothing deliverable at: ${(missing.length ? missing : p.paths).join(', ')}. Check the file was actually written, and write the path relative to the workspace.`);
 
           const cur = c.current();
           if (cur) cur.files = [...(cur.files ?? []), ...files.filter((f) => !(cur.files ?? []).some((x) => x.path === f.path))];
@@ -114,15 +115,15 @@ export function deliverExtension(c: BotCtx): InlineExtension {
           const via = cur?.via;
           const im = via && via !== 'app' ? (IM_NAME[via] ?? via) : undefined;
           const where = im
-            ? `这一轮是从${im}来的，那边现在收不到文件：卡片只在 App 里。回复里说清这是什么、让他在 App 里拿。`
-            : '用户在 App 里会看到卡片，点开就能看。';
+            ? `This turn came from ${im}, which cannot receive files: the card is only in the App. Say what it is in your reply and point them to the App.`
+            : 'The user sees a card in the App and can open it.';
           const notes = [
-            missing.length ? `没找到：${missing.join('、')}。` : '',
-            trimmed ? `还有 ${trimmed} 个没放进来（一次最多 8 个），要的话再 deliver 一次。` : '',
-            config.authToken ? '记住你跑的这台机器不是用户的电脑：localhost 的链接别给他。' : '',
+            missing.length ? `Not found: ${missing.join(', ')}.` : '',
+            trimmed ? `${trimmed} more did not fit (eight at a time); deliver again if they are wanted.` : '',
+            config.authToken ? 'Remember the machine you run on is not the user\'s computer: no localhost links.' : '',
           ].filter(Boolean);
           return {
-            content: [{ type: 'text', text: `已交付：${names}。${where}${notes.length ? ' ' + notes.join(' ') : ''}` }],
+            content: [{ type: 'text', text: `Delivered: ${names}. ${where}${notes.length ? ' ' + notes.join(' ') : ''}` }],
             details: { files: files.map((f) => f.path) },
           };
         },

@@ -1,8 +1,8 @@
 # Working in this repository
 
 Orientation for coding agents (and humans who like a map). Product docs are in
-[README.md](README.md); why the product is shaped this way is in [DESIGN.md](DESIGN.md); how the code is
-laid out is in [ARCHITECTURE.md](ARCHITECTURE.md).
+[README.md](README.md); why the product is shaped this way is in [docs/design.md](docs/design.md); how the code is
+laid out is in [docs/architecture.md](docs/architecture.md).
 
 ## Layout
 
@@ -44,7 +44,7 @@ Four traps, all of which have cost someone an hour:
   so. That is deliberate — keep it when you touch the code.
 - **Secrets never enter the model's context.** `secrets.ts` redacts known credentials from anything
   outbound. Do not add a path around it, and never print `~/.crew/config.json`.
-- **Do not vendor anything whose licence forbids redistribution.** See `THIRD_PARTY_NOTICES.md`.
+- **Do not vendor anything whose licence forbids redistribution.** See `docs/third-party-notices.md`.
 
 ## Running it
 

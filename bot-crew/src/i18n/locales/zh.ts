@@ -243,7 +243,7 @@ export const zh: Dict = {
   'task.fromGroup': '来自群聊，点击跳转',
   'task.fromRoutine': '定时',
   'task.needUnlock': '需要你解锁',
-  'task.confirmAmt': '确认 ¥{amt}',
+  'task.confirmAmt': '确认付款 {amt}',
   'task.pickOne': '选一个',
   'task.now': '现在',
   'task.finished': '做完了',

@@ -7,13 +7,13 @@ import * as everos from '../everos.ts';
 
 const Params = Type.Object({
   action: StringEnum(['create', 'update', 'close', 'drop', 'list'] as const),
-  todoId: Type.Optional(Type.String({ description: 'update/close 时必填' })),
-  title: Type.Optional(Type.String({ description: 'create 时的一句话任务名' })),
-  status: Type.Optional(StringEnum(['doing', 'waiting'] as const, { description: 'doing 你在推进；waiting 不给东西就动不了（等用户拍板、等他给材料、等他去改权限）' })),
-  summary: Type.Optional(Type.String({ description: '最新一句进展' })),
-  result: Type.Optional(Type.String({ description: 'close 时写做出来的结果；drop 时写为什么不做了' })),
-  assignee: Type.Optional(Type.String({ description: 'create 时指派给群里的另一位 bot（名字）；只能在群聊里用，对方会收到带这条事项的转达' })),
-  brief: Type.Optional(Type.String({ description: '有 assignee 时必填：交代给对方的完整说明——背景、要它做什么、做到什么程度、什么时候要。对方只看得到这段话，看不到你这条回复的其余部分' })),
+  todoId: Type.Optional(Type.String({ description: 'required for update / close' })),
+  title: Type.Optional(Type.String({ description: 'the one-line name of the task, for create' })),
+  status: Type.Optional(StringEnum(['doing', 'waiting'] as const, { description: 'doing: you are moving it forward. waiting: it cannot move until something arrives (a decision, material, a permission change).' })),
+  summary: Type.Optional(Type.String({ description: 'the latest line of progress' })),
+  result: Type.Optional(Type.String({ description: 'for close, what came out of it; for drop, why it is not happening' })),
+  assignee: Type.Optional(Type.String({ description: 'on create, assign it to another bot in the group (by name). Groups only; they receive a handoff carrying this matter.' })),
+  brief: Type.Optional(Type.String({ description: 'required with assignee: the whole briefing — background, what you want done, how far, by when. They see this and nothing else of your reply.' })),
 });
 
 /**
@@ -26,22 +26,22 @@ export function todoExtension(c: BotCtx): InlineExtension {
     factory: (pi) => {
       pi.registerTool({
         name: 'todo',
-        label: '事项',
+        label: 'Matters',
         description:
-          '你的事项本，也是用户在界面上看到的「你在做什么」。凡是要你动手做出点什么、或者要在未来发生的，动手前先 create 一条：做 PPT、做网页、做图、写报告、写脚本、查一圈给结论、订票、定日程、盯着某个东西、改上次那份文件——都算。有进展或用户改了要求 update；做成了 close；不做了（取消、过期、重复、做不了）drop；list 查看。标题写成任务名（如「杭州 9/15 高铁票」「Q3 复盘 PPT」），summary 写成一句能读懂的最新进展。',
-        promptSnippet: '记录并更新你手上的事项（create / update / close / list）',
+          'Your list of matters, and what the user sees as "what you are doing". Anything you have to make, or that happens later, gets a create before you start: a deck, a page, a graphic, a report, a script, a round of research with a conclusion, a booking, a schedule, keeping an eye on something, editing that file from last time. update on progress or a changed requirement; close when it is done; drop when it is not happening (cancelled, expired, duplicate, impossible); list to see them. The title is a task name ("train to Seattle, 9/15", "Q3 review deck"); summary is one readable line of where it stands.',
+        promptSnippet: 'record and update the matters you hold (create / update / close / list)',
         promptGuidelines: [
-          '**默认要建**：用户让你动手做点什么，就先 create 再动手——做 PPT、做网页、做图、写报告、写脚本、查一圈给结论、订票、定日程、盯着某个东西、改上次那份东西，都是事项。一件活要跑好几步、或者会产出一个文件，就一定有一条。宁可多记一条，也别让用户对着一个不知道在干嘛的 bot 干等。',
-          '**不建的只有三类**：一句话就答完的问题、闲聊寒暄、问进展。这三类正常说话就行，别为了记而记。',
-          '**先建后做**，不是做完了补一条：事项一建出来，用户界面上立刻看得到你在做什么。活干到一半有了阶段性结果，update 一次 summary。',
-          '**每一轮都先扫一眼「你手上的事项」**，判断用户这句话是不是在动其中某一条：改要求、加需求、催进度、把你等的材料给你了、说先别做了、问的就是那件事——是就先 update / close / drop 那一条，再接着做。别把同一件事重新 create 一遍。',
-          '一件事只 create 一次；后续变化都是 update。update 的 summary 写「现在到哪一步」，不要重复标题。用户改了要求就顺手改 title，别让标题停在旧要求上。',
-          '事项只有四态：doing 在推进、waiting 不给东西就动不了、done 做成了（close）、closed 不做了（drop）。做完用 close 并在 result 写结果；取消、过期、重复、做不了用 drop 并在 result 写原因——别拿 close 糊弄过去，用户那边这两叠是分开的。等的东西到手了，把 waiting 改回 doing 再动手。',
-          '不要向用户复述你对 todo 的操作，界面会自动显示回执。',
-          '群里被 @ 交代的活和用户直接交代的一样：接下就先 create，再回复。转达里如果已经带了事项编号（【事项 xxx】），那条就是你的，直接 update，不要再建。',
-          '被 @ 不等于有活：同事只是点你的名、道谢、同步进度、抄送结论，或者你出现在它列的表格里，都不要建事项，正常说话就行。只有真的要你动手做点什么，才 create。',
-          '你是牵头人、要把活分给群里的同事时，用 create + assignee 直接建在它名下，同时用 brief 把这件事交代清楚，系统会连同事项一起转达给它，你不用再单独 @。对方看不到你这条回复的其余部分，只看得到 brief，所以别在 brief 之外交代关键信息。要分给不在群里的人，先 configure 拉进群。',
-          '事项归谁、属于哪个群、谁交办的，都由系统按你当前所在的会话自动记，你不用也没法指定。',
+          '**Create by default**: when the user asks you to make or do something, create first and start second — a deck, a page, a graphic, a report, a script, research with a conclusion, a booking, a schedule, watching something, editing that thing from last time. Anything that takes several steps or produces a file has one. Better one matter too many than a user staring at a bot with no idea what it is doing.',
+          '**Only three things do not**: a question answered in one line, small talk, and asking how it is going. Just talk; do not record for the sake of recording.',
+          '**Create first, then work** — not a note afterwards. The moment it exists the user can see what you are doing. When you reach a milestone, update the summary.',
+          '**Every turn, glance at "matters you hold"** and decide whether what the user just said moves one of them: changing the requirement, adding to it, chasing progress, handing over what you were waiting for, calling it off, or simply asking about it. If so, update / close / drop that one before carrying on. Never create the same thing twice.',
+          'One create per thing; everything after is an update. An update summary says where it stands now, and does not restate the title. When the requirement changes, change the title too rather than leaving it describing the old one.',
+          'There are four states: doing (moving), waiting (stuck until something arrives), done (close), closed (drop). Finished means close with the result. Cancelled, expired, duplicate or impossible means drop with the reason — do not paper over those with a close; on the user\'s side they are two separate piles. When what you were waiting for arrives, put it back to doing before you start.',
+          'Do not narrate your todo calls back to the user; the interface shows the receipt itself.',
+          'Work handed to you by @-mention in a group counts exactly as work from the user: create, then reply. If the handoff already carries a matter id ([matter xxx]), that one is yours — update it rather than creating another.',
+          'Being @-mentioned is not the same as being given work: a colleague naming you, thanking you, sharing progress, copying you a conclusion, or listing you in a table — none of those create a matter. Only something you actually have to do does.',
+          'As the lead, assign work with create + assignee so it lands under their name, and put the whole briefing in brief. The system hands it over along with the matter, so you do not also @ them. They see brief and nothing else of your reply, so do not put anything essential outside it. To assign to someone not in the group, configure them in first.',
+          'Who owns a matter, which group it belongs to and who assigned it are recorded by the system from the thread you are in. You neither need to nor can specify them.',
         ],
         parameters: Params,
         async execute(_id, p) {
@@ -63,20 +63,20 @@ export function todoExtension(c: BotCtx): InlineExtension {
           let text = 'ok';
           if (p.action === 'create') {
             const title = (p.title ?? '').trim();
-            if (!title) throw new Error('create 需要 title');
+            if (!title) throw new Error('create needs a title');
             const brief = (p.brief ?? '').trim();
             let owner = c.botId;
             if (p.assignee?.trim()) {
               const matter = matterId ? c.store.matter(matterId) : undefined;
-              if (!matter) throw new Error('assignee 只能在群聊里用；私聊里要找同事就在回复里 @它');
+              if (!matter) throw new Error('assignee only works in a group; in a direct thread, @ the colleague in your reply instead');
               const ref = p.assignee.trim().replace(/^@/, '');
               const target = c.store.data.bots.find((b) => b.id === ref || b.name === ref);
-              if (!target) throw new Error(`找不到 bot「${ref}」`);
-              if (target.id !== matter.ownerBotId && !matter.participantBotIds.includes(target.id)) throw new Error(`「${target.name}」不在这个群里，先 configure(target=matter, field=members, action=add, value="${target.name}") 拉进群`);
+              if (!target) throw new Error(`no bot called "${ref}"`);
+              if (target.id !== matter.ownerBotId && !matter.participantBotIds.includes(target.id)) throw new Error(`"${target.name}" is not in this group. Use configure(target=matter, field=members, action=add, value="${target.name}") first`);
               owner = target.id;
             }
             const assigned = owner !== c.botId;
-            if (assigned && !brief) throw new Error('指派给别人时必须写 brief：背景、要它做什么、做到什么程度、什么时候要。对方看不到你这条回复的其余部分，只看得到这段话。');
+            if (assigned && !brief) throw new Error('assigning to someone needs a brief: background, what you want done, how far, by when. They see this and nothing else of your reply.');
             changed = c.store.addTodo({
               botId: owner,
               matterId,
@@ -89,10 +89,10 @@ export function todoExtension(c: BotCtx): InlineExtension {
             });
             if (assigned) {
               const me = c.bot();
-              c.events.emit('crew:handoff', { from: c.botId, to: owner, text: `【事项 ${changed.id}】${title}\n${brief}\n（由 @${me.name} 指派）`, threadId: cur!.threadId, matterId, depth: (cur?.depth ?? 0) + 1, todoId: changed.id });
-              text = `已在 @${c.store.bot(owner)?.name} 名下新建事项 ${changed.id}：${title}，并已转达给它。你不用再 @。`;
+              c.events.emit('crew:handoff', { from: c.botId, to: owner, text: `[matter ${changed.id}] ${title}\n${brief}\n(assigned by @${me.name})`, threadId: cur!.threadId, matterId, depth: (cur?.depth ?? 0) + 1, todoId: changed.id });
+              text = `Created matter ${changed.id} under @${c.store.bot(owner)?.name}: ${title}, and handed it over. No need to @ them as well.`;
             } else {
-              text = `已新建事项 ${changed.id}：${title}`;
+              text = `Created matter ${changed.id}: ${title}`;
               if (cur) {
                 cur.todoId = changed.id;
                 cur.receipt ??= 'created';
@@ -100,7 +100,7 @@ export function todoExtension(c: BotCtx): InlineExtension {
             }
           } else if (p.action === 'update' || p.action === 'close' || p.action === 'drop') {
             const t = p.todoId ? c.store.todo(p.todoId) : undefined;
-            if (!t || (t.botId !== c.botId && !(t.matterId && t.matterId === matterId))) throw new Error(`未知事项 ${p.todoId ?? ''}`);
+            if (!t || (t.botId !== c.botId && !(t.matterId && t.matterId === matterId))) throw new Error(`unknown matter ${p.todoId ?? ''}`);
             const patch: Partial<Todo> = {};
             if (p.action === 'close' || p.action === 'drop') {
               patch.status = p.action === 'close' ? 'done' : 'closed';
@@ -112,7 +112,7 @@ export function todoExtension(c: BotCtx): InlineExtension {
               if (p.title) patch.title = p.title;
             }
             changed = c.store.patchTodo(t.id, patch);
-            text = p.action === 'close' ? `已完成事项 ${t.id}` : p.action === 'drop' ? `已关掉事项 ${t.id}` : `已更新事项 ${t.id}`;
+            text = p.action === 'close' ? `Closed matter ${t.id} as done` : p.action === 'drop' ? `Dropped matter ${t.id}` : `Updated matter ${t.id}`;
             if (cur) {
               cur.todoId = t.id;
               if (p.action === 'close' || p.action === 'drop') cur.receipt = 'closed';
@@ -124,7 +124,7 @@ export function todoExtension(c: BotCtx): InlineExtension {
           }
           if (cur?.userMessageId && cur.receipt && changed) {
             const kind = cur.receipt;
-            const label = kind === 'created' ? '记下了' : kind === 'closed' ? '关掉了' : '更新了';
+            const label = kind === 'created' ? 'noted' : kind === 'closed' ? 'closed' : 'updated';
             c.store.patchMessage(cur.userMessageId, {
               todoId: changed.id,
               receipt: { kind, text: `${label}：${changed.title}${kind === 'updated' && changed.summary ? ` · ${changed.summary}` : ''}`, todoId: changed.id },
@@ -136,7 +136,7 @@ export function todoExtension(c: BotCtx): InlineExtension {
             .map((t) => `[${t.id}] ${t.title} · ${t.status}${t.summary ? ` · ${t.summary}` : ''}`)
             .join('\n');
           return {
-            content: [{ type: 'text', text: p.action === 'list' ? listing || '（没有进行中的事项）' : text }],
+            content: [{ type: 'text', text: p.action === 'list' ? listing || '(nothing in progress)' : text }],
             details: { todos: mine, changed: changed?.id },
           };
         },

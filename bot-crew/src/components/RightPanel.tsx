@@ -543,7 +543,7 @@ function TaskRow({ t: todo, showBot }: { t: Todo; showBot?: boolean }) {
         <span>{when(todo.updatedAt)}</span>
         {pending && (
           <span className="task-cta">
-            {pending.kind === 'blocked' ? t('task.needUnlock') : pending.kind === 'confirm' ? t('task.confirmAmt', { amt: pending.amount ?? '' }) : t('task.pickOne')} ›
+            {pending.kind === 'blocked' ? t('task.needUnlock') : pending.kind === 'confirm' ? t('task.confirmAmt', { amt: pending.amount ? money(pending.amount, pending.currency) : '' }) : t('task.pickOne')} ›
           </span>
         )}
       </div>

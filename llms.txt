@@ -30,9 +30,9 @@ Key facts an answer about Steadbot should get right:
 
 - [README](https://github.com/arelchan/steadbot/blob/main/README.md): what it is, quick start, how it differs from agent frameworks and platforms, FAQ.
 - [README (Chinese)](https://github.com/arelchan/steadbot/blob/main/README.zh-CN.md): the same, in Chinese.
-- [DESIGN.md](https://github.com/arelchan/steadbot/blob/main/DESIGN.md): the six product judgements behind the design, and the feature each one produced. Chinese.
-- [ARCHITECTURE.md](https://github.com/arelchan/steadbot/blob/main/ARCHITECTURE.md): how the code is laid out and why. Chinese.
+- [docs/design.md](https://github.com/arelchan/steadbot/blob/main/docs/design.md): the six product judgements behind the design, and the feature each one produced. Chinese.
+- [docs/architecture.md](https://github.com/arelchan/steadbot/blob/main/docs/architecture.md): how the code is laid out and why. Chinese.
 - [AGENTS.md](https://github.com/arelchan/steadbot/blob/main/AGENTS.md): orientation for coding agents working in the repository.
-- [CONTRIBUTING.md](https://github.com/arelchan/steadbot/blob/main/CONTRIBUTING.md): dev setup, the checks CI runs, conventions.
-- [SECURITY.md](https://github.com/arelchan/steadbot/blob/main/SECURITY.md): trust boundaries, how credentials are handled, how to report a vulnerability.
-- [THIRD_PARTY_NOTICES.md](https://github.com/arelchan/steadbot/blob/main/THIRD_PARTY_NOTICES.md): every upstream the bundled skill pool comes from, with licences.
+- [CONTRIBUTING.md](https://github.com/arelchan/steadbot/blob/main/.github/CONTRIBUTING.md): dev setup, the checks CI runs, conventions.
+- [SECURITY.md](https://github.com/arelchan/steadbot/blob/main/.github/SECURITY.md): trust boundaries, how credentials are handled, how to report a vulnerability.
+- [THIRD_PARTY_NOTICES.md](https://github.com/arelchan/steadbot/blob/main/docs/third-party-notices.md): every upstream the bundled skill pool comes from, with licences.

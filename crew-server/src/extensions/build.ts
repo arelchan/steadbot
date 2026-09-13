@@ -32,45 +32,45 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
     factory: (pi) => {
       pi.registerTool({
         name: 'build',
-        label: '进化',
+        label: 'Build',
         description:
-          '构建你自己：你是谁、你会什么、你能连什么，全在这里。\n文字类（action=rewrite 自省重写 / set 原样写入）：name 名字、tagline 简介、soul 人设、instructions 职责与工作方式、skill 技能手册、routine 例行任务。\n装配类（action=add 装上 / remove 卸掉）：skill 把库里一份手册长在身上（value=库里的 slug）；mcp 接一个外部工具（value=库里的 slug——MCP 服务或 Gmail、GitHub、Notion 这类一键登录的平台都在库里；库里没有的才自己写 {name, command|url, env?}）；service 同 mcp，value=平台 slug；agent 用一个外部编程 agent（value=claude-code / codex / hermes / opencode / openclaw）；channel 让自己上一个 IM（value=微信 / 飞书 / 企业微信 / Slack / Telegram；微信会发一张二维码让用户扫，其余发凭据卡）；assets 下载一个素材包（value=库里的 slug）。\n装之前先 library(search) 找候选、read 过手册再定：搜到不等于要装，用一次就照着手册做，值得长在身上的才 add。适用：用户纠正了你的做法；同类任务第二次出现；手上的手段做不出像样的东西、库里那份能；用户直接要你改名、加定时任务、接某个服务。不适用：只影响这一次的临时要求（直接照做）；关于用户的事实（remember）；通知、自主度、置顶、群聊（configure）。',
-        promptSnippet: '构建你自己：名字 / 人设 / 工作方式 / 技能 / 例行任务，以及装外部工具、接服务、接 IM、下素材包（add）',
+          'Build yourself: who you are, what you can do, what you can reach — all of it is here.\nText (action=rewrite to reconsider and rewrite, set to write verbatim): name, tagline, soul (character), instructions (remit and way of working), skill (a manual), routine (a recurring task).\nEquipment (action=add to install, remove to drop): skill mounts a manual from the pool (value = its slug); mcp connects an external tool (value = a slug from the pool — MCP servers and one-click platforms like Gmail, GitHub and Notion are all in there; only write {name, command|url, env?} yourself when the pool has nothing); service is the same as mcp with a platform slug; agent takes an external coding agent (value = claude-code / codex / hermes / opencode / openclaw); channel puts you on a messenger (value = WeChat / Feishu / WeCom / Slack / Telegram; WeChat sends a QR code to scan, the rest send a credential card); assets downloads an asset pack (value = a slug from the pool).\nBefore installing anything, library(search) for candidates and read the manual first: finding something is not a reason to install it. Follow it once without installing; install only what is worth carrying. Use this when the user corrected your method, when the same kind of task arrives a second time, when what you have cannot produce something decent and the pool has something that can, or when the user directly asks you to change your name, add a recurring task or connect a service. Do not use it for a one-off instruction (just do it), for facts about the user (remember), or for notifications, autonomy, pinning and group membership (configure).',
+        promptSnippet: 'build yourself: name / character / way of working / skills / recurring tasks, and install tools, services, messengers and asset packs (add)',
         promptGuidelines: [
-          'rewrite 要有依据：用户明确纠正过，或同类情况至少出现两次。一句夸奖、一次偶然，不足以改。',
-          '刚出生是例外：你的名字、职责、人设是系统从用户一句话猜出来的，还没经过任何一次真活的检验。头几轮干下来发现哪里对不上——管的事不是这些、边界宽了或窄了、语气不对、用户要的其实是另一件事——当场 rewrite，不用等第二次。',
-          '一次只改一个方面。trigger 写清发生了什么、哪句话；change 写清要变成什么样，具体到能直接落笔。',
-          '用户给的是原话（「把人设改成：…」「叫你小张」）用 set 原样写入；给的是方向（「别这么客气」「以后先给结论」）用 rewrite 自己重写。',
-          'rewrite 调用后照常继续手上的事，不要等结果；回复里最多带半句「我顺手把自己的…调一下」，用户不问就不展开。',
-          'skill：技能名沿用已有的表示改写，新名字表示新建；手册是写给以后的你看的操作步骤。routine 的 schedule 只认「每天 20:30」「每周一 09:00」「工作日 18:00」「每 30 分钟」「每小时」这几种写法；用户说「这条只发 Telegram」就带上 channels。',
-          '装东西一条路：library(search) 找到候选，read 手册看值不值，再 build(action=add, value=slug)——手册、外部工具、素材包都这样。搜到不等于要装：这次用一次就照着手册做完，同类活反复来才装。装的时候依赖会自动装好，装不上会明说缺什么。',
-          '装完直接接着干活，不用向用户汇报「我装了什么」；要密钥的会自动发卡，用户填完系统通知你，不要追问。',
-          '这一轮装了两样以上、把一件以前做不了的事做成了，而库里没有讲这个组合的手册，就 build(aspect=skill, rewrite) 写一份：什么场景、用哪几样、怎么验证。只装了一份现成手册照着做的不用写。',
+          'A rewrite needs grounds: the user corrected you, or the same situation has come up at least twice. One compliment or one coincidence is not enough.',
+          'Being newly born is the exception: your name, remit and character were inferred from one sentence and have never met real work. If the first few turns show something is off — the work is not what you were told, the boundary is too wide or too narrow, the tone is wrong, what they actually want is something else — rewrite on the spot. Do not wait for a second occurrence.',
+          'One aspect at a time. trigger says what happened and which words; change says what it should become, concretely enough to write from.',
+          'When the user gives you the words ("change your character to: …", "you are called Sam now"), set them verbatim. When they give you a direction ("stop being so formal", "lead with the conclusion"), rewrite it yourself.',
+          'After calling rewrite, carry on with what you were doing — do not wait for it. Half a sentence in your reply is plenty ("adjusting how I do that"), and do not elaborate unless asked.',
+          'skill: reusing an existing name rewrites that manual, a new name creates one; a manual is a set of steps for your future self. A routine schedule is only recognised in these shapes: "daily 20:30", "Monday 09:00", "weekdays 18:00", "every 30 minutes", "hourly". When the user says "this one only goes to Telegram", pass channels.',
+          'There is one path to installing: library(search) for candidates, read the manual to see whether it is worth it, then build(action=add, value=slug) — manuals, tools and asset packs alike. Finding something is not a reason to install it: follow it once this time, and install only when the same kind of work keeps arriving. Dependencies are installed for you, and when they cannot be, you are told exactly what is missing.',
+          'Once installed, carry straight on. Do not report what you installed. Anything needing a key raises a card by itself; the system tells you when it is filled in, so do not chase it.',
+          'If this turn you installed more than one thing, pulled off something you could not do before, and the pool has no manual for that combination, write one with build(aspect=skill, rewrite): the situation, what you used, how to check it worked. Following a single existing manual does not need one.',
         ],
         parameters: Type.Object({
           aspect: StringEnum(['name', 'tagline', 'soul', 'instructions', 'skill', 'routine', 'mcp', 'service', 'agent', 'channel', 'assets'] as const),
           action: Type.Optional(StringEnum(['rewrite', 'set', 'add', 'remove'] as const)),
-          trigger: Type.Optional(Type.String({ description: 'rewrite：发生了什么让你想改，引用用户的原话或具体事件' })),
-          change: Type.Optional(Type.String({ description: 'rewrite：要变成什么样——保留什么、改掉什么、新增什么' })),
-          value: Type.Optional(Type.Any({ description: 'set：新值（name/tagline/soul/instructions 为字符串；routine 为 {title, schedule, enabled?, channels?}，channels 如 ["app"]、["telegram"]、["app","飞书"]，不填就发到你在的每个地方）。add：库里的 slug、平台 slug、agent 名、IM 名，或自己写的 MCP {name, command|url, env?}' })),
-          skill: Type.Optional(Type.String({ description: 'aspect=skill 时的技能名；aspect=routine 且 remove 时可用作任务标题' })),
+          trigger: Type.Optional(Type.String({ description: 'rewrite: what made you want to change, quoting the user or the specific event' })),
+          change: Type.Optional(Type.String({ description: 'rewrite: what it should become — what to keep, what to change, what to add' })),
+          value: Type.Optional(Type.Any({ description: 'set: the new value (name/tagline/soul/instructions are strings; a routine is {title, schedule, enabled?, channels?}, with channels like ["app"], ["telegram"], ["app","feishu"] — leave it out to go everywhere you are). add: a pool slug, a platform slug, an agent name, a messenger name, or an MCP you wrote yourself as {name, command|url, env?}' })),
+          skill: Type.Optional(Type.String({ description: 'the skill name when aspect=skill; with aspect=routine and remove, the task title' })),
         }),
         async execute(_id, p) {
           const action = p.action ?? 'rewrite';
           const b = c.bot();
           const str = (v: unknown) => {
-            if (typeof v !== 'string' || !v.trim()) throw new Error('value 需要是非空字符串');
+            if (typeof v !== 'string' || !v.trim()) throw new Error('value has to be a non-empty string');
             return v.trim();
           };
           const done = (text: string, extra: Partial<Details> = {}) => ({ content: [{ type: 'text' as const, text }], details: { aspect: p.aspect, action, ...extra } as Details });
 
           if (action === 'rewrite') {
             if (!['soul', 'instructions', 'skill'].includes(p.aspect))
-              throw new Error(`${p.aspect} 不能 rewrite，请用 ${EQUIPPABLE.includes(p.aspect) ? 'action=add（value 填 slug）' : 'set 给出具体值'}`);
-            if (!p.trigger?.trim() || !p.change?.trim()) throw new Error('rewrite 需要 trigger 和 change');
-            if (p.aspect === 'skill' && !p.skill?.trim()) throw new Error('aspect=skill 需要 skill 技能名');
+              throw new Error(`${p.aspect} cannot be rewritten; use ${EQUIPPABLE.includes(p.aspect) ? 'action=add with a slug in value' : 'set with a concrete value'}`);
+            if (!p.trigger?.trim() || !p.change?.trim()) throw new Error('rewrite needs trigger and change');
+            if (p.aspect === 'skill' && !p.skill?.trim()) throw new Error('aspect=skill needs a skill name');
             const job = await ops().build(c.botId, { aspect: p.aspect as 'soul' | 'instructions' | 'skill', trigger: p.trigger, change: p.change, skill: p.skill?.trim() });
-            return done(`已开始进化「${job.label}」，后台进行，不影响当前对话；完成后用户会看到通知。你继续手上的事。`, { jobId: job.id, label: job.label });
+            return done(`Started building "${job.label}". It runs in the background without affecting this conversation, and the user is notified when it lands. Carry on with what you were doing.`, { jobId: job.id, label: job.label });
           }
 
           const cur = c.current();
@@ -81,16 +81,16 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
             if (action === 'remove') {
               if (p.aspect === 'channel') {
                 const ch = c.store.data.integrations.find((x) => x.kind === 'channel' && (x.name === ref || x.channel === ref));
-                if (!ch?.channel || ch.channel === 'app') throw new Error(`没有叫「${ref}」的渠道`);
+                if (!ch?.channel || ch.channel === 'app') throw new Error(`no channel called "${ref}"`);
                 ops().disconnectChannel(c.botId, ch.channel);
-                return done(`已从${ch.name}断开。`);
+                return done(`Disconnected from ${ch.name}.`);
               }
               const i = c.store.data.integrations.find((x) => x.id === ref || x.name === ref || x.connector === ref.toLowerCase() || x.agent === ref);
-              if (!i) throw new Error(`没有叫「${ref}」的连接`);
+              if (!i) throw new Error(`no connection called "${ref}"`);
               c.store.patchBot(c.botId, { integrationIds: (b.integrationIds ?? []).filter((x) => x !== i.id) });
-              return done(`已断开 ${i.name}，它的工具不再出现在你的列表里。`);
+              return done(`Disconnected ${i.name}; its tools are no longer in your list.`);
             }
-            if (action !== 'add' && action !== 'set') throw new Error(`${p.aspect} 只支持 add / remove`);
+            if (action !== 'add' && action !== 'set') throw new Error(`${p.aspect} supports add / remove only`);
 
             if (p.aspect === 'service') {
               const r = await ops().connect(c.botId, threadId, ref, p.trigger);
@@ -98,17 +98,17 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
             }
             if (p.aspect === 'channel') {
               const ch = c.store.data.integrations.find((x) => x.kind === 'channel' && (x.name === ref || x.channel === ref));
-              if (!ch?.channel || ch.channel === 'app') throw new Error(`没有叫「${ref}」的 IM 渠道；可以接的是：${c.store.data.integrations.filter((x) => x.kind === 'channel' && x.channel !== 'app').map((x) => x.name).join('、')}`);
-              if (b.im?.[ch.channel]?.status === 'ok') return done(`你已经在${ch.name}上了${b.im[ch.channel]?.account ? `，那边叫「${b.im[ch.channel]!.account}」` : ''}。`);
+              if (!ch?.channel || ch.channel === 'app') throw new Error(`no messenger called "${ref}"; the ones you can connect are: ${c.store.data.integrations.filter((x) => x.kind === 'channel' && x.channel !== 'app').map((x) => x.name).join(', ')}`);
+              if (b.im?.[ch.channel]?.status === 'ok') return done(`You are already on ${ch.name}${b.im[ch.channel]?.account ? `, where you are called "${b.im[ch.channel]!.account}"` : ''}.`);
               ops().connectChannel(c.botId, ch.channel, threadId);
-              return done(`凭据卡已发到对话里：用户按卡上的步骤在${ch.name}里给你建一个机器人，填完系统会自动接上并通知你。现在不要追问，也不要让他改配置文件。`, { label: ch.name });
+              return done(`A credential card is in the thread: the user follows its steps to create a bot for you in ${ch.name}, and once filled in the system connects it and tells you. Do not chase it, and do not ask them to edit a config file.`, { label: ch.name });
             }
             if (p.aspect === 'agent') {
               const i = c.store.data.integrations.find((x) => x.kind === 'agent' && (x.agent === ref || x.name === ref || x.name.toLowerCase() === ref.toLowerCase()));
-              if (!i) throw new Error(`没有叫「${ref}」的外部 agent；这台机器上有的是：${c.store.data.integrations.filter((x) => x.kind === 'agent').map((x) => x.name).join('、') || '（一个都没有）'}`);
-              if (i.available === false) return done(`${i.name} 没装在这台机器上${i.loginHint ? `（装好后还要：${i.loginHint}）` : ''}，接不上。换一个，或者告诉用户。`);
+              if (!i) throw new Error(`no external agent called "${ref}"; this machine has: ${c.store.data.integrations.filter((x) => x.kind === 'agent').map((x) => x.name).join(', ') || '(none at all)'}`);
+              if (i.available === false) return done(`${i.name} is not installed on this machine${i.loginHint ? ` (and once installed: ${i.loginHint})` : ''}, so it cannot be connected. Use another, or tell the user.`);
               await ops().grant(c.botId, i.id);
-              return done(`${i.name} 已经归你用了${i.acp ? '（能看到它干活的过程）' : ''}，用 delegate_agent 把活交给它。`, { label: i.name });
+              return done(`${i.name} is yours to use now${i.acp ? ' (you can watch it work)' : ''}. Hand work to it with delegate_agent.`, { label: i.name });
             }
             // skill / mcp / assets: a pool slug, or — for mcp only — a connection written out by hand
             if (p.aspect === 'mcp' && (typeof p.value === 'object' || /[\s{]/.test(ref))) {
@@ -121,7 +121,7 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
                 }
               }
               const o = (v ?? {}) as { name?: string; command?: string; args?: string[]; url?: string; env?: Record<string, string> };
-              if (!o.name || (!o.command && !o.url)) throw new Error('自己写连接要 value={name, command|url, env?}；command 可以带参数，如 "python3 /path/server.py"。库里有现成的就用 build(add, value=slug)');
+              if (!o.name || (!o.command && !o.url)) throw new Error('writing a connection yourself needs value={name, command|url, env?}; command may carry arguments, like "python3 /path/server.py". If the pool already has one, use build(add, value=slug)');
               let command = o.command;
               let args = o.args;
               if (command && !args?.length) {
@@ -131,14 +131,14 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
               }
               const r = await ops().addMcp({ name: o.name, command, args, url: o.url, env: o.env });
               await ops().grant(c.botId, r.id);
-              if (r.status === 'ok') return done(`「${o.name}」接好了，${r.tools ?? 0} 个工具已经在你的列表里。`, { label: o.name });
-              return done(`「${o.name}」连接建好了（id ${r.id}），状态 ${r.status}：${r.note ?? ''}。缺凭据就用 request_credentials 发卡；不是凭据问题就检查命令和路径。`, { label: o.name });
+              if (r.status === 'ok') return done(`"${o.name}" is connected, and its ${r.tools ?? 0} tools are in your list.`, { label: o.name });
+              return done(`"${o.name}" was created (id ${r.id}), status ${r.status}: ${r.note ?? ''}. If a credential is missing, send a card with request_credentials; if not, check the command and the path.`, { label: o.name });
             }
             if (p.aspect === 'skill') {
               // The model sees its own manuals listed by pi slug (s-xxxx) and reaches for build to "load" one. Nothing to
               // install: point it at the file.
               const owned = b.skills.find((n) => n === ref || skills().slugFor(n) === ref);
-              if (owned) return done(`「${owned}」已经在你身上，不用装。手册在 ${join(skills().dirFor(owned), 'SKILL.md')}，read 它照着做。`, { label: owned });
+              if (owned) return done(`"${owned}" is already yours; nothing to install. The manual is at ${join(skills().dirFor(owned), 'SKILL.md')} — read it and follow it.`, { label: owned });
             }
             const r = await ops().equip(c.botId, ref, threadId);
             return done(r.text, { label: ref });
@@ -147,7 +147,7 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
           const patch: Partial<Bot> = {};
           switch (p.aspect) {
             case 'name':
-              if (action === 'remove') throw new Error('名字不能删');
+              if (action === 'remove') throw new Error('a name cannot be removed');
               patch.name = str(p.value).slice(0, 12);
               break;
             case 'tagline':
@@ -157,31 +157,31 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
               patch.soul = action === 'remove' ? '' : str(p.value).slice(0, 400);
               break;
             case 'instructions':
-              if (action === 'remove') throw new Error('职责不能删空，请改写');
+              if (action === 'remove') throw new Error('a remit cannot be emptied; rewrite it instead');
               patch.role = str(p.value).slice(0, 800);
               break;
             case 'skill': {
               const name = (p.skill ?? (typeof p.value === 'string' ? p.value : '')).trim();
-              if (!name) throw new Error('需要 skill 技能名');
+              if (!name) throw new Error('needs a skill name');
               if (action === 'remove') patch.skills = b.skills.filter((s) => s !== name);
-              else throw new Error('技能手册不能 set 原文，请用 rewrite 让自己写一份');
+              else throw new Error('a manual cannot be set verbatim; use rewrite and write it yourself');
               break;
             }
             case 'routine': {
               if (action === 'remove') {
                 const t = (typeof p.value === 'string' ? p.value : (p.value as { title?: string })?.title) ?? p.skill;
-                if (!t) throw new Error('remove routine 需要任务标题');
+                if (!t) throw new Error('removing a routine needs its title');
                 patch.routines = b.routines.filter((r) => r.title !== t && r.id !== t);
               } else {
                 const v = p.value as { title?: string; prompt?: string; schedule?: string; enabled?: boolean; channels?: string[] } | undefined;
-                if (!v?.title || !v?.schedule) throw new Error('set routine 需要 value={title, schedule}，schedule 如「每天 20:30」「每周一 09:00」「工作日 18:00」「每 30 分钟」；到点了要做的事可以另外写在 prompt 里');
+                if (!v?.title || !v?.schedule) throw new Error('setting a routine needs value={title, schedule}, with schedule like "daily 20:30", "Monday 09:00", "weekdays 18:00", "every 30 minutes"; what to do when it fires can go in prompt');
                 // Where the result goes. 'app' is always available; an IM only if this bot is actually on it.
                 const here: Channel[] = ['app', ...IMS.filter((ch) => b.im?.[ch]?.status === 'ok')];
                 const channels = v.channels?.length
                   ? v.channels.map((raw) => {
                       const want = String(raw).trim().toLowerCase();
                       const ch = here.find((x) => x === want || channelFromName(String(raw)) === x);
-                      if (!ch) throw new Error(`发不到「${raw}」。现在能发的是：${here.map((x) => CHANNEL_LABEL[x]).join('、')}${here.length === 1 ? '（要发到 IM，先 build(aspect=channel, action=add)）' : ''}`);
+                      if (!ch) throw new Error(`cannot deliver to "${raw}". Right now you can reach: ${here.map((x) => CHANNEL_LABEL[x]).join(', ')}${here.length === 1 ? ' (to reach a messenger, build(aspect=channel, action=add) first)' : ''}`);
                       return ch;
                     })
                   : undefined;
@@ -199,8 +199,8 @@ export function buildExtension(c: BotCtx, skills: () => SkillStore, ops: () => C
             }
           }
           c.store.patchBot(c.botId, patch);
-          const what = { name: '名字', tagline: '简介', soul: '人设', instructions: '工作方式', skill: '技能', routine: '例行任务', mcp: '外部工具', service: '服务', agent: '外部 agent', channel: '渠道', assets: '素材包' }[p.aspect];
-          return done(`${what}已${action === 'remove' ? '去掉' : '更新'}。界面上已经生效。`);
+          const what = { name: 'Name', tagline: 'Tagline', soul: 'Character', instructions: 'Way of working', skill: 'Skill', routine: 'Recurring task', mcp: 'External tool', service: 'Service', agent: 'External agent', channel: 'Channel', assets: 'Asset pack' }[p.aspect];
+          return done(`${what} ${action === 'remove' ? 'removed' : 'updated'}. It is already live in the interface.`);
         },
       });
     },

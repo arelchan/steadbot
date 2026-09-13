@@ -210,7 +210,7 @@ export const pt: Dict = {
   'task.fromGroup': 'Veio de um grupo — clique para ir',
   'task.fromRoutine': 'Rotina',
   'task.needUnlock': 'Precisa que você destrave',
-  'task.confirmAmt': 'Confirmar ¥{amt}',
+  'task.confirmAmt': 'Confirmar {amt}',
   'task.pickOne': 'Escolha uma',
   'task.now': 'Agora',
   'task.finished': 'Concluída',

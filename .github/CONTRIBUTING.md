@@ -50,7 +50,7 @@ Two things that surprise people:
   the bots. There is a redaction layer (`crew-server/src/secrets.ts`) — do not route around it.
 - **Do not vendor a skill whose upstream licence forbids redistribution.** `npm run library:sync` keeps
   each skill's upstream licence and a `.source.json`; if a licence reserves all rights, the skill stays
-  out of this repository (see `THIRD_PARTY_NOTICES.md`).
+  out of this repository (see `docs/third-party-notices.md`).
 
 Commit messages: one line saying what changed and, where it is not obvious, why. English or Chinese
 both fine.
@@ -64,4 +64,4 @@ copies the directory verbatim, along with the upstream licence.
 ## Reporting things
 
 - Bugs and feature requests: [issues](https://github.com/arelchan/steadbot/issues).
-- Security: [SECURITY.md](SECURITY.md) — please do not open a public issue.
+- Security: [SECURITY.md](.github/SECURITY.md) — please do not open a public issue.

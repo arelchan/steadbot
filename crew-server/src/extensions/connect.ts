@@ -6,28 +6,28 @@ import { CONNECTORS, POPULAR_TOOLKITS } from '../connectors.ts';
 
 /**
  * connect: hand the user a one-click authorization card for a service the product knows
- * (Gmail, Google 日历, …). The user signs in in the browser; when they are back the connector's
+ * (Gmail, Google Calendar, …). The user signs in in the browser; when they are back the connector's
  * tools are on this bot and the bot is woken up to continue.
  */
 export function connectExtension(c: BotCtx, ops: () => CrewOps): InlineExtension {
-  const catalog = `精修过的：${CONNECTORS.map((x) => `${x.id}（${x.name}）`).join('、')}；此外几百个主流平台都能接，service 用平台英文 slug，常见：${POPULAR_TOOLKITS.join(', ')}`;
+  const catalog = `Hand-tuned: ${CONNECTORS.map((x) => `${x.id} (${x.name})`).join(', ')}. Several hundred more mainstream platforms also work — service takes the platform slug, commonly: ${POPULAR_TOOLKITS.join(', ')}`;
   return {
     name: 'crew-connect',
     factory: (pi) => {
       pi.registerTool({
         name: 'connect',
-        label: '连接服务',
-        description: `把一个外部服务接到用户身上，一步到位：你调用后，对话里会出现一张授权卡，用户点一下、在浏览器里登录并同意，回来就接好了，服务的工具会直接出现在你的工具列表里，系统还会通知你继续。用户不需要懂 OAuth、IMAP、API、token 这些词，也不需要提供任何凭据——不要问他要。支持范围：${catalog}。用户提到邮件、日历、文档、笔记、聊天工具、代码仓库、项目管理这类外部服务而还没接时，直接用它，不要先问接入方式；只有 connect 明确说不认识这个平台时，才走「MCP 连接」技能里的手动方式。`,
-        promptSnippet: '一键接入外部服务（Gmail、日历、Notion、Slack、GitHub、飞书…几百个）：发授权卡，用户点一下就接好',
+        label: 'Connect a service',
+        description: `Attach an external service to the user in one step: you call it, an authorisation card appears in the thread, they click it, log in and approve in their browser, and it is connected — the service's tools appear directly in your tool list and the system wakes you to continue. The user does not need to know what OAuth, IMAP, an API or a token is, and never supplies a credential — do not ask for one. Coverage: ${catalog}. When the user mentions mail, a calendar, documents, notes, a chat tool, a code host or project management and it is not connected, just call this. Do not ask them how they would like to connect it. Only when connect says plainly that it does not know the platform do you fall back to the manual route in the "Connecting an external service" manual.`,
+        promptSnippet: 'one-click connection to hundreds of services (Gmail, Calendar, Notion, Slack, GitHub, Lark…): send a card, one click connects it',
         promptGuidelines: [
-          '接外部服务永远三步：用户提需求 → 你先 connect 试一键接入 → connect 说不认识才按「MCP 连接」技能手动接（找现成 MCP，没有就写一个）。第一步不要问用户接入方式，直接 connect。',
-          '出卡后一句话告诉用户「点一下卡片登录就行」，不解释技术细节。',
-          '卡片发出后不要追问、不要重复发；用户授权完成系统会通知你，那时再继续手上的事。用户说「点了没反应 / 失败了」再发一张。',
-          '同一个服务已经连着（工具列表里已有它的工具）就直接用，不要再 connect。',
+          'Connecting a service is always three steps: the user asks for something → you try connect first → only if connect does not know it do you connect by hand per the manual (find an existing MCP, or write one). Do not ask them how to connect at step one; just call connect.',
+          'Once the card is out, one line — press the card and log in. No technical detail.',
+          'After sending the card, do not chase and do not send another. The system tells you when they have approved, and you carry on then. Send a second one only if they say nothing happened or it failed.',
+          'If the service is already connected (its tools are in your list), just use it. Do not connect again.',
         ],
         parameters: Type.Object({
-          service: Type.String({ description: `平台英文 slug，如 ${POPULAR_TOOLKITS.slice(0, 12).join(', ')}` }),
-          why: Type.Optional(Type.String({ description: '一句话，接上之后你要用它做什么；会显示在卡片上' })),
+          service: Type.String({ description: `the platform slug, like ${POPULAR_TOOLKITS.slice(0, 12).join(', ')}` }),
+          why: Type.Optional(Type.String({ description: 'one line on what you will do with it once connected; shown on the card' })),
         }),
         async execute(_id, p) {
           const cur = c.current();
@@ -37,50 +37,50 @@ export function connectExtension(c: BotCtx, ops: () => CrewOps): InlineExtension
       });
       pi.registerTool({
         name: 'request_credentials',
-        label: '要凭据',
+        label: 'Ask for credentials',
         description:
-          '向用户要授权码、App Secret、API token 这类凭据，但不是在对话里要：对话里出现一张凭据卡，用户填在卡上，值直接写进指定连接的环境变量，你和对话记录都看不到。用于手动接入（第 3 步）：桥已经搭好、连接已经用 configure 建好（凭据留空）之后，用它把凭据要过来。用户填完系统会自动重连并通知你连接状态。',
-        promptSnippet: '发凭据卡让用户填授权码 / token（不经过对话，直接进连接的环境变量）',
+          'Ask the user for an app password, an App Secret, an API token — but not in the conversation. A credential card appears in the thread, they fill it in, and the values go straight into that connection\'s environment variables, invisible to you and to the transcript. Use it in the manual route, once the bridge is written and the connection exists with its credentials left empty. When they finish, the system reconnects and tells you the status.',
+        promptSnippet: 'send a credential card for an app password or token (never through the conversation; straight into the connection)',
         promptGuidelines: [
-          '任何密码、授权码、App Secret、token 都不要让用户发在对话里；一律 request_credentials 发卡。用户已经贴出来了，就提醒他以后用卡片，并把值原样传给 build(aspect=mcp, action=add) 建连接后不再复述。',
-          '密钥不进对话、不进卡片：你自己在网页上看到的 App Secret、token，不要写进回复、不要写进卡片的任何字段、不要存进文件；接 IM 渠道用 build(aspect=channel, action=add) 或对 ch-xxx 连接发 request_credentials，系统会发它自己的标准卡。',
-          '先搭桥（delegate_agent 写好、build(aspect=mcp, action=add) 建好连接），再发凭据卡：用户填完立刻能用，不用等。',
-          'fields 的 key 必须和桥读取的环境变量名一致；label 用用户看得懂的话（「QQ 邮箱授权码」而不是 IMAP_PASSWORD）。',
-          'help 必填：url 是用户点开就能到达的那一页（设置页、开放平台的应用页），steps 三步以内写清在那一页点什么。用户不该需要自己找路。',
+          'Never have the user put a password, an app password, an App Secret or a token in the thread; always send a card. If they already pasted one, tell them to use the card next time, pass the value straight into build(aspect=mcp, action=add), and never repeat it afterwards.',
+          'Secrets go in neither the conversation nor the card: an App Secret or token you saw on a web page never goes into a reply, into any field of a card, or into a file. For messengers use build(aspect=channel, action=add), or send request_credentials at the ch-xxx connection, and the system sends its own standard card.',
+          'Build the bridge first (have delegate_agent write it, create the connection with build(aspect=mcp, action=add)), then send the card: the moment they fill it in, it works.',
+          'Each field key has to match the environment variable the bridge reads; the label is in words the user knows ("QQ Mail app password", not IMAP_PASSWORD).',
+          'help is required: url is the page one click takes them to (the settings page, the app page in the console), and steps says in three steps or fewer what to press once there. They should never have to find the way themselves.',
         ],
         parameters: Type.Object({
-          integration: Type.String({ description: '要写入凭据的连接：名字或 id' }),
-          title: Type.String({ description: '卡片标题，如「填一下 QQ 邮箱的授权码」' }),
+          integration: Type.String({ description: 'the connection the credentials belong to: name or id' }),
+          title: Type.String({ description: 'the card title, like "Add your QQ Mail app password"' }),
           fields: Type.Array(
             Type.Object({
-              key: Type.String({ description: '环境变量名，如 QQMAIL_AUTH_CODE' }),
-              label: Type.String({ description: '给用户看的名字' }),
-              hint: Type.Optional(Type.String({ description: '输入框里的提示，如「16 位，全是字母」' })),
-              secret: Type.Optional(Type.Boolean({ description: '是否密文输入，默认 true' })),
+              key: Type.String({ description: 'the environment variable name, like QQMAIL_AUTH_CODE' }),
+              label: Type.String({ description: 'the name the user sees' }),
+              hint: Type.Optional(Type.String({ description: 'the placeholder, like "16 characters, letters only"' })),
+              secret: Type.Optional(Type.Boolean({ description: 'whether to mask the input; defaults to true' })),
             }),
           ),
           help: Type.Optional(
             Type.Object({
-              url: Type.Optional(Type.String({ description: '点开直达的页面，如 https://mail.qq.com/ 的设置页' })),
-              urlLabel: Type.Optional(Type.String({ description: '按钮文字，如「打开 QQ 邮箱设置」' })),
-              steps: Type.Optional(Type.Array(Type.String({ description: '到了那一页之后做什么，三步以内' }))),
+              url: Type.Optional(Type.String({ description: 'the page one click reaches, like the settings page of https://mail.qq.com/' })),
+              urlLabel: Type.Optional(Type.String({ description: 'the button text, like "Open QQ Mail settings"' })),
+              steps: Type.Optional(Type.Array(Type.String({ description: 'what to do once on that page, in three steps or fewer' }))),
             }),
           ),
         }),
         async execute(_id, p) {
           const integ = c.store.data.integrations.find((i) => i.id === p.integration || i.name === p.integration || (i.kind === 'channel' && i.channel === p.integration));
-          if (!integ) throw new Error(`找不到连接「${p.integration}」，先用 build(aspect=mcp, action=add) 建好`);
+          if (!integ) throw new Error(`no connection called "${p.integration}"; create it with build(aspect=mcp, action=add) first`);
           const cur = c.current();
           const threadId = cur?.threadId ?? (`bot:${c.botId}` as const);
           // An IM channel has its own card: the fields are fixed (the bridge reads them by name), the steps are written.
           // Whatever the model made up here is dropped, so the card and the bridge always agree.
           if (integ.kind === 'channel' && integ.channel && integ.channel !== 'app') {
             ops().connectChannel(c.botId, integ.channel, threadId);
-            return { content: [{ type: 'text', text: `${integ.name}的凭据卡已发到对话里（系统标准卡，字段和步骤是固定的，不用你定）。用户填完系统会自动接上并通知你；现在不要追问。` }], details: { integrationId: integ.id, fields: [] } };
+            return { content: [{ type: 'text', text: `The credential card for ${integ.name} is in the thread (the standard one — its fields and steps are fixed, you do not define them). The system connects it and tells you when they are done; do not chase it.` }], details: { integrationId: integ.id, fields: [] } };
           }
           const fields = p.fields.map((f) => ({ key: f.key, label: f.label, hint: f.hint, secret: f.secret ?? /code|secret|token|pass|key|pwd/i.test(f.key) }));
-          c.store.addMessage({ threadId, author: 'bot', botId: c.botId, text: `${p.title}。填在卡上就行，我看不到内容，填完自动接。`, ts: Date.now(), card: { type: 'secrets', integrationId: integ.id, title: p.title, fields, help: p.help } });
-          return { content: [{ type: 'text', text: `凭据卡已发到对话里（连接「${integ.name}」，字段：${fields.map((f) => f.key).join('、')}）。用户填完系统会重连并通知你；现在不要追问，继续别的或结束这一轮。` }], details: { integrationId: integ.id, fields: fields.map((f) => f.key) } };
+          c.store.addMessage({ threadId, author: 'bot', botId: c.botId, text: `${p.title}. Fill it in on the card — I cannot see what you type, and it connects itself once saved.`, ts: Date.now(), card: { type: 'secrets', integrationId: integ.id, title: p.title, fields, help: p.help } });
+          return { content: [{ type: 'text', text: `The credential card is in the thread (connection "${integ.name}", fields: ${fields.map((f) => f.key).join(', ')}). The system reconnects and tells you when it is filled in; do not chase it — carry on with something else or end the turn.` }], details: { integrationId: integ.id, fields: fields.map((f) => f.key) } };
         },
       });
     },

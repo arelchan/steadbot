@@ -231,7 +231,7 @@ export const en = {
   'task.fromGroup': 'From a group — click to jump',
   'task.fromRoutine': 'Routine',
   'task.needUnlock': 'Needs you to unblock',
-  'task.confirmAmt': 'Confirm ¥{amt}',
+  'task.confirmAmt': 'Confirm {amt}',
   'task.pickOne': 'Pick one',
   'task.now': 'Now',
   'task.finished': 'Finished',

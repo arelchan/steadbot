@@ -10,16 +10,16 @@ export interface CurrentTurn {
   userMessageId?: string;
   todoId?: string;
   via?: Channel;
-  /** 这一轮说的话只发到这几处（例行任务指定了通道）；不填 = 照常发给它在的每个地方 */
+  /** This turn's words go only to these places (a recurring task named its channels); absent = everywhere it lives. */
   to?: Channel[];
-  /** 什么触发了这一轮：用户说话、同事转达、例行任务、系统事件 */
+  /** What started this turn: the user, a colleague's handoff, a recurring task, a system event. */
   kind: 'user' | 'bot' | 'routine' | 'group' | 'system';
-  /** kind 是 bot 时，转达过来的那位同事 */
+  /** When kind is bot, the colleague who handed it over. */
   fromBotId?: string;
   /** hops in a bot-to-bot handoff chain */
   depth: number;
   receipt?: 'created' | 'updated' | 'closed';
-  /** 这一轮 deliver 交出去的东西，发消息时挂在消息上 */
+  /** What this turn delivered, attached to the message when it is sent. */
   files?: FileRef[];
 }
 

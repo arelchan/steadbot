@@ -210,7 +210,7 @@ export const ko: Dict = {
   'task.fromGroup': '그룹에서 온 일 — 클릭하면 이동',
   'task.fromRoutine': '정기',
   'task.needUnlock': '풀어줘야 합니다',
-  'task.confirmAmt': '확인 ¥{amt}',
+  'task.confirmAmt': '{amt} 승인',
   'task.pickOne': '하나 고르기',
   'task.now': '지금',
   'task.finished': '끝냈습니다',

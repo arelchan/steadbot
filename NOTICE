@@ -6,4 +6,4 @@ This product includes software developed at EverMind AI (https://evermind.ai).
 The agent skill pool under crew-server/library/ is redistributed verbatim from
 third-party repositories under their own licenses. Each skill directory keeps its
 upstream license file and a .source.json naming the repository, path and commit it
-came from. See THIRD_PARTY_NOTICES.md for the full list.
+came from. See docs/third-party-notices.md for the full list.

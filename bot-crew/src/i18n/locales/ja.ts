@@ -210,7 +210,7 @@ export const ja: Dict = {
   'task.fromGroup': 'グループ由来。クリックで移動',
   'task.fromRoutine': '定期',
   'task.needUnlock': '解除が必要',
-  'task.confirmAmt': '確認 ¥{amt}',
+  'task.confirmAmt': '{amt} を承認',
   'task.pickOne': '選んでください',
   'task.now': 'いま',
   'task.finished': '完了しました',

@@ -18,13 +18,13 @@ export function readExtension(c: BotCtx): InlineExtension {
       const def = createReadToolDefinition(workspace, {
         operations: {
           readFile: async (p) => {
-            if (isCredentialFile(p)) throw new Error('这是产品的凭据文件，不给 bot 读');
-            if (isMemoryFile(p)) throw new Error('这是记忆库，不直接读文件；用 recall 回想（只会给你你自己那部分）');
+            if (isCredentialFile(p)) throw new Error('that is the product credential file; bots do not read it');
+            if (isMemoryFile(p)) throw new Error('that is the memory store; it is not read as files. Use recall, which only ever gives you your own part');
             return readFile(p);
           },
           access: async (p) => {
-            if (isCredentialFile(p)) throw new Error('这是产品的凭据文件，不给 bot 读');
-            if (isMemoryFile(p)) throw new Error('这是记忆库，不直接读文件；用 recall 回想（只会给你你自己那部分）');
+            if (isCredentialFile(p)) throw new Error('that is the product credential file; bots do not read it');
+            if (isMemoryFile(p)) throw new Error('that is the memory store; it is not read as files. Use recall, which only ever gives you your own part');
             await access(p);
           },
         },
@@ -32,9 +32,9 @@ export function readExtension(c: BotCtx): InlineExtension {
       pi.registerTool({
         ...def,
         description:
-          '读文件，带行号，大文件用 offset / limit 分段。任何路径都行：你的工作区、技能手册（available_skills 里列的 SKILL.md 和它旁边的脚本、参考文件）、共享目录、系统文件。相对路径以工作区为基准。图片也能读（直接给你看）；PDF、PPT、Word、Excel 这类要抽文字或渲染的用 see。',
-        promptSnippet: '读文件（文本带行号；技能手册、脚本、工作区、任何路径）',
-        promptGuidelines: ['看文本文件用 read，不用 bash cat / sed。技能手册（SKILL.md）和它引用的文件也用 read。', '大文件先 read 前 200 行看结构，再按 offset 读需要的段。'],
+          'Read a file with line numbers; use offset / limit for large ones. Any path works: your workspace, a manual (the SKILL.md listed in available_skills and the scripts and references beside it), shared directories, system files. Relative paths are workspace-relative. Images work too (you see them directly); anything that needs text extraction or rendering — PDF, slides, Word, Excel — goes through see.',
+        promptSnippet: 'read a file (line-numbered text; manuals, scripts, workspace, any path)',
+        promptGuidelines: ['Use read for text files, not bash cat / sed. Manuals (SKILL.md) and the files they reference are read the same way.', 'For a large file, read the first 200 lines for the shape, then use offset for the part you need.'],
       });
     },
   };

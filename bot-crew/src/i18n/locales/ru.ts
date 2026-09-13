@@ -240,7 +240,7 @@ export const ru: Dict = {
   'task.fromGroup': 'Из группы — нажмите, чтобы перейти',
   'task.fromRoutine': 'По расписанию',
   'task.needUnlock': 'Нужно ваше разрешение',
-  'task.confirmAmt': 'Подтвердить ¥{amt}',
+  'task.confirmAmt': 'Подтвердить {amt}',
   'task.pickOne': 'Выберите',
   'task.now': 'Сейчас',
   'task.finished': 'Сделано',

@@ -6,7 +6,7 @@ import { endpointOf } from '../models.ts';
 
 /**
  * Web access for every bot, no grant needed:
- *   web_search  a grounded answer + cited sources, from whichever vendor the 联网搜索 row is on
+ *   web_search  a grounded answer + cited sources, from whichever vendor the web-search row is on
  *   fetch_url   read one page as plain text
  *
  * Every vendor here speaks OpenAI's chat/completions, so the request is the same one; what differs is the one
@@ -39,12 +39,12 @@ const SEARCHERS: Record<string, { ask: Raw; read: (j: Raw, msg: Raw) => Citation
     ask: { search_parameters: { mode: 'auto', max_search_results: 6, return_citations: true } },
     read: (j) => arr(j.citations).map((u) => ({ url: String(u) })),
   },
-  // 智谱: search is a built-in tool rather than a flag, and the results come back beside the message.
+  // Zhipu: search is a built-in tool rather than a flag, and the results come back beside the message.
   zhipu: {
     ask: { tools: [{ type: 'web_search', web_search: { enable: true, search_result: true } }] },
     read: (j) => arr(j.web_search).map((r) => ({ url: str(r.link) ?? str(r.url) ?? '', title: str(r.title), content: str(r.content) })),
   },
-  // 百炼 (Qwen): a flag plus a request for the sources, which arrive under search_info.
+  // DashScope (Qwen): a flag plus a request for the sources, which arrive under search_info.
   dashscope: {
     ask: { enable_search: true, search_options: { forced_search: true, enable_source: true } },
     read: (j) => arr((j.search_info as Raw | undefined)?.search_results).map((r) => ({ url: str(r.url) ?? '', title: str(r.title), content: str(r.snippet) })),
@@ -56,7 +56,7 @@ export const canSearchAt = (provider: string) => provider in SEARCHERS;
 export async function webSearch(query: string, signal?: AbortSignal, who?: string): Promise<{ answer: string; sources: Citation[] }> {
   const at = endpointOf('searchModel');
   const how = at && SEARCHERS[at.provider];
-  if (!at || !how) throw new Error('联网搜索还没配好：去「设置 › 模型 · 联网搜索」选一家能搜的，并给它钥匙。');
+  if (!at || !how) throw new Error('web search is not configured: pick a provider that can search under Settings › Models · Web search, and give it a key.');
   const res = await fetch(`${at.baseUrl}/chat/completions`, {
     method: 'POST',
     signal,
@@ -65,13 +65,13 @@ export async function webSearch(query: string, signal?: AbortSignal, who?: strin
       model: at.model,
       ...how.ask,
       messages: [
-        { role: 'system', content: `现在是 ${new Date().toLocaleString('zh-CN', { hour12: false })}。根据搜索结果用中文简要回答，只写事实，带具体数字和日期；不确定就说不确定。不要 markdown。` },
+        { role: 'system', content: `It is now ${new Date().toLocaleString('sv-SE', { hour12: false })}. Answer briefly from the search results in the language of the question: facts only, with concrete numbers and dates, and say so when something is uncertain. No markdown.` },
         { role: 'user', content: query },
       ],
       max_tokens: 900,
     }),
   });
-  if (!res.ok) throw new Error(`搜索服务返回 ${res.status}`);
+  if (!res.ok) throw new Error(`the search service returned ${res.status}`);
   const j = (await res.json()) as Raw & {
     usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
     choices?: { message?: { content?: string } }[];
@@ -79,7 +79,7 @@ export async function webSearch(query: string, signal?: AbortSignal, who?: strin
   };
   // OpenRouter's plugin is billed per result on top of the tokens, so the only number with both in it is usage.cost.
   recordRaw('search', who, str(j.model) ?? at.model, { input: j.usage?.prompt_tokens, output: j.usage?.completion_tokens, cost: j.usage?.cost, units: 1 });
-  if (j.error) throw new Error(j.error.message ?? '搜索失败');
+  if (j.error) throw new Error(j.error.message ?? 'the search failed');
   const msg = (j.choices?.[0]?.message ?? {}) as Raw & { content?: string };
   const seen = new Set<string>();
   const sources: Citation[] = [];
@@ -108,13 +108,13 @@ function htmlToText(html: string) {
 }
 
 export async function fetchUrl(url: string, signal?: AbortSignal): Promise<string> {
-  if (!/^https?:\/\//i.test(url)) throw new Error('只支持 http(s) 链接');
+  if (!/^https?:\/\//i.test(url)) throw new Error('http(s) links only');
   const res = await fetch(url, { signal, redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; crew-bot/1.0)', Accept: 'text/html,application/json,text/plain,*/*' } });
-  if (!res.ok) throw new Error(`页面返回 ${res.status}`);
+  if (!res.ok) throw new Error(`the page returned ${res.status}`);
   const type = res.headers.get('content-type') ?? '';
   const body = await res.text();
   const text = /html/i.test(type) ? htmlToText(body) : body;
-  return text.length > 8000 ? `${text.slice(0, 8000)}\n…（已截断，共 ${text.length} 字）` : text;
+  return text.length > 8000 ? `${text.slice(0, 8000)}\n… (truncated; ${text.length} characters in total)` : text;
 }
 
 export function webExtension(c: BotCtx): InlineExtension {
@@ -123,32 +123,32 @@ export function webExtension(c: BotCtx): InlineExtension {
     factory: (pi) => {
       pi.registerTool({
         name: 'web_search',
-        label: '联网搜索',
+        label: 'Web search',
         description:
-          '联网搜索，直接返回一段基于搜索结果的答案，加来源列表（标题、链接、摘要）。用于：会变的信息（价格、汇率、天气、新闻、赛果、航班和火车状态、营业时间）；你不确定或可能过时的事实；外部产品、服务、文档、政策。不用于：用户自己的事（看记忆和对话）；常识问题；已经搜过、答案还在上下文里的内容。',
-        promptSnippet: '联网搜索：实时信息、外部事实，返回答案 + 来源',
+          'Search the web and get an answer grounded in the results, plus the sources (title, link, summary). For: anything that changes (prices, rates, weather, news, results, flight and train status, opening hours); facts you are unsure of or that may be stale; external products, services, documentation and policies. Not for: the user\'s own affairs (memory and the thread have those); general knowledge; anything you already searched this turn.',
+        promptSnippet: 'search the web for live information and outside facts; returns an answer plus sources',
         promptGuidelines: [
-          '凡是「今天 / 最新 / 现在多少」这类会变的信息，先 web_search 再答，不要凭记忆报数字。',
-          '回复里提炼成一两句，带上来源链接（IM 里直接贴裸链接）；不要整段复述搜索结果。',
-          '一次搜不到就换更具体的词（加地点、日期、机构名）再搜，最多三次；还不行就如实说没查到。',
+          'Anything of the "today / latest / how much now" kind gets a web_search before you answer. Never quote a number from memory.',
+          'Boil it down to a sentence or two in your reply and include the source link (a bare URL is fine in a messenger). Do not recite the results.',
+          'If the first search misses, try more specific words (a place, a date, an organisation), up to three times. After that, say plainly that you could not find it.',
         ],
         parameters: Type.Object({
-          query: Type.String({ description: '搜索问题，一句完整的话，带上必要的地点、日期、名称' }),
+          query: Type.String({ description: 'the question as a full sentence, with whatever place, date or name it needs' }),
         }),
         async execute(_id, p, signal) {
           const r = await webSearch(p.query, signal, c.botId);
           const src = r.sources.map((s, i) => `[${i + 1}] ${s.title ?? s.url}\n${s.url}${s.content ? `\n${s.content}` : ''}`).join('\n\n');
-          return { content: [{ type: 'text', text: `${r.answer || '（没有综合出答案）'}\n\n来源：\n${src || '（无）'}` }], details: { query: p.query, sources: r.sources.map((s) => s.url) } };
+          return { content: [{ type: 'text', text: `${r.answer || '(no answer could be assembled)'}\n\nSources:\n${src || '(none)'}` }], details: { query: p.query, sources: r.sources.map((s) => s.url) } };
         },
       });
       pi.registerTool({
         name: 'fetch_url',
-        label: '打开网页',
+        label: 'Open a page',
         description:
-          '打开一个链接，返回网页正文文字（已去掉 HTML，最多 8000 字）。用于：web_search 的某条来源需要看全文；用户发了链接让你看；要读一份在线文档或接口返回的 JSON。不用于：需要登录的页面、下载文件、提交表单。',
-        promptSnippet: '打开链接读正文',
-        promptGuidelines: ['用户发来的链接先 fetch_url 读完再回应，不要猜页面内容。'],
-        parameters: Type.Object({ url: Type.String({ description: '完整的 http(s) 链接' }) }),
+          'Open a link and get the page text back (HTML stripped, up to 8000 characters). For: reading a search result in full, a link the user sent you, an online document or a JSON response. Not for: pages behind a login, downloading files, or submitting forms.',
+        promptSnippet: 'open a link and read the text',
+        promptGuidelines: ['Read a link the user sent with fetch_url before responding. Never guess what is on the page.'],
+        parameters: Type.Object({ url: Type.String({ description: 'a complete http(s) link' }) }),
         async execute(_id, p, signal) {
           const text = await fetchUrl(p.url, signal);
           return { content: [{ type: 'text', text }], details: { url: p.url, chars: text.length } };

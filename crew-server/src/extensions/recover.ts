@@ -28,7 +28,7 @@ interface Rule {
   fix: (botId: string, d: Deps) => Promise<boolean>;
 }
 
-const BROWSER_DOWN = /initializeServer|Timeout \d+ms exceeded|browser has been closed|ECONNREFUSED|Target closed|电脑没开/i;
+const BROWSER_DOWN = /initializeServer|Timeout \d+ms exceeded|browser has been closed|ECONNREFUSED|Target closed|the computer is not running/i;
 
 const RULES: Rule[] = [
   {
@@ -54,14 +54,14 @@ export function recoverExtension(c: BotCtx, deps: () => Deps): InlineExtension {
         if (!rule) return;
         const d = deps();
         const integ = c.store.data.integrations.find((i) => i.owner === c.botId && ev.toolName.startsWith(`${i.name}__`));
-        console.warn(`[crew] ${c.botId}: ${ev.toolName} 失败（${rule.name}），先修再重试一次`);
+        console.warn(`[crew] ${c.botId}: ${ev.toolName} failed (${rule.name}); repairing and retrying once`);
         const fixed = await rule.fix(c.botId, d).catch(() => false);
         if (!fixed || !integ) return;
         const again = await d.mcp.callTool(integ.id, ev.toolName.slice(integ.name.length + 2), ev.input).catch((e: Error) => ({ content: [{ type: 'text' as const, text: e.message }], isError: true }));
         const failedAgain = 'isError' in again && again.isError;
         if (failedAgain) return;
         return {
-          content: [{ type: 'text' as const, text: '（浏览器刚才没接上，已经接回来并重跑了这一步。）\n' }, ...(again.content as { type: 'text'; text: string }[])],
+          content: [{ type: 'text' as const, text: '(The browser was not connected; it has been reconnected and this step was re-run.)\n' }, ...(again.content as { type: 'text'; text: string }[])],
           isError: false,
         };
       });
