@@ -308,7 +308,7 @@ export class ConnectorManager extends EventEmitter {
     try {
       const tk = await this.composio.toolkits.get(slug);
       const meta = (tk.meta ?? {}) as { description?: string };
-      const c: Connector = { id: slug, name: tk.name || slug, provider: 'composio', toolkit: slug, blurb: (meta.description ?? '').split(/[.。]/)[0].slice(0, 60) || `接入 ${tk.name || slug}`, scopes: [], tools: [] };
+      const c: Connector = { id: slug, name: tk.name || slug, provider: 'composio', toolkit: slug, blurb: (meta.description ?? '').split(/[.。]/)[0].slice(0, 60) || `Connect ${tk.name || slug}`, scopes: [], tools: [] };
       this.dynamic.set(slug, c);
       return c;
     } catch {
@@ -382,7 +382,7 @@ export class ConnectorManager extends EventEmitter {
     // A fresh link is only for a fresh sign-in: clear what Composio still holds (expired / revoked / duplicates).
     await this.dropComposioAccounts(c);
     const req = await this.composio!.connectedAccounts.link(OWNER, authConfigId, { callbackUrl: `${config.publicUrl}/oauth/composio/callback?state=${state}` });
-    if (!req.redirectUrl) throw new Error('Composio 没有返回登录链接');
+    if (!req.redirectUrl) throw new Error('Composio returned no sign-in link');
     this.states.set(state, { integrationId: integ.id, botId: ctx.botId, threadId: ctx.threadId, messageId: ctx.messageId, connectorId: c.id, at: Date.now() });
     console.log(`[crew] connect card ${c.id} state=${state}`);
     void this.awaitComposio(req.id, state, c);
@@ -395,7 +395,7 @@ export class ConnectorManager extends EventEmitter {
     if (!st) return false;
     this.states.delete(state);
     const c = connectorById(st.connectorId) ?? this.dynamic.get(st.connectorId);
-    const integration = this.store.patchIntegration(st.integrationId, { status: 'error', note: kind === 'expired' ? '授权卡已过期，让 bot 重新发一张' : `授权没有完成：${reason.slice(0, 120)}` });
+    const integration = this.store.patchIntegration(st.integrationId, { status: 'error', note: kind === 'expired' ? 'The authorization card expired — ask the bot for a new one' : `Authorization did not complete: ${reason.slice(0, 120)}` });
     this.emit('failed', { integration, state: st, reason, kind, name: c?.name ?? st.connectorId });
     return true;
   }
@@ -406,7 +406,7 @@ export class ConnectorManager extends EventEmitter {
       const st = this.states.get(state);
       if (!st) return;
       if (acct.status !== 'ACTIVE') {
-        this.fail(state, `连接状态 ${acct.status}${acct.statusReason ? `：${acct.statusReason}` : ''}`);
+        this.fail(state, `Connection status ${acct.status}${acct.statusReason ? `: ${acct.statusReason}` : ''}`);
         return;
       }
       this.states.delete(state);
@@ -419,7 +419,7 @@ export class ConnectorManager extends EventEmitter {
           /* cosmetic */
         }
       }
-      const integration = this.store.patchIntegration(st.integrationId, { status: 'ok', account, note: account ? `已连接 ${account}` : '已连接', tools: await this.toolsFor(c) })!;
+      const integration = this.store.patchIntegration(st.integrationId, { status: 'ok', account, note: account ? `Connected as ${account}` : 'Connected', tools: await this.toolsFor(c) })!;
       this.emit('connected', { integration, state: st });
     } catch (e) {
       const msg = (e as Error).message;
@@ -463,7 +463,7 @@ export class ConnectorManager extends EventEmitter {
         /* cosmetic */
       }
     }
-    return this.store.patchIntegration(integrationId, { status: 'ok', account, note: account ? `已连接 ${account}` : '已连接', tools: await this.toolsFor(c) });
+    return this.store.patchIntegration(integrationId, { status: 'ok', account, note: account ? `Connected as ${account}` : 'Connected', tools: await this.toolsFor(c) });
   }
 
   /** Drop Composio's stale accounts for a toolkit so a fresh sign-in link can be issued. */
@@ -476,7 +476,7 @@ export class ConnectorManager extends EventEmitter {
   integrationFor(c: Connector): Integration {
     const existing = this.store.data.integrations.find((i) => i.connector === c.id);
     if (existing) return existing;
-    return this.store.addIntegration({ id: `cn-${c.id}`, kind: 'mcp', connector: c.id, name: c.name, status: 'connecting', note: '等待用户授权', tools: c.provider === 'google' ? c.tools.map((t) => ({ name: t.name, description: t.description })) : [] });
+    return this.store.addIntegration({ id: `cn-${c.id}`, kind: 'mcp', connector: c.id, name: c.name, status: 'connecting', note: 'Waiting for the user to authorize', tools: c.provider === 'google' ? c.tools.map((t) => ({ name: t.name, description: t.description })) : [] });
   }
 
   /** URL for the card button; the state remembers which bot/thread to wake when the user is back. */
@@ -509,8 +509,8 @@ export class ConnectorManager extends EventEmitter {
   /** GET /oauth/google/callback → exchange the code, store tokens, publish the integration, wake the bot. */
   async handleCallback(code: string, state: string): Promise<{ integration: Integration; state: StartState }> {
     const st = this.states.get(state);
-    if (!st || Date.now() - st.at > 30 * 60 * 1000) throw new Error('授权链接已过期，请让 bot 重新发一张卡片');
-    if (!config.google) throw new Error('产品未配置 Google 接入');
+    if (!st || Date.now() - st.at > 30 * 60 * 1000) throw new Error('That sign-in link expired — ask the bot for a new card');
+    if (!config.google) throw new Error('Google is not configured on this deployment');
     this.states.delete(state);
     const body = new URLSearchParams({ code, client_id: config.google.clientId, client_secret: config.google.clientSecret, redirect_uri: `${config.publicUrl}/oauth/google/callback`, grant_type: 'authorization_code' });
     const res = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
@@ -525,30 +525,30 @@ export class ConnectorManager extends EventEmitter {
     }
     this.saveTokens(st.integrationId, tok);
     const c = connectorById(st.connectorId)!;
-    const integration = this.store.patchIntegration(st.integrationId, { status: 'ok', account: tok.account, note: tok.account ? `已连接 ${tok.account}` : '已连接', tools: c.tools.map((t) => ({ name: t.name, description: t.description })) })!;
+    const integration = this.store.patchIntegration(st.integrationId, { status: 'ok', account: tok.account, note: tok.account ? `Connected as ${tok.account}` : 'Connected', tools: c.tools.map((t) => ({ name: t.name, description: t.description })) })!;
     this.emit('connected', { integration, state: st });
     return { integration, state: st };
   }
 
-  /** Re-check a stored connection (used by the 重连 button). */
+  /** Re-check a stored connection (used by the Reconnect button). */
   async verify(integrationId: string) {
     const c = await this.connectorOfAsync(integrationId);
     if (this.backend() === 'composio' && c) {
       try {
         const ok = await this.composioActive(c);
         if (ok) await this.markConnected(c, integrationId);
-        else this.store.patchIntegration(integrationId, { status: 'error', note: '授权失效或已撤销，让 bot 重新发一张授权卡' });
+        else this.store.patchIntegration(integrationId, { status: 'error', note: 'Authorization expired or was revoked — ask the bot for a new card' });
       } catch (e) {
-        this.store.patchIntegration(integrationId, { status: 'error', note: `无法检查：${(e as Error).message.slice(0, 120)}` });
+        this.store.patchIntegration(integrationId, { status: 'error', note: `Could not check: ${(e as Error).message.slice(0, 120)}` });
       }
       return;
     }
     try {
       const token = await this.accessToken(integrationId);
       const u = (await (await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${token}` } })).json()) as { email?: string };
-      this.store.patchIntegration(integrationId, { status: 'ok', account: u.email, note: u.email ? `已连接 ${u.email}` : '已连接' });
+      this.store.patchIntegration(integrationId, { status: 'ok', account: u.email, note: u.email ? `Connected as ${u.email}` : 'Connected' });
     } catch (e) {
-      this.store.patchIntegration(integrationId, { status: 'error', note: `授权失效：${(e as Error).message.slice(0, 120)}，让 bot 重新发一张授权卡` });
+      this.store.patchIntegration(integrationId, { status: 'error', note: `Authorization failed: ${(e as Error).message.slice(0, 120)} — ask the bot for a new card` });
     }
   }
 
@@ -576,7 +576,7 @@ export class ConnectorManager extends EventEmitter {
   /** Search the toolkit's full tool catalog (thousands for GitHub); returns slug, purpose, parameters and the write flag. */
   async searchTools(integrationId: string, query: string, limit = 8) {
     const c = await this.connectorOfAsync(integrationId);
-    if (!c || c.provider !== 'composio' || !this.composio) throw new Error('这个连接没有可搜索的工具目录');
+    if (!c || c.provider !== 'composio' || !this.composio) throw new Error('This connection has no searchable tool catalogue');
     const list = await this.composio.tools.getRawComposioTools({ toolkits: [c.toolkit], search: query, limit });
     const prefix = `${c.toolkit.toUpperCase()}_`;
     return list.map((t) => {
@@ -594,18 +594,18 @@ export class ConnectorManager extends EventEmitter {
   /** Execute any tool of the toolkit by its Composio slug (for the long tail found via searchTools). */
   async callToolBySlug(integrationId: string, slug: string, args: Record<string, unknown>): Promise<string> {
     const c = await this.connectorOfAsync(integrationId);
-    if (!c || c.provider !== 'composio' || !this.composio) throw new Error('这个连接不支持按 slug 调用');
+    if (!c || c.provider !== 'composio' || !this.composio) throw new Error('This connection cannot be called by slug');
     const prefix = `${c.toolkit.toUpperCase()}_`;
     const s = slug.trim().toUpperCase();
-    if (!s.startsWith(prefix)) throw new Error(`slug 必须是 ${c.name} 的工具（以 ${prefix} 开头）`);
+    if (!s.startsWith(prefix)) throw new Error(`The slug must be a ${c.name} tool — it starts with ${prefix}`);
     return this.execComposio(c, integrationId, s, args);
   }
 
   private async execComposio(c: Connector, integrationId: string, slug: string, args: Record<string, unknown>) {
     const r = await this.composio!.tools.execute(slug, { userId: OWNER, arguments: args, dangerouslySkipVersionCheck: true });
     if (!r.successful) {
-      if (/not connected|no connected account|expired|revoked|401/i.test(r.error ?? '')) this.store.patchIntegration(integrationId, { status: 'error', note: '授权失效，让 bot 重新发一张授权卡' });
-      throw new Error(`${c.name} 返回错误：${(r.error ?? '未知错误').slice(0, 300)}`);
+      if (/not connected|no connected account|expired|revoked|401/i.test(r.error ?? '')) this.store.patchIntegration(integrationId, { status: 'error', note: 'Authorization expired — ask the bot for a new card' });
+      throw new Error(`${c.name} returned an error: ${(r.error ?? 'unknown error').slice(0, 300)}`);
     }
     return compact(r.data, 20000);
   }
@@ -614,16 +614,16 @@ export class ConnectorManager extends EventEmitter {
     const c = await this.connectorOfAsync(integrationId);
     if (c && c.provider === 'composio') {
       const dt = (await this.dynToolsFor(c.toolkit)).find((x) => x.name === name);
-      if (!dt) throw new Error(`连接器没有工具 ${name}`);
+      if (!dt) throw new Error(`The connector has no tool ${name}`);
       return this.execComposio(c, integrationId, dt.slug, args);
     }
     const t = c?.tools.find((x) => x.name === name);
-    if (!c || !t) throw new Error(`连接器没有工具 ${name}`);
+    if (!c || !t) throw new Error(`The connector has no tool ${name}`);
     if (this.backend() === 'composio') {
       const r = await this.composio!.tools.execute(t.composio.slug, { userId: OWNER, arguments: t.composio.map(args), dangerouslySkipVersionCheck: true });
       if (!r.successful) {
-        if (/not connected|no connected account|expired|revoked|401/i.test(r.error ?? '')) this.store.patchIntegration(integrationId, { status: 'error', note: '授权失效，让 bot 重新发一张授权卡' });
-        throw new Error(`${c.name} 返回错误：${(r.error ?? '未知错误').slice(0, 300)}`);
+        if (/not connected|no connected account|expired|revoked|401/i.test(r.error ?? '')) this.store.patchIntegration(integrationId, { status: 'error', note: 'Authorization expired — ask the bot for a new card' });
+        throw new Error(`${c.name} returned an error: ${(r.error ?? 'unknown error').slice(0, 300)}`);
       }
       try {
         return t.composio.render(r.data);
@@ -637,8 +637,8 @@ export class ConnectorManager extends EventEmitter {
       if (res.status === 204) return {};
       const text = await res.text();
       if (!res.ok) {
-        if (res.status === 401) this.store.patchIntegration(integrationId, { status: 'error', note: '授权失效，让 bot 重新发一张授权卡' });
-        throw new Error(`${c.name} 返回 ${res.status}：${text.slice(0, 200)}`);
+        if (res.status === 401) this.store.patchIntegration(integrationId, { status: 'error', note: 'Authorization expired — ask the bot for a new card' });
+        throw new Error(`${c.name} returned ${res.status}: ${text.slice(0, 200)}`);
       }
       return text ? JSON.parse(text) : {};
     };
@@ -673,9 +673,9 @@ export class ConnectorManager extends EventEmitter {
   }
   private async accessToken(integrationId: string): Promise<string> {
     const t = this.loadTokens(integrationId);
-    if (!t) throw new Error('还没有授权');
+    if (!t) throw new Error('Not authorized yet');
     if (Date.now() < t.expires_at) return t.access_token;
-    if (!t.refresh_token || !config.google) throw new Error('授权已过期且无法刷新');
+    if (!t.refresh_token || !config.google) throw new Error('Authorization expired and cannot be refreshed');
     const body = new URLSearchParams({ refresh_token: t.refresh_token, client_id: config.google.clientId, client_secret: config.google.clientSecret, grant_type: 'refresh_token' });
     const res = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
     const j = (await res.json()) as { access_token?: string; expires_in?: number; error_description?: string; error?: string };
